@@ -73,13 +73,13 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     buf.clear();
 
     while reader.read_line(&mut buf).unwrap() > 0 {
-        let trimmed = buf.trim();
+        let line = buf.trim();
 
-        if trimmed.is_empty() {
+        if line.is_empty() {
             break;
         }
 
-        if let Some((key, values)) = read_header(trimmed) {
+        if let Some((key, values)) = read_header(line) {
             values.iter().for_each(|v| {
                 headers.append(HeaderName::from_string(key.clone()), v);
             })
