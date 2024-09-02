@@ -26,8 +26,6 @@ impl Server {
     ) {
         let request = read_request(&mut stream).expect("Failed to read request");
         let response = handler.handle(request);
-
-        println!("Writing response...");
         write_response(response, &mut stream).unwrap()
     }
 
@@ -63,11 +61,6 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     // Read first line
     reader.read_line(&mut buf)?;
 
-    if buf.ends_with("\n") {
-        buf.pop();
-        buf.pop();
-    }
-
     let mut builder = Request::builder();
 
     let (method, url, version) = read_request_line(&buf)?;
@@ -80,12 +73,13 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     buf.clear();
 
     while reader.read_line(&mut buf).unwrap() > 0 {
-        println!("Reading: {buf}");
-        if buf.ends_with("\r\n\r\n") {
+        let trimmed = buf.trim();
+
+        if trimmed.is_empty() {
             break;
         }
 
-        if let Some((key, values)) = read_header(&buf) {
+        if let Some((key, values)) = read_header(trimmed) {
             values.iter().for_each(|v| {
                 headers.append(HeaderName::from_string(key.clone()), v);
             })
@@ -97,8 +91,9 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     Ok(builder.build(buf.into()))
 }
 
-fn read_request_line(buf: &String) -> std::io::Result<(Method, Url, Version)> {
-    let mut parts = buf.splitn(3, " ");
+fn read_request_line(buf: &str) -> std::io::Result<(Method, Url, Version)> {
+    let str = buf.trim();
+    let mut parts = str.splitn(3, " ");
 
     let method = parts
         .next()
@@ -118,8 +113,9 @@ fn read_request_line(buf: &String) -> std::io::Result<(Method, Url, Version)> {
     Ok((method, url, version))
 }
 
-fn read_header(buf: &String) -> Option<(String, Vec<String>)> {
-    let (key, rest) = buf.split_once(": ")?;
+fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
+    let str = buf.trim();
+    let (key, rest) = str.split_once(": ")?;
     let mut values = Vec::new();
 
     for value in rest.split(";").map(|s| s.trim()) {
@@ -145,7 +141,7 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
             .collect::<Vec<String>>()
             .join(", ");
 
-        write!(stream, "{name}: {line}")?;
+        write!(stream, "{name}: {line}\r\n")?;
     }
 
     write!(stream, "\r\n")?;
