@@ -1,11 +1,11 @@
-use crate::http::{Request, Response};
+use crate::{body::Body, http::{Request, Response}};
 
 pub trait RequestHandler {
-    fn handle(&self, req: Request<String>) -> Response<String>;
+    fn handle(&self, req: Request<Body>) -> Response<Body>;
 }
 
-impl<F: Fn(Request<String>) -> Response<String>> RequestHandler for F {
-    fn handle(&self, req: Request<String>) -> Response<String> {
+impl<F: Fn(Request<Body>) -> Response<Body>> RequestHandler for F {
+    fn handle(&self, req: Request<Body>) -> Response<Body> {
         (self)(req)
     }
 }

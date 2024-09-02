@@ -1,5 +1,5 @@
 use core::str;
-use std::{borrow::Cow, hash::Hash};
+use std::{borrow::Cow, fmt::Display, hash::Hash};
 
 use private::Sealed;
 
@@ -109,6 +109,12 @@ impl Headers {
         }
     }
 
+    pub fn keys(&self) -> Keys {
+        Keys {
+            iter: self.entries.iter(),
+        }
+    }
+
     pub fn iter(&self) -> Iter {
         Iter {
             headers: self,
@@ -141,6 +147,18 @@ impl<'a> Iterator for GetAll<'a> {
                 }
             },
         }
+    }
+}
+
+pub struct Keys<'a> {
+    iter: std::slice::Iter<'a, Entry>,
+}
+
+impl<'a> Iterator for Keys<'a> {
+    type Item = &'a HeaderName;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|x| &x.key)
     }
 }
 
@@ -196,6 +214,12 @@ impl HeaderName {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for HeaderName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -364,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn should_iterate_over_all_entries() {
+    fn should_iter_over_all_entries() {
         let mut headers = Headers::new();
         headers.append("numbers".into(), "1");
         headers.append("numbers".into(), "2");

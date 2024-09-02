@@ -9,7 +9,7 @@ fn main() {
             println!("Request: {req:?}");
             Response::builder()
                 .insert_header("X-Server", "Custom")
-                .build(format!("Hello World"))
+                .build(format!("Hello World").into())
         })
         .unwrap();
 }

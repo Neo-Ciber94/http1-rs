@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    body::Body,
     handler::RequestHandler,
     http::{HeaderName, Headers, Method, Request, Response, Url, Version},
 };
@@ -25,7 +26,9 @@ impl Server {
     ) {
         let request = read_request(&mut stream).expect("Failed to read request");
         let response = handler.handle(request);
-        write_response(response, &mut stream)
+
+        println!("Writing response...");
+        write_response(response, &mut stream).unwrap()
     }
 
     pub fn listen<H: RequestHandler + Send + Sync + 'static>(
@@ -53,12 +56,17 @@ impl Server {
     }
 }
 
-fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<String>> {
+fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
     // Read first line
     reader.read_line(&mut buf)?;
+
+    if buf.ends_with("\n") {
+        buf.pop();
+        buf.pop();
+    }
 
     let mut builder = Request::builder();
 
@@ -72,6 +80,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<String>> {
     buf.clear();
 
     while reader.read_line(&mut buf).unwrap() > 0 {
+        println!("Reading: {buf}");
         if buf.ends_with("\r\n\r\n") {
             break;
         }
@@ -85,11 +94,12 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<String>> {
         buf.clear();
     }
 
-    Ok(builder.build(buf))
+    Ok(builder.build(buf.into()))
 }
 
 fn read_request_line(buf: &String) -> std::io::Result<(Method, Url, Version)> {
     let mut parts = buf.splitn(3, " ");
+
     let method = parts
         .next()
         .and_then(|x| Method::from_str(x).ok())
@@ -109,7 +119,7 @@ fn read_request_line(buf: &String) -> std::io::Result<(Method, Url, Version)> {
 }
 
 fn read_header(buf: &String) -> Option<(String, Vec<String>)> {
-    let (key, rest) = buf.split_once(":")?;
+    let (key, rest) = buf.split_once(": ")?;
     let mut values = Vec::new();
 
     for value in rest.split(";").map(|s| s.trim()) {
@@ -119,6 +129,40 @@ fn read_header(buf: &String) -> Option<(String, Vec<String>)> {
     Some((key.to_owned(), values))
 }
 
-fn write_response(response: Response<String>, stream: &mut TcpStream) {
-    todo!()
+fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
+    let (status, headers, body) = response.into_parts();
+    let status_text = "Ok";
+
+    // Write response line
+    write!(stream, "HTTP/1.1 {status} {status_text}\r\n")?;
+
+    // Write headers
+    let keys = headers.keys();
+    for name in keys {
+        let values = headers.get_all(name);
+        let line = values
+            .map(|s| s.to_owned())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        write!(stream, "{name}: {line}")?;
+    }
+
+    write!(stream, "\r\n")?;
+
+    // Write body
+
+    match body {
+        Body::Payload(mut data) => {
+            stream.write_all(data.as_mut())?;
+            stream.flush()?;
+        }
+        Body::Stream(recv) => {
+            while let Ok(mut bytes) = recv.recv() {
+                stream.write_all(bytes.as_mut())?
+            }
+        }
+    }
+
+    Ok(())
 }

@@ -39,22 +39,32 @@ impl<T> Response<T> {
     pub fn body_mut(&mut self) -> &mut T {
         &mut self.body
     }
-}
 
-impl Response<()> {
-    pub fn builder() -> Builder {
-        Builder::new()
+    pub fn into_parts(self) -> (u16, Headers, T) {
+        let Self {
+            status,
+            headers,
+            body,
+        } = self;
+
+        (status, headers, body)
     }
 }
 
-pub struct Builder {
+impl Response<()> {
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder::new()
+    }
+}
+
+pub struct ResponseBuilder {
     status: u16,
     headers: Headers,
 }
 
-impl Builder {
+impl ResponseBuilder {
     pub fn new() -> Self {
-        Builder {
+        ResponseBuilder {
             status: 200,
             headers: Headers::new(),
         }

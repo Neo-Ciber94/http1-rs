@@ -58,21 +58,21 @@ impl<T> Request<T> {
 }
 
 impl Request<()> {
-    pub fn builder() -> Builder {
-        Builder::new()
+    pub fn builder() -> RequestBuilder {
+        RequestBuilder::new()
     }
 }
 
-pub struct Builder {
+pub struct RequestBuilder {
     headers: Headers,
     method: Method,
     version: Version,
     url: Url,
 }
 
-impl Builder {
+impl RequestBuilder {
     pub fn new() -> Self {
-        Builder {
+        RequestBuilder {
             headers: Headers::new(),
             method: Method::Get,
             url: Url(format!("/")),
