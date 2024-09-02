@@ -129,10 +129,10 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
     let (status, headers, body) = response.into_parts();
     let status_text = "Ok";
 
-    // Write response line
+    // 1. Write response line
     write!(stream, "HTTP/1.1 {status} {status_text}\r\n")?;
 
-    // Write headers
+    // 2. Write headers
     let keys = headers.keys();
     for name in keys {
         let values = headers.get_all(name);
@@ -146,7 +146,7 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
 
     write!(stream, "\r\n")?;
 
-    // Write body
+    // 3. Write body
 
     match body {
         Body::Payload(mut data) => {
@@ -154,9 +154,21 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
             stream.flush()?;
         }
         Body::Stream(recv) => {
-            while let Ok(mut bytes) = recv.recv() {
-                stream.write_all(bytes.as_mut())?
+            while let Ok(mut chunk) = recv.recv() {
+                // Write the chunk size
+                let size = chunk.len();
+                write!(stream, "{size:X}\r\n")?;
+
+                // Write the chunk data
+                stream.write_all(chunk.as_mut())?;
+                write!(stream, "\r\n")?;
+
+                // Send
+                stream.flush()?;
             }
+
+            // Last chunk
+            write!(stream, "0\r\n\r\n")?;
         }
     }
 
