@@ -1,4 +1,4 @@
-use super::{HeaderName, Headers, StatusCode};
+use super::{HeaderName, Headers, StatusCode, Version};
 
 #[derive(Debug)]
 pub struct Response<T> {
@@ -30,6 +30,10 @@ impl<T> Response<T> {
 
     pub fn headers_mut(&mut self) -> &mut Headers {
         &mut self.headers
+    }
+
+    pub fn version(&self) -> Version {
+        Version::Http1_1
     }
 
     pub fn body(&self) -> &T {

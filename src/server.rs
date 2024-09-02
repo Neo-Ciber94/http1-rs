@@ -126,11 +126,12 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
 }
 
 fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
+    let version = response.version();
     let (status, headers, body) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
-    write!(stream, "HTTP/1.1 {status} {reason_phrase}\r\n")?;
+    write!(stream, "{version} {status} {reason_phrase}\r\n")?;
 
     // 2. Write headers
     for (name, mut values) in headers {

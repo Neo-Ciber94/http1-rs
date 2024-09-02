@@ -74,7 +74,7 @@ impl RequestBuilder {
     pub fn new() -> Self {
         RequestBuilder {
             headers: Headers::new(),
-            method: Method::Get,
+            method: Method::GET,
             url: URL(format!("/")),
             version: Version::Http1_1,
         }
