@@ -1,4 +1,8 @@
-use http1::{body::Body, http::Response, server::Server};
+use http1::{
+    body::Body,
+    http::{Response, StatusCode},
+    server::Server,
+};
 use std::{thread, time::Duration};
 
 fn main() {
@@ -22,6 +26,7 @@ fn main() {
                 .insert_header("Content-Type", "text/html")
                 .insert_header("Transfer-Encoding", "chunked")
                 .insert_header("Connection", "keep-alive")
+                .status(StatusCode::OK)
                 .build(body)
         })
         .unwrap();

@@ -8,7 +8,7 @@ use std::{
 use crate::{
     body::Body,
     handler::RequestHandler,
-    http::{HeaderName, Headers, Method, Request, Response, Url, Version},
+    http::{HeaderName, Headers, Method, Request, Response, URL, Version},
 };
 
 pub struct Server {
@@ -91,7 +91,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     Ok(builder.build(buf.into()))
 }
 
-fn read_request_line(buf: &str) -> std::io::Result<(Method, Url, Version)> {
+fn read_request_line(buf: &str) -> std::io::Result<(Method, URL, Version)> {
     let str = buf.trim();
     let mut parts = str.splitn(3, " ");
 
@@ -102,7 +102,7 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, Url, Version)> {
 
     let url = parts
         .next()
-        .map(|s| Url(s.to_owned()))
+        .map(|s| URL(s.to_owned()))
         .ok_or_else(|| std::io::Error::other("Failed to parse request url"))?;
 
     let version = parts
@@ -127,10 +127,10 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
 
 fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
     let (status, headers, body) = response.into_parts();
-    let status_text = "Ok";
+    let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
-    write!(stream, "HTTP/1.1 {status} {status_text}\r\n")?;
+    write!(stream, "HTTP/1.1 {status} {reason_phrase}\r\n")?;
 
     // 2. Write headers
     for (name, mut values) in headers {

@@ -1,14 +1,14 @@
-use super::{HeaderName, Headers};
+use super::{HeaderName, Headers, StatusCode};
 
 #[derive(Debug)]
 pub struct Response<T> {
-    status: u16,
+    status: StatusCode,
     headers: Headers,
     body: T,
 }
 
 impl<T> Response<T> {
-    pub fn new(status: u16, body: T) -> Self {
+    pub fn new(status: StatusCode, body: T) -> Self {
         Response {
             status,
             body,
@@ -16,11 +16,11 @@ impl<T> Response<T> {
         }
     }
 
-    pub fn status(&self) -> u16 {
+    pub fn status(&self) -> StatusCode {
         self.status
     }
 
-    pub fn status_mut(&mut self) -> &mut u16 {
+    pub fn status_mut(&mut self) -> &mut StatusCode {
         &mut self.status
     }
 
@@ -40,7 +40,7 @@ impl<T> Response<T> {
         &mut self.body
     }
 
-    pub fn into_parts(self) -> (u16, Headers, T) {
+    pub fn into_parts(self) -> (StatusCode, Headers, T) {
         let Self {
             status,
             headers,
@@ -58,19 +58,19 @@ impl Response<()> {
 }
 
 pub struct ResponseBuilder {
-    status: u16,
+    status: StatusCode,
     headers: Headers,
 }
 
 impl ResponseBuilder {
     pub fn new() -> Self {
         ResponseBuilder {
-            status: 200,
+            status: StatusCode::OK,
             headers: Headers::new(),
         }
     }
 
-    pub fn status(mut self, status: u16) -> Self {
+    pub fn status(mut self, status: StatusCode) -> Self {
         self.status = status;
         self
     }

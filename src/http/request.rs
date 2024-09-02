@@ -1,16 +1,16 @@
-use super::{HeaderName, Headers, Method, Url, Version};
+use super::{HeaderName, Headers, Method, URL, Version};
 
 #[derive(Debug)]
 pub struct Request<T> {
     headers: Headers,
     method: Method,
     version: Version,
-    url: Url,
+    url: URL,
     body: T,
 }
 
 impl<T> Request<T> {
-    pub fn new(method: Method, version: Version, url: Url, body: T) -> Self {
+    pub fn new(method: Method, version: Version, url: URL, body: T) -> Self {
         Request {
             body,
             method,
@@ -36,7 +36,7 @@ impl<T> Request<T> {
         &mut self.version
     }
 
-    pub fn url(&self) -> &Url {
+    pub fn url(&self) -> &URL {
         &self.url
     }
 
@@ -67,7 +67,7 @@ pub struct RequestBuilder {
     headers: Headers,
     method: Method,
     version: Version,
-    url: Url,
+    url: URL,
 }
 
 impl RequestBuilder {
@@ -75,7 +75,7 @@ impl RequestBuilder {
         RequestBuilder {
             headers: Headers::new(),
             method: Method::Get,
-            url: Url(format!("/")),
+            url: URL(format!("/")),
             version: Version::Http1_1,
         }
     }
@@ -98,12 +98,12 @@ impl RequestBuilder {
         &mut self.method
     }
 
-    pub fn url(mut self, url: impl Into<Url>) -> Self {
+    pub fn url(mut self, url: impl Into<URL>) -> Self {
         self.url = url.into();
         self
     }
 
-    pub fn url_mut(&mut self) -> &mut Url {
+    pub fn url_mut(&mut self) -> &mut URL {
         &mut self.url
     }
 
