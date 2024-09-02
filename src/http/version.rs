@@ -28,7 +28,6 @@ impl FromStr for Version {
     type Err = InvalidVersion;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("version? {s}: {}", s.eq_ignore_ascii_case("HTTP/1.1"));
         match s {
             s if s.eq_ignore_ascii_case("HTTP/1.1") => Ok(Version::Http1_1),
             _ => Err(InvalidVersion { _priv: () }),

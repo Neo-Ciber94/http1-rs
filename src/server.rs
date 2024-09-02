@@ -133,21 +133,25 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
     write!(stream, "HTTP/1.1 {status} {status_text}\r\n")?;
 
     // 2. Write headers
-    let keys = headers.keys();
-    for name in keys {
-        let values = headers.get_all(name);
-        let line = values
-            .map(|s| s.to_owned())
-            .collect::<Vec<String>>()
-            .join(", ");
+    for (name, mut values) in headers {
+        write!(stream, "{name}: ")?;
 
-        write!(stream, "{name}: {line}\r\n")?;
+        if let Some(first_value) = values.next() {
+            stream.write_all(first_value.as_bytes())?;
+        }
+
+        for value in values {
+            stream.write_all(b", ")?;
+            stream.write_all(value.as_bytes())?;
+        }
+
+        stream.write_all(b"\r\n")?;
     }
 
+    // Headers end
     write!(stream, "\r\n")?;
 
     // 3. Write body
-
     match body {
         Body::Payload(mut data) => {
             stream.write_all(data.as_mut())?;

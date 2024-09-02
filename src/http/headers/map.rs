@@ -1,7 +1,8 @@
 use core::str;
-use std::{borrow::Cow, fmt::Display, hash::Hash};
 
 use private::Sealed;
+
+use super::HeaderName;
 
 #[derive(Debug, Clone)]
 struct Entry {
@@ -109,6 +110,10 @@ impl Headers {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
     pub fn keys(&self) -> Keys {
         Keys {
             iter: self.entries.iter(),
@@ -121,6 +126,10 @@ impl Headers {
             entry_index: 0,
             pos: None,
         }
+    }
+
+    pub fn into_iter(self) -> IntoIter {
+        IntoIter { headers: self }
     }
 }
 
@@ -200,62 +209,73 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct HeaderName(Cow<'static, str>);
+impl<'a> IntoIterator for &'a Headers {
+    type Item = (&'a HeaderName, &'a str);
+    type IntoIter = Iter<'a>;
 
-impl HeaderName {
-    pub fn from_static(s: &'static str) -> Self {
-        HeaderName(Cow::Borrowed(s))
-    }
-
-    pub fn from_string(s: String) -> Self {
-        HeaderName(Cow::Owned(s))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
-impl Display for HeaderName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
+pub struct EntryValues {
+    entry: Entry,
+    iter_next: bool,
+}
+
+impl Iterator for EntryValues {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry = &mut self.entry;
+
+        match self.iter_next {
+            true if entry.next.is_empty() => None,
+            true => {
+                let item = entry.next.remove(0);
+                Some(item)
+            }
+            false => {
+                let value = std::mem::take(&mut entry.value);
+                self.iter_next = true;
+                Some(value)
+            }
+        }
     }
 }
 
-impl Eq for HeaderName {}
+pub struct IntoIter {
+    headers: Headers,
+}
 
-impl PartialEq for HeaderName {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq_ignore_ascii_case(&other.0)
+impl Iterator for IntoIter {
+    type Item = (HeaderName, EntryValues);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entries = &mut self.headers.entries;
+
+        if entries.is_empty() {
+            return None;
+        }
+
+        let entry = entries.remove(0);
+        let key = entry.key.clone();
+        Some((
+            key,
+            EntryValues {
+                entry,
+                iter_next: false,
+            },
+        ))
     }
 }
 
-impl Hash for HeaderName {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0
-            .as_bytes()
-            .iter()
-            .map(|s| s.to_ascii_lowercase())
-            .for_each(|c| c.hash(state))
-    }
-}
+impl IntoIterator for Headers {
+    type Item = (HeaderName, EntryValues);
+    type IntoIter = IntoIter;
 
-impl AsRef<str> for HeaderName {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl From<String> for HeaderName {
-    fn from(value: String) -> Self {
-        HeaderName::from_string(value)
-    }
-}
-
-impl From<&'static str> for HeaderName {
-    fn from(value: &'static str) -> Self {
-        HeaderName::from_static(value)
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_iter()
     }
 }
 
@@ -271,7 +291,7 @@ impl<'a> private::Sealed for &'a str {
     fn find(&self, map: &Headers) -> Option<usize> {
         map.entries
             .iter()
-            .position(|entry| entry.key.0.eq_ignore_ascii_case(self))
+            .position(|entry| entry.key.as_str().eq_ignore_ascii_case(self))
     }
 }
 
@@ -411,5 +431,38 @@ mod tests {
 
         assert_eq!(iter.next(), Some((&HeaderName::from("food"), "pizza")));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn should_into_iter_over_all_entries() {
+        let mut headers = Headers::new();
+        headers.append("numbers".into(), "1");
+        headers.append("numbers".into(), "2");
+        headers.append("numbers".into(), "3");
+        headers.append("fruits".into(), "apple");
+        headers.append("fruits".into(), "strawberry");
+        headers.append("food".into(), "pizza");
+
+        let mut iter = headers.into_iter();
+
+        let numbers = iter.next().unwrap();
+        assert_eq!(numbers.0.as_str(), "numbers");
+        assert_eq!(
+            numbers.1.collect::<Vec<String>>(),
+            vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]
+        );
+
+        let fruits = iter.next().unwrap();
+        assert_eq!(fruits.0.as_str(), "fruits");
+        assert_eq!(
+            fruits.1.collect::<Vec<String>>(),
+            vec!["apple".to_owned(), "strawberry".to_owned()]
+        );
+
+        let food = iter.next().unwrap();
+        assert_eq!(food.0.as_str(), "food");
+        assert_eq!(food.1.collect::<Vec<String>>(), vec!["pizza".to_owned()]);
+
+        assert!(iter.next().is_none());
     }
 }
