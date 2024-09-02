@@ -11,7 +11,7 @@ pub enum Method {
     Head,
     Connect,
     Trace,
-    Custom(String),
+    ExtensionMethod(String),
 }
 
 impl Method {
@@ -26,7 +26,7 @@ impl Method {
             Method::Head => "HEAD",
             Method::Connect => "CONNECT",
             Method::Trace => "TRACE",
-            Method::Custom(custom) => custom.as_str(),
+            Method::ExtensionMethod(ext) => ext.as_str(),
         }
     }
 }
@@ -48,7 +48,7 @@ impl<'a> From<&'a str> for Method {
             v if v.eq_ignore_ascii_case("HEAD") => Method::Head,
             v if v.eq_ignore_ascii_case("CONNECT") => Method::Connect,
             v if v.eq_ignore_ascii_case("TRACE") => Method::Trace,
-            _ => Method::Custom(value.to_string()),
+            _ => Method::ExtensionMethod(value.to_string()),
         }
     }
 }
