@@ -8,7 +8,7 @@ use std::{
 use crate::{
     body::Body,
     handler::RequestHandler,
-    http::{HeaderName, Headers, Method, Request, Response, URL, Version},
+    http::{HeaderName, Headers, Method, Request, Response, Uri, Version},
 };
 
 pub struct Server {
@@ -91,7 +91,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     Ok(builder.build(buf.into()))
 }
 
-fn read_request_line(buf: &str) -> std::io::Result<(Method, URL, Version)> {
+fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
     let str = buf.trim();
     let mut parts = str.splitn(3, " ");
 
@@ -102,7 +102,7 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, URL, Version)> {
 
     let url = parts
         .next()
-        .map(|s| URL(s.to_owned()))
+        .and_then(|s| Uri::from_str(s).ok())
         .ok_or_else(|| std::io::Error::other("Failed to parse request url"))?;
 
     let version = parts

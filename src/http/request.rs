@@ -1,16 +1,16 @@
-use super::{HeaderName, Headers, Method, URL, Version};
+use super::{HeaderName, Headers, Method, PathAndQuery, Uri, Version};
 
 #[derive(Debug)]
 pub struct Request<T> {
     headers: Headers,
     method: Method,
     version: Version,
-    url: URL,
+    url: Uri,
     body: T,
 }
 
 impl<T> Request<T> {
-    pub fn new(method: Method, version: Version, url: URL, body: T) -> Self {
+    pub fn new(method: Method, version: Version, url: Uri, body: T) -> Self {
         Request {
             body,
             method,
@@ -36,7 +36,7 @@ impl<T> Request<T> {
         &mut self.version
     }
 
-    pub fn url(&self) -> &URL {
+    pub fn url(&self) -> &Uri {
         &self.url
     }
 
@@ -67,7 +67,7 @@ pub struct RequestBuilder {
     headers: Headers,
     method: Method,
     version: Version,
-    url: URL,
+    url: Uri,
 }
 
 impl RequestBuilder {
@@ -75,7 +75,11 @@ impl RequestBuilder {
         RequestBuilder {
             headers: Headers::new(),
             method: Method::GET,
-            url: URL(format!("/")),
+            url: Uri::new(
+                super::Scheme::Http,
+                None,
+                PathAndQuery::new("/".to_owned(), None, None),
+            ),
             version: Version::Http1_1,
         }
     }
@@ -98,12 +102,12 @@ impl RequestBuilder {
         &mut self.method
     }
 
-    pub fn url(mut self, url: impl Into<URL>) -> Self {
+    pub fn url(mut self, url: impl Into<Uri>) -> Self {
         self.url = url.into();
         self
     }
 
-    pub fn url_mut(&mut self) -> &mut URL {
+    pub fn url_mut(&mut self) -> &mut Uri {
         &mut self.url
     }
 
