@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::{Authority, PathAndQuery, Scheme};
 
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Uri {
     scheme: Scheme,
     authority: Option<Authority>,
