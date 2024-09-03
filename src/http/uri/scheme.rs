@@ -30,8 +30,8 @@ impl Display for Scheme {
 impl<'a> From<&'a str> for Scheme {
     fn from(value: &'a str) -> Self {
         match value {
-            "http" => Scheme::Http,
-            "https" => Scheme::Https,
+            _ if value.eq_ignore_ascii_case("http") => Scheme::Http,
+            _ if value.eq_ignore_ascii_case("https") => Scheme::Https,
             other => Scheme::Other(other.to_owned()),
         }
     }

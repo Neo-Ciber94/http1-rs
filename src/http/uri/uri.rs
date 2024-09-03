@@ -5,13 +5,17 @@ use super::{Authority, PathAndQuery, Scheme};
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Uri {
-    scheme: Scheme,
+    scheme: Option<Scheme>,
     authority: Option<Authority>,
     path_query: PathAndQuery,
 }
 
 impl Uri {
-    pub fn new(scheme: Scheme, authority: Option<Authority>, path_query: PathAndQuery) -> Self {
+    pub fn new(
+        scheme: Option<Scheme>,
+        authority: Option<Authority>,
+        path_query: PathAndQuery,
+    ) -> Self {
         Uri {
             scheme,
             authority,
@@ -19,8 +23,8 @@ impl Uri {
         }
     }
 
-    pub fn scheme(&self) -> &Scheme {
-        &self.scheme
+    pub fn scheme(&self) -> Option<&Scheme> {
+        self.scheme.as_ref()
     }
 
     pub fn authority(&self) -> Option<&Authority> {
@@ -34,7 +38,9 @@ impl Uri {
 
 impl std::fmt::Display for Uri {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.scheme)?;
+        if let Some(scheme) = &self.scheme {
+            write!(f, "{}", scheme)?;
+        }
 
         if let Some(authority) = &self.authority {
             write!(f, "//{authority}")?;
@@ -55,6 +61,10 @@ impl FromStr for Uri {
     type Err = InvalidUri;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.trim().is_empty() {
+            return Err(InvalidUri { _priv: () });
+        }
+
         // scheme
         let (scheme, rest) = parse_scheme(s)?;
 
@@ -68,9 +78,9 @@ impl FromStr for Uri {
     }
 }
 
-fn parse_scheme(value: &str) -> Result<(Scheme, &str), InvalidUri> {
+fn parse_scheme(value: &str) -> Result<(Option<Scheme>, &str), InvalidUri> {
     let (scheme_str, rest) = value.split_once(":").ok_or(InvalidUri { _priv: () })?;
-    Ok((Scheme::from(scheme_str), rest))
+    Ok((Some(Scheme::from(scheme_str)), rest))
 }
 
 fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), InvalidUri> {
@@ -159,7 +169,7 @@ mod tests {
         let uri_str = "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().as_str(), "https");
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
         assert!(uri.authority().is_some());
 
         let authority = uri.authority().unwrap();
@@ -181,7 +191,7 @@ mod tests {
             "https://www.example.com:1234/forum/questions/?tag=networking&order=newest#top";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().as_str(), "https");
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
         assert!(uri.authority().is_some());
 
         let authority = uri.authority().unwrap();
@@ -202,7 +212,7 @@ mod tests {
             "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().to_string(), "https");
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
         assert!(uri.authority().is_some());
         let authority = uri.authority().unwrap();
         assert_eq!(authority.user_info(), Some("john.doe"));
@@ -221,7 +231,7 @@ mod tests {
         let uri_str = "ldap://[2001:db8::7]/c=GB?objectClass?one";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().as_str(), "ldap");
+        assert_eq!(uri.scheme().unwrap().as_str(), "ldap");
         assert!(uri.authority().is_some());
         let authority = uri.authority().unwrap();
         assert_eq!(authority.host(), "2001:db8::7");
@@ -234,7 +244,7 @@ mod tests {
         let uri_str = "mailto:John.Doe@example.com";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().as_str(), "mailto");
+        assert_eq!(uri.scheme().unwrap().as_str(), "mailto");
         assert!(uri.authority().is_none());
         assert_eq!(uri.path_and_query().path(), "John.Doe@example.com");
     }
@@ -244,7 +254,7 @@ mod tests {
         let uri_str = "tel:+1-816-555-1212";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().as_str(), "tel");
+        assert_eq!(uri.scheme().unwrap().as_str(), "tel");
         assert!(uri.authority().is_none());
         assert_eq!(uri.path_and_query().path(), "+1-816-555-1212");
     }

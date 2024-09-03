@@ -75,11 +75,7 @@ impl RequestBuilder {
         RequestBuilder {
             headers: Headers::new(),
             method: Method::GET,
-            url: Uri::new(
-                super::Scheme::Http,
-                None,
-                PathAndQuery::new("/".to_owned(), None, None),
-            ),
+            url: Uri::new(None, None, PathAndQuery::new("/".to_owned(), None, None)),
             version: Version::Http1_1,
         }
     }
