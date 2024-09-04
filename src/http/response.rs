@@ -1,4 +1,4 @@
-use super::{HeaderName, Headers, StatusCode, Version};
+use super::{headers::{HeaderName, Headers}, status::StatusCode, version::Version};
 
 #[derive(Debug)]
 pub struct Response<T> {

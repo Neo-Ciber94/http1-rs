@@ -1,4 +1,9 @@
-use super::{HeaderName, Headers, Method, PathAndQuery, Uri, Version};
+use super::{
+    headers::{HeaderName, Headers},
+    method::Method,
+    uri::{PathAndQuery, Uri},
+    version::Version,
+};
 
 #[derive(Debug)]
 pub struct Request<T> {

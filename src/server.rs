@@ -8,7 +8,14 @@ use std::{
 use crate::{
     body::Body,
     handler::RequestHandler,
-    http::{HeaderName, Headers, Method, Request, Response, Uri, Version},
+    http::{
+        headers::{HeaderName, Headers},
+        method::Method,
+        request::Request,
+        response::Response,
+        uri::Uri,
+        version::Version,
+    },
 };
 
 pub struct Server {

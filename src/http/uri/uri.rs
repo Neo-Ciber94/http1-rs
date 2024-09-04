@@ -172,8 +172,8 @@ fn parse_path_and_query(mut value: String) -> Result<PathAndQuery, InvalidUri> {
 
 #[cfg(test)]
 mod tests {
-    use crate::http::Uri;
     use std::str::FromStr;
+    use crate::http::uri::Uri;
 
     #[test]
     fn should_parse_uri_with_full_components() {

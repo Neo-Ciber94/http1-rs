@@ -1,4 +1,7 @@
-use crate::{body::Body, http::{Request, Response}};
+use crate::{
+    body::Body,
+    http::{request::Request, response::Response},
+};
 
 pub trait RequestHandler {
     fn handle(&self, req: Request<Body>) -> Response<Body>;

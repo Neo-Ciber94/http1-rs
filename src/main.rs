@@ -1,6 +1,6 @@
 use http1::{
     body::Body,
-    http::{Response, StatusCode},
+    http::{response::Response, status::StatusCode},
     server::Server,
 };
 use std::{thread, time::Duration};
