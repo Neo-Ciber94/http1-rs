@@ -172,12 +172,11 @@ fn parse_path_and_query(mut value: String) -> Result<PathAndQuery, InvalidUri> {
 
 #[cfg(test)]
 mod tests {
+    use crate::http::Uri;
     use std::str::FromStr;
 
-    use crate::http::Uri;
-
     #[test]
-    fn test_uri_with_full_components() {
+    fn should_parse_uri_with_full_components() {
         let uri_str = "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest#top";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
@@ -198,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_without_user_info() {
+    fn should_parse_uri_without_user_info() {
         let uri_str =
             "https://www.example.com:1234/forum/questions/?tag=networking&order=newest#top";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
@@ -219,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_without_fragment() {
+    fn should_parse_uri_without_fragment() {
         let uri_str =
             "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
@@ -239,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_with_ipv6_host() {
+    fn should_parse_uri_with_ipv6_host() {
         let uri_str = "ldap://[2001:db8::7]/c=GB?objectClass?one";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
@@ -252,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_with_mailto_scheme() {
+    fn should_parse_uri_with_mailto_scheme() {
         let uri_str = "mailto:John.Doe@example.com";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
@@ -262,12 +261,24 @@ mod tests {
     }
 
     #[test]
-    fn test_uri_with_tel_scheme() {
+    fn should_parse_uri_with_tel_scheme() {
         let uri_str = "tel:+1-816-555-1212";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
         assert_eq!(uri.scheme().unwrap().as_str(), "tel");
         assert!(uri.authority().is_none());
         assert_eq!(uri.path_and_query().path(), "+1-816-555-1212");
+    }
+
+    #[test]
+    fn should_parse_uri_with_percent_code() {
+        let uri_str = "http://localhost:5000/message?hello=good%20world";
+        let uri = Uri::from_str(&uri_str).unwrap();
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "http");
+        assert_eq!(uri.authority().unwrap().host(), "localhost");
+        assert_eq!(uri.authority().unwrap().port(), Some(5000));
+        assert_eq!(uri.path_and_query().path(), "/message");
+        assert_eq!(uri.path_and_query().query(), Some("hello=good world"));
     }
 }
