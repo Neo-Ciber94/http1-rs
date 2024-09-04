@@ -73,7 +73,7 @@ impl FromStr for Uri {
         }
 
         // scheme
-        let (scheme, rest) = parse_scheme(&value)?;
+        let (scheme, rest) = parse_scheme(value)?;
 
         // authority
         let (authority, rest) = parse_authority(rest)?;
@@ -85,18 +85,23 @@ impl FromStr for Uri {
     }
 }
 
-fn parse_scheme(value: &str) -> Result<(Option<Scheme>, &str), InvalidUri> {
-    let (scheme_str, rest) = value.split_once(":").ok_or(InvalidUri::InvalidScheme)?;
-    Ok((Some(Scheme::from(scheme_str)), rest))
+fn parse_scheme(mut value: String) -> Result<(Option<Scheme>, String), InvalidUri> {
+    if let Some(scheme_sep_idx) = value.find(":") {
+        let scheme = Scheme::from(&value[..scheme_sep_idx]);
+        let rest = value.split_off(scheme_sep_idx + 1);
+        Ok((Some(scheme), rest))
+    } else {
+        Err(InvalidUri::InvalidScheme)
+    }
 }
 
-fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), InvalidUri> {
+fn parse_authority(mut value: String) -> Result<(Option<Authority>, String), InvalidUri> {
     if !value.starts_with("//") {
         return Ok((None, value));
     }
 
     // Remove the leading slash
-    value = &value[2..];
+    value = value.split_off(2);
 
     let mut user_info: Option<String> = None;
     let mut port: Option<u16> = None;
@@ -104,19 +109,19 @@ fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), Invalid
 
     if let Some(user_info_sep_idx) = value.find("@") {
         user_info = value[..user_info_sep_idx].to_owned().into();
-        value = &value[(user_info_sep_idx + 1)..];
+        value = value.split_off(user_info_sep_idx + 1);
     }
 
     // Ipv6 address
     if let Some(ipv6_start_idx) = value.find("[") {
         let ipv6_end_idx = value.find("]").ok_or(InvalidUri::InvalidHost)?;
         host = value[(ipv6_start_idx + 1)..ipv6_end_idx].to_owned().into();
-        value = &value[(ipv6_end_idx + 1)..];
+        value = value.split_off(ipv6_end_idx + 1);
     }
     // Anything before the port separator is the host
     else if let Some(port_sep_idx) = value.find(":") {
         host = value[..port_sep_idx].to_owned();
-        value = &value[port_sep_idx..]; // the port
+        value = value.split_off(port_sep_idx); // the port
     }
     // If there is not port separator everything before the "/" if the host
     else if let Some(port_sep_idx) = value.find("/") {
@@ -135,14 +140,14 @@ fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), Invalid
             .map_err(|_| InvalidUri::InvalidPort)?
             .into();
 
-        value = &value[port_end_idx..];
+        value = value.split_off(port_end_idx);
     }
 
     let authority = Authority::new(user_info, host, port);
     Ok((Some(authority), value))
 }
 
-fn parse_path_and_query(mut value: &str) -> Result<PathAndQuery, InvalidUri> {
+fn parse_path_and_query(mut value: String) -> Result<PathAndQuery, InvalidUri> {
     let path: String;
     let mut query: Option<String> = None;
     let mut fragment: Option<String> = None;
@@ -150,13 +155,13 @@ fn parse_path_and_query(mut value: &str) -> Result<PathAndQuery, InvalidUri> {
     // The fragment is the last part
     if let Some(fragment_sep_idx) = value.find("#") {
         fragment = value[(fragment_sep_idx + 1)..].to_owned().into();
-        value = &value[..fragment_sep_idx];
+        let _ = value.split_off(fragment_sep_idx);
     }
 
     // Before the fragment the query
     if let Some(query_sep_idx) = value.find("?") {
         query = value[(query_sep_idx + 1)..].to_owned().into();
-        value = &value[..query_sep_idx];
+        let _ = value.split_off(query_sep_idx);
     }
 
     // The last segment is the path
