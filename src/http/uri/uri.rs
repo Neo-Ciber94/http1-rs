@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{Authority, PathAndQuery, Scheme};
+use super::{decode_uri_component, Authority, PathAndQuery, Scheme};
 
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -53,20 +53,27 @@ impl std::fmt::Display for Uri {
 }
 
 #[derive(Debug)]
-pub struct InvalidUri {
-    _priv: (),
+pub enum InvalidUri {
+    DecodeError,
+    InvalidScheme,
+    InvalidHost,
+    EmptyHost,
+    InvalidPort,
+    EmptyUri,
 }
 
 impl FromStr for Uri {
     type Err = InvalidUri;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = decode_uri_component(s).map_err(|_| InvalidUri::DecodeError)?;
+
         if s.trim().is_empty() {
-            return Err(InvalidUri { _priv: () });
+            return Err(InvalidUri::EmptyUri);
         }
 
         // scheme
-        let (scheme, rest) = parse_scheme(s)?;
+        let (scheme, rest) = parse_scheme(&value)?;
 
         // authority
         let (authority, rest) = parse_authority(rest)?;
@@ -79,7 +86,7 @@ impl FromStr for Uri {
 }
 
 fn parse_scheme(value: &str) -> Result<(Option<Scheme>, &str), InvalidUri> {
-    let (scheme_str, rest) = value.split_once(":").ok_or(InvalidUri { _priv: () })?;
+    let (scheme_str, rest) = value.split_once(":").ok_or(InvalidUri::InvalidScheme)?;
     Ok((Some(Scheme::from(scheme_str)), rest))
 }
 
@@ -102,7 +109,7 @@ fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), Invalid
 
     // Ipv6 address
     if let Some(ipv6_start_idx) = value.find("[") {
-        let ipv6_end_idx = value.find("]").ok_or(InvalidUri { _priv: () })?;
+        let ipv6_end_idx = value.find("]").ok_or(InvalidUri::InvalidHost)?;
         host = value[(ipv6_start_idx + 1)..ipv6_end_idx].to_owned().into();
         value = &value[(ipv6_end_idx + 1)..];
     }
@@ -117,7 +124,7 @@ fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), Invalid
     }
     // Not host found
     else {
-        return Err(InvalidUri { _priv: () });
+        return Err(InvalidUri::EmptyHost);
     }
 
     // Parse the port if any
@@ -125,7 +132,7 @@ fn parse_authority(mut value: &str) -> Result<(Option<Authority>, &str), Invalid
         // Parse the port
         let port_end_idx = value.find("/").unwrap_or(value.len());
         port = u16::from_str(&value[(port_sep_idx + 1)..port_end_idx])
-            .map_err(|_| InvalidUri { _priv: () })?
+            .map_err(|_| InvalidUri::InvalidPort)?
             .into();
 
         value = &value[port_end_idx..];
