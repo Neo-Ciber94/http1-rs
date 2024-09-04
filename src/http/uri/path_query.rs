@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PathAndQuery {
@@ -27,6 +27,13 @@ impl PathAndQuery {
     pub fn fragment(&self) -> Option<&str> {
         self.fragment.as_deref()
     }
+
+    pub fn query_values(&self) -> QueryValues {
+        match &self.query {
+            Some(s) => QueryValues::Values { iter: s.split("&") },
+            None => QueryValues::Empty,
+        }
+    }
 }
 
 impl Display for PathAndQuery {
@@ -42,5 +49,113 @@ impl Display for PathAndQuery {
         }
 
         Ok(())
+    }
+}
+
+pub enum QueryValues<'a> {
+    Empty,
+    Values { iter: std::str::Split<'a, &'a str> },
+}
+
+impl<'a> Iterator for QueryValues<'a> {
+    type Item = (&'a str, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            QueryValues::Empty => None,
+            QueryValues::Values { iter } => {
+                let raw = iter.next()?;
+                let (name, value) = raw.split_once("=")?;
+                Some((name, value))
+            }
+        }
+    }
+}
+
+impl QueryValues<'_> {
+    pub fn to_map(self) -> QueryMap {
+        let mut map = HashMap::<String, QueryValue>::new();
+
+        for (key, value) in self {
+            if map.contains_key(key) {
+                let entry = map.get_mut(key).unwrap();
+                match entry {
+                    QueryValue::One(s) => {
+                        let cur = std::mem::take(s);
+                        let list = vec![cur, value.to_owned()];
+                        *entry = QueryValue::List(list);
+                    }
+                    QueryValue::List(list) => list.push(value.to_owned()),
+                }
+            } else {
+                map.insert(key.to_owned(), QueryValue::One(value.to_string()));
+            }
+        }
+
+        QueryMap(map)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum QueryValue {
+    One(String),
+    List(Vec<String>),
+}
+
+#[derive(Debug, Clone)]
+pub struct QueryMap(HashMap<String, QueryValue>);
+
+impl QueryMap {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
+        self.0.get(key.as_ref()).and_then(|s| match s {
+            QueryValue::One(s) => Some(s.as_str()),
+            QueryValue::List(list) => list.get(0).map(|s| s.as_str()),
+        })
+    }
+
+    pub fn get_all(&self, key: impl AsRef<str>) -> GetAll {
+        match self.0.get(key.as_ref()) {
+            None => GetAll::Empty,
+            Some(QueryValue::One(s)) => GetAll::Once(s),
+            Some(QueryValue::List(list)) => GetAll::List {
+                list: &list,
+                pos: 0,
+            },
+        }
+    }
+
+    pub fn contains(&self, key: impl AsRef<str>) -> bool {
+        self.0.contains_key(key.as_ref())
+    }
+}
+
+#[derive(Debug)]
+pub enum GetAll<'a> {
+    Empty,
+    Once(&'a String),
+    List { list: &'a [String], pos: usize },
+}
+
+impl<'a> Iterator for GetAll<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            GetAll::Empty => None,
+            GetAll::Once(s) => Some(s.as_str()),
+            GetAll::List { list, pos } => {
+                let next = list.get(*pos)?;
+                *pos += 1;
+                Some(next.as_str())
+            }
+        }
     }
 }
