@@ -1,5 +1,5 @@
-mod map;
+mod headers;
 mod name;
 
-pub use map::*;
+pub use headers::*;
 pub use name::*;
