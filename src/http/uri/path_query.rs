@@ -124,7 +124,7 @@ impl QueryMap {
     pub fn get_all(&self, key: impl AsRef<str>) -> GetAll {
         match self.0.get(key.as_ref()) {
             None => GetAll::Empty,
-            Some(QueryValue::One(s)) => GetAll::Once(s),
+            Some(QueryValue::One(s)) => GetAll::Once(Some(s)),
             Some(QueryValue::List(list)) => GetAll::List {
                 list: &list,
                 pos: 0,
@@ -140,7 +140,7 @@ impl QueryMap {
 #[derive(Debug)]
 pub enum GetAll<'a> {
     Empty,
-    Once(&'a String),
+    Once(Option<&'a String>),
     List { list: &'a [String], pos: usize },
 }
 
@@ -150,7 +150,7 @@ impl<'a> Iterator for GetAll<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             GetAll::Empty => None,
-            GetAll::Once(s) => Some(s.as_str()),
+            GetAll::Once(s) => s.map(|x| x.as_str()).take(),
             GetAll::List { list, pos } => {
                 let next = list.get(*pos)?;
                 *pos += 1;

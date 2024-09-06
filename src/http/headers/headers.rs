@@ -2,16 +2,10 @@ use core::str;
 
 use private::Sealed;
 
-use super::HeaderName;
-
-#[derive(Debug, Clone)]
-struct Entry {
-    key: HeaderName,
-    value: String,
-
-    // If the header old more than 1 value, is stored here
-    next: Vec<String>,
-}
+use super::{
+    entry::{Entry, EntryValue},
+    HeaderName,
+};
 
 #[derive(Default, Debug, Clone)]
 pub struct Headers {
@@ -36,25 +30,33 @@ impl Headers {
     pub fn get(&self, key: impl AsHeaderName) -> Option<&str> {
         match key.find(&self) {
             Some(idx) => {
-                let entry = &self.entries[idx];
-                Some(&entry.value)
+                let entry = self.entries.get(idx)?;
+                match &entry.value {
+                    EntryValue::Single(x) => Some(x.as_str()),
+                    EntryValue::List(list) => Some(list[0].as_str()),
+                }
             }
             None => None,
         }
     }
 
     pub fn get_all(&self, key: impl AsHeaderName) -> GetAll {
-        GetAll {
-            entry: key.find(&self).map(|idx| &self.entries[idx]),
-            index: None,
-        }
+        let iter = key
+            .find(&self)
+            .map(|idx| &self.entries[idx])
+            .map(|x| x.iter());
+
+        GetAll { iter }
     }
 
     pub fn get_mut(&mut self, key: impl AsHeaderName) -> Option<&mut String> {
         match key.find(&self) {
             Some(idx) => {
-                let entry = &mut self.entries[idx];
-                Some(&mut entry.value)
+                let entry = self.entries.get_mut(idx)?;
+                match &mut entry.value {
+                    EntryValue::Single(x) => Some(x),
+                    EntryValue::List(list) => Some(&mut list[0]),
+                }
             }
             None => None,
         }
@@ -68,14 +70,16 @@ impl Headers {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
-                let prev = std::mem::replace(&mut entry.value, value.into());
-                Some(prev)
+                let ret = std::mem::replace(&mut entry.value, EntryValue::Single(value.into()));
+                match ret {
+                    EntryValue::Single(x) => Some(x),
+                    EntryValue::List(mut list) => Some(list.remove(0)),
+                }
             }
             None => {
                 self.entries.push(Entry {
                     key,
-                    value: value.into(),
-                    next: Vec::new(),
+                    value: EntryValue::Single(value.into()),
                 });
                 None
             }
@@ -86,14 +90,22 @@ impl Headers {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
-                entry.next.push(value.into());
+
+                match &mut entry.value {
+                    EntryValue::Single(x) => {
+                        let cur = std::mem::take(x);
+                        let list = vec![cur, value.into()];
+                        entry.value = EntryValue::List(list);
+                    }
+                    EntryValue::List(list) => list.push(value.into()),
+                }
+
                 true
             }
             None => {
                 self.entries.push(Entry {
                     key,
-                    value: value.into(),
-                    next: Vec::new(),
+                    value: EntryValue::Single(value.into()),
                 });
                 false
             }
@@ -104,7 +116,7 @@ impl Headers {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.remove(idx);
-                Some(entry.value)
+                Some(entry.take())
             }
             None => None,
         }
@@ -122,39 +134,29 @@ impl Headers {
 
     pub fn iter(&self) -> Iter {
         Iter {
-            headers: self,
-            entry_index: 0,
-            pos: None,
+            entries: &self.entries,
+            index: 0,
         }
     }
 
     pub fn into_iter(self) -> IntoIter {
-        IntoIter { headers: self }
+        IntoIter {
+            entries: self.entries,
+        }
     }
 }
 
 pub struct GetAll<'a> {
-    entry: Option<&'a Entry>,
-    index: Option<usize>,
+    iter: Option<super::entry::Iter<'a>>,
 }
 
 impl<'a> Iterator for GetAll<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.entry {
+        match self.iter {
             None => None,
-            Some(entry) => match self.index {
-                None => {
-                    self.index = Some(0);
-                    Some(entry.value.as_str())
-                }
-                Some(idx) => {
-                    let next = entry.next.get(idx)?;
-                    self.index = Some(idx + 1);
-                    Some(next.as_str())
-                }
-            },
+            Some(ref mut x) => x.next(),
         }
     }
 }
@@ -172,45 +174,26 @@ impl<'a> Iterator for Keys<'a> {
 }
 
 pub struct Iter<'a> {
-    headers: &'a Headers,
-    entry_index: usize,
-    pos: Option<usize>,
+    entries: &'a Vec<Entry>,
+    index: usize,
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (&'a HeaderName, &'a str);
+    type Item = (&'a HeaderName, super::entry::Iter<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.headers.is_empty() {
+        if self.index > self.entries.len() {
             return None;
         }
 
-        while let Some(entry) = self.headers.entries.get(self.entry_index) {
-            match self.pos {
-                Some(pos) => match entry.next.get(pos) {
-                    Some(value) => {
-                        self.pos = Some(pos + 1);
-                        return Some((&entry.key, value.as_str()));
-                    }
-                    None => {
-                        // Move to the next entry
-                        self.pos = None;
-                        self.entry_index += 1;
-                    }
-                },
-                None => {
-                    self.pos = Some(0);
-                    return Some((&entry.key, entry.value.as_str()));
-                }
-            }
-        }
-
-        None
+        let entry = self.entries.get(self.index)?;
+        self.index += 1;
+        Some((&entry.key, entry.iter()))
     }
 }
 
 impl<'a> IntoIterator for &'a Headers {
-    type Item = (&'a HeaderName, &'a str);
+    type Item = (&'a HeaderName, super::entry::Iter<'a>);
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -218,60 +201,26 @@ impl<'a> IntoIterator for &'a Headers {
     }
 }
 
-pub struct EntryValues {
-    entry: Entry,
-    iter_next: bool,
-}
-
-impl Iterator for EntryValues {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entry = &mut self.entry;
-
-        match self.iter_next {
-            true if entry.next.is_empty() => None,
-            true => {
-                let item = entry.next.remove(0);
-                Some(item)
-            }
-            false => {
-                let value = std::mem::take(&mut entry.value);
-                self.iter_next = true;
-                Some(value)
-            }
-        }
-    }
-}
-
 pub struct IntoIter {
-    headers: Headers,
+    entries: Vec<Entry>,
 }
 
 impl Iterator for IntoIter {
-    type Item = (HeaderName, EntryValues);
+    type Item = (HeaderName, super::entry::IntoIter);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entries = &mut self.headers.entries;
-
-        if entries.is_empty() {
+        if self.entries.is_empty() {
             return None;
         }
 
-        let entry = entries.remove(0);
+        let entry = self.entries.remove(0);
         let key = entry.key.clone();
-        Some((
-            key,
-            EntryValues {
-                entry,
-                iter_next: false,
-            },
-        ))
+        Some((key, entry.into_iter()))
     }
 }
 
 impl IntoIterator for Headers {
-    type Item = (HeaderName, EntryValues);
+    type Item = (HeaderName, super::entry::IntoIter);
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -329,8 +278,6 @@ mod private {
 
 #[cfg(test)]
 mod tests {
-    use crate::http::headers::HeaderName;
-
     use super::Headers;
 
     #[test]
@@ -419,18 +366,25 @@ mod tests {
 
         let mut iter = headers.iter();
 
-        assert_eq!(iter.next(), Some((&HeaderName::from("numbers"), "1")));
-        assert_eq!(iter.next(), Some((&HeaderName::from("numbers"), "2")));
-        assert_eq!(iter.next(), Some((&HeaderName::from("numbers"), "3")));
-
-        assert_eq!(iter.next(), Some((&HeaderName::from("fruits"), "apple")));
+        let (numbers_name, numbers) = iter.next().unwrap();
+        assert_eq!(numbers_name.as_str(), "numbers");
         assert_eq!(
-            iter.next(),
-            Some((&HeaderName::from("fruits"), "strawberry"))
+            numbers.collect::<Vec<&str>>(),
+            vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]
         );
 
-        assert_eq!(iter.next(), Some((&HeaderName::from("food"), "pizza")));
-        assert_eq!(iter.next(), None);
+        let (fruits_name, fruits) = iter.next().unwrap();
+        assert_eq!(fruits_name.as_str(), "fruits");
+        assert_eq!(
+            fruits.collect::<Vec<&str>>(),
+            vec!["apple".to_owned(), "strawberry".to_owned()]
+        );
+
+        let (food_name, foods) = iter.next().unwrap();
+        assert_eq!(food_name.as_str(), "food");
+        assert_eq!(foods.collect::<Vec<&str>>(), vec!["pizza".to_owned()]);
+
+        assert!(iter.next().is_none())
     }
 
     #[test]
@@ -445,23 +399,23 @@ mod tests {
 
         let mut iter = headers.into_iter();
 
-        let numbers = iter.next().unwrap();
-        assert_eq!(numbers.0.as_str(), "numbers");
+        let (numbers_name, numbers) = iter.next().unwrap();
+        assert_eq!(numbers_name.as_str(), "numbers");
         assert_eq!(
-            numbers.1.collect::<Vec<String>>(),
+            numbers.collect::<Vec<String>>(),
             vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]
         );
 
-        let fruits = iter.next().unwrap();
-        assert_eq!(fruits.0.as_str(), "fruits");
+        let (fruits_name, fruits) = iter.next().unwrap();
+        assert_eq!(fruits_name.as_str(), "fruits");
         assert_eq!(
-            fruits.1.collect::<Vec<String>>(),
+            fruits.collect::<Vec<String>>(),
             vec!["apple".to_owned(), "strawberry".to_owned()]
         );
 
-        let food = iter.next().unwrap();
-        assert_eq!(food.0.as_str(), "food");
-        assert_eq!(food.1.collect::<Vec<String>>(), vec!["pizza".to_owned()]);
+        let (food_name, foods) = iter.next().unwrap();
+        assert_eq!(food_name.as_str(), "food");
+        assert_eq!(foods.collect::<Vec<String>>(), vec!["pizza".to_owned()]);
 
         assert!(iter.next().is_none());
     }
