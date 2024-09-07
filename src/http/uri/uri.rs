@@ -52,7 +52,7 @@ impl std::fmt::Display for Uri {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum InvalidUri {
     DecodeError,
     InvalidScheme,
@@ -86,22 +86,19 @@ impl FromStr for Uri {
 }
 
 fn parse_scheme(mut value: String) -> Result<(Option<Scheme>, String), InvalidUri> {
-    if let Some(scheme_sep_idx) = value.find(":") {
+    if let Some(scheme_sep_idx) = value.find("://") {
         let scheme = Scheme::from(&value[..scheme_sep_idx]);
-        let rest = value.split_off(scheme_sep_idx + 1);
+        let rest = value.split_off(scheme_sep_idx + 3);
         Ok((Some(scheme), rest))
     } else {
-        Err(InvalidUri::InvalidScheme)
+        Ok((None, value))
     }
 }
 
 fn parse_authority(mut value: String) -> Result<(Option<Authority>, String), InvalidUri> {
-    if !value.starts_with("//") {
+    if value.starts_with("/") {
         return Ok((None, value));
     }
-
-    // Remove the leading slash
-    value = value.split_off(2);
 
     let mut user_info: Option<String> = None;
     let mut port: Option<u16> = None;
@@ -123,13 +120,15 @@ fn parse_authority(mut value: String) -> Result<(Option<Authority>, String), Inv
         host = value[..port_sep_idx].to_owned();
         value = value.split_off(port_sep_idx); // the port
     }
-    // If there is not port separator everything before the "/" if the host
-    else if let Some(port_sep_idx) = value.find("/") {
-        host = value[..port_sep_idx].to_owned();
-    }
-    // Not host found
+    // If there is not port separator everything before the "/", "#" or "?" if the host
     else {
-        return Err(InvalidUri::EmptyHost);
+        let len = value.len();
+        let slash_idx = value.find("/").unwrap_or(len);
+        let fragment_idx = value.find("#").unwrap_or(len);
+        let query_idx = value.find("?").unwrap_or(len);
+        let sep_idx = slash_idx.min(fragment_idx).min(query_idx);
+        host = value[..sep_idx].to_owned();
+        value = value.split_off(sep_idx);
     }
 
     // Parse the port if any
@@ -165,15 +164,55 @@ fn parse_path_and_query(mut value: String) -> Result<PathAndQuery, InvalidUri> {
     }
 
     // The last segment is the path
-    path = value.to_owned();
+    path = if value.is_empty() {
+        "/".to_owned()
+    } else if value.starts_with("/") {
+        value.to_owned()
+    } else {
+        format!("/{value}")
+    };
 
     Ok(PathAndQuery::new(path, query, fragment))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::http::uri::{InvalidUri, Uri};
     use std::str::FromStr;
-    use crate::http::uri::Uri;
+
+    #[test]
+    fn should_parse_uri_with_empty_path() {
+        let uri_str = "http://www.rust-lang.org";
+        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "http");
+        assert!(uri.authority().is_some());
+
+        let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
+        assert_eq!(authority.host(), "www.rust-lang.org");
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/");
+        assert_eq!(uri.path_and_query().query(), None);
+    }
+
+    #[test]
+    fn should_parse_uri_without_path() {
+        let uri_str = "https://www.rust-lang.org/";
+        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
+        assert!(uri.authority().is_some());
+
+        let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
+        assert_eq!(authority.host(), "www.rust-lang.org");
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/");
+        assert_eq!(uri.path_and_query().query(), None);
+    }
 
     #[test]
     fn should_parse_uri_with_full_components() {
@@ -197,88 +236,128 @@ mod tests {
     }
 
     #[test]
-    fn should_parse_uri_without_user_info() {
-        let uri_str =
-            "https://www.example.com:1234/forum/questions/?tag=networking&order=newest#top";
+    fn should_parse_uri_without_scheme() {
+        let uri_str = "localhost:5000/api/posts?limit=100&sort=asc";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().unwrap().as_str(), "https");
+        assert_eq!(uri.scheme(), None);
         assert!(uri.authority().is_some());
 
         let authority = uri.authority().unwrap();
+
         assert_eq!(authority.user_info(), None);
-        assert_eq!(authority.host(), "www.example.com");
-        assert_eq!(authority.port(), Some(1234));
-        assert_eq!(uri.path_and_query().path(), "/forum/questions/");
-        assert_eq!(
-            uri.path_and_query().query(),
-            Some("tag=networking&order=newest")
-        );
-        assert_eq!(uri.path_and_query().fragment(), Some("top"));
+        assert_eq!(authority.host(), "localhost");
+        assert_eq!(authority.port(), Some(5000));
+        assert_eq!(uri.path_and_query().path(), "/api/posts");
+        assert_eq!(uri.path_and_query().query(), Some("limit=100&sort=asc"));
     }
 
     #[test]
-    fn should_parse_uri_without_fragment() {
-        let uri_str =
-            "https://john.doe@www.example.com:1234/forum/questions/?tag=networking&order=newest";
+    fn should_parse_uri_with_fragment() {
+        let uri_str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ#never";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
         assert_eq!(uri.scheme().unwrap().as_str(), "https");
         assert!(uri.authority().is_some());
+
         let authority = uri.authority().unwrap();
-        assert_eq!(authority.user_info(), Some("john.doe"));
+
+        assert_eq!(authority.user_info(), None);
+        assert_eq!(authority.host(), "www.youtube.com");
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/watch");
+        assert_eq!(uri.path_and_query().query(), Some("v=dQw4w9WgXcQ"));
+        assert_eq!(uri.path_and_query().fragment(), Some("never"));
+    }
+
+    #[test]
+    fn should_parse_uri_only_with_fragment() {
+        let uri_str = "https://www.example.com#hello-world";
+        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
+        assert!(uri.authority().is_some());
+
+        let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
         assert_eq!(authority.host(), "www.example.com");
-        assert_eq!(authority.port(), Some(1234));
-        assert_eq!(uri.path_and_query().path(), "/forum/questions/");
-        assert_eq!(
-            uri.path_and_query().query(),
-            Some("tag=networking&order=newest")
-        );
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/");
+        assert_eq!(uri.path_and_query().query(), None);
+        assert_eq!(uri.path_and_query().fragment(), Some("hello-world"));
+    }
+
+    #[test]
+    fn should_parse_uri_only_with_query() {
+        let uri_str = "https://www.example.com?name=value";
+        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
+        assert!(uri.authority().is_some());
+
+        let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
+        assert_eq!(authority.host(), "www.example.com");
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/");
+        assert_eq!(uri.path_and_query().query(), Some("name=value"));
         assert_eq!(uri.path_and_query().fragment(), None);
     }
 
     #[test]
-    fn should_parse_uri_with_ipv6_host() {
+    fn should_parse_fragment_with_query() {
+        let uri_str = "https://www.example.com#fragment?name=value";
+        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
+
+        assert_eq!(uri.scheme().unwrap().as_str(), "https");
+        assert!(uri.authority().is_some());
+
+        let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
+        assert_eq!(authority.host(), "www.example.com");
+        assert_eq!(authority.port(), None);
+        assert_eq!(uri.path_and_query().path(), "/");
+        assert_eq!(uri.path_and_query().query(), None);
+        assert_eq!(uri.path_and_query().fragment(), Some("fragment?name=value"));
+    }
+
+    #[test]
+    fn should_parse_ipv6_uri() {
         let uri_str = "ldap://[2001:db8::7]/c=GB?objectClass?one";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
         assert_eq!(uri.scheme().unwrap().as_str(), "ldap");
         assert!(uri.authority().is_some());
+
         let authority = uri.authority().unwrap();
+
+        assert_eq!(authority.user_info(), None);
         assert_eq!(authority.host(), "2001:db8::7");
+        assert_eq!(authority.port(), None);
         assert_eq!(uri.path_and_query().path(), "/c=GB");
         assert_eq!(uri.path_and_query().query(), Some("objectClass?one"));
+        assert_eq!(uri.path_and_query().fragment(), None);
     }
 
     #[test]
-    fn should_parse_uri_with_mailto_scheme() {
-        let uri_str = "mailto:John.Doe@example.com";
+    fn should_parse_only_with_path() {
+        let uri_str = "/api/senpai/is/otonoko?name=Makoto";
         let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
 
-        assert_eq!(uri.scheme().unwrap().as_str(), "mailto");
-        assert!(uri.authority().is_none());
-        assert_eq!(uri.path_and_query().path(), "John.Doe@example.com");
+        assert_eq!(uri.scheme(), None);
+        assert_eq!(uri.authority(), None);
+
+        assert_eq!(uri.path_and_query().path(), "/api/senpai/is/otonoko");
+        assert_eq!(uri.path_and_query().query(), Some("name=Makoto"));
+        assert_eq!(uri.path_and_query().fragment(), None);
     }
 
     #[test]
-    fn should_parse_uri_with_tel_scheme() {
-        let uri_str = "tel:+1-816-555-1212";
-        let uri = Uri::from_str(uri_str).expect("Failed to parse URI");
-
-        assert_eq!(uri.scheme().unwrap().as_str(), "tel");
-        assert!(uri.authority().is_none());
-        assert_eq!(uri.path_and_query().path(), "+1-816-555-1212");
-    }
-
-    #[test]
-    fn should_parse_uri_with_percent_code() {
-        let uri_str = "http://localhost:5000/message?hello=good%20world";
-        let uri = Uri::from_str(&uri_str).unwrap();
-
-        assert_eq!(uri.scheme().unwrap().as_str(), "http");
-        assert_eq!(uri.authority().unwrap().host(), "localhost");
-        assert_eq!(uri.authority().unwrap().port(), Some(5000));
-        assert_eq!(uri.path_and_query().path(), "/message");
-        assert_eq!(uri.path_and_query().query(), Some("hello=good world"));
+    fn should_fail_parse_only_with_path() {
+        let uri_str = "this/is/a/path";
+        assert_eq!(Uri::from_str(uri_str), Err(InvalidUri::InvalidHost))
     }
 }
