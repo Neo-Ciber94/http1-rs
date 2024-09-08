@@ -1,4 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
+
+use super::InvalidUri;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Authority {
@@ -42,5 +44,48 @@ impl Display for Authority {
         }
 
         Ok(())
+    }
+}
+
+impl FromStr for Authority {
+    type Err = InvalidUri;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (user_info, rest) = match s.split_once("@") {
+            None => (None, s),
+            Some((user_info, rest)) => (Some(user_info.to_owned()), rest),
+        };
+
+        let (host, port) = parse_host_port(rest)?;
+
+        Ok(Authority {
+            user_info,
+            host,
+            port,
+        })
+    }
+}
+
+fn parse_host_port(s: &str) -> Result<(String, Option<u16>), InvalidUri> {
+    fn parse_port(port_str: &str) -> Result<u16, InvalidUri> {
+        u16::from_str(port_str).map_err(|_| InvalidUri::InvalidPort)
+    }
+
+    if s.starts_with("[") {
+        let i = s.find("]").ok_or(InvalidUri::InvalidHost)?;
+        let host = s[1..i].to_owned();
+        match s[i..].split(":").next().map(parse_port) {
+            None => Ok((host, None)),
+            Some(Ok(port)) => Ok((host, Some(port))),
+            Some(Err(err)) => Err(err),
+        }
+    } else {
+        match s.split_once(":") {
+            Some((host_str, port_str)) => {
+                let port = parse_port(port_str)?;
+                Ok((host_str.to_owned(), Some(port)))
+            }
+            None => Ok((s.to_owned(), None)),
+        }
     }
 }
