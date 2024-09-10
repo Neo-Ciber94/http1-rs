@@ -1,6 +1,6 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
-use super::{authority, decode_uri_component, Authority, PathAndQuery, Scheme};
+use super::{Authority, PathAndQuery, Scheme};
 
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -113,12 +113,20 @@ impl FromStr for Uri {
         }
 
         // path and query
-        let path_query_str = match authority_str {
-            Some(a) => &s[a.len()..],
-            None => &s,
+        let path_query_str = {
+            let pq = match authority_str {
+                Some(a) => &s[a.len()..],
+                None => &s,
+            };
+
+            if pq.starts_with("/") {
+                Cow::from(pq)
+            } else {
+                Cow::from(format!("/{pq}"))
+            }
         };
 
-        let path_query = PathAndQuery::from_str(path_query_str)?;
+        let path_query = PathAndQuery::from_str(&path_query_str)?;
 
         Ok(Uri::new(scheme, authority, path_query))
     }
@@ -302,10 +310,4 @@ mod tests {
         assert_eq!(uri.path_and_query().query(), Some("name=Makoto"));
         assert_eq!(uri.path_and_query().fragment(), None);
     }
-
-    // #[test]
-    // fn should_fail_parse_only_with_path() {
-    //     let uri_str = "this/is/a/path";
-    //     assert_eq!(Uri::from_str(uri_str), Err(InvalidUri::InvalidHost))
-    // }
 }

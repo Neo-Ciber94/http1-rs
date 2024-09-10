@@ -175,9 +175,9 @@ fn parse_path_query_string(mut s: String) -> Result<PathAndQuery, InvalidUri> {
         return Ok(PathAndQuery::new("/".to_owned(), None, None));
     }
 
-    // if !s.starts_with("/") {
-    //     return Err(InvalidUri::InvalidPath);
-    // }
+    if !s.starts_with("/") {
+        return Err(InvalidUri::InvalidPath);
+    }
 
     let mut fragment: Option<String> = None;
     let mut query: Option<String> = None;
