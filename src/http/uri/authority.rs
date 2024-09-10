@@ -68,17 +68,20 @@ impl FromStr for Authority {
 
 fn parse_host_port(s: &str) -> Result<(String, Option<u16>), InvalidUri> {
     fn parse_port(port_str: &str) -> Result<u16, InvalidUri> {
-        u16::from_str(port_str).map_err(|_| InvalidUri::InvalidPort)
+        u16::from_str(port_str).map_err(|_| InvalidUri::InvalidPort(port_str.to_owned()))
     }
 
     if s.starts_with("[") {
         let i = s.find("]").ok_or(InvalidUri::InvalidHost)?;
         let host = s[1..i].to_owned();
-        match s[i..].split(":").next().map(parse_port) {
-            None => Ok((host, None)),
-            Some(Ok(port)) => Ok((host, Some(port))),
-            Some(Err(err)) => Err(err),
+        let port_str = &s[(i + 1)..];
+
+        if port_str.is_empty() {
+            return Ok((host, None));
         }
+
+        let port = parse_port(port_str)?;
+        Ok((host, Some(port)))
     } else {
         match s.split_once(":") {
             Some((host_str, port_str)) => {

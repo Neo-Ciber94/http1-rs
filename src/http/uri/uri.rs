@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{decode_uri_component, Authority, PathAndQuery, Scheme};
+use super::{authority, decode_uri_component, Authority, PathAndQuery, Scheme};
 
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -60,94 +60,69 @@ pub enum InvalidUri {
     InvalidPath,
     InvalidQuery,
     EmptyHost,
-    InvalidPort,
+    InvalidPort(String),
     EmptyUri,
 }
 
 impl FromStr for Uri {
     type Err = InvalidUri;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let value = decode_uri_component(s).map_err(|_| InvalidUri::DecodeError)?;
-
+    fn from_str(mut s: &str) -> Result<Self, Self::Err> {
         if s.trim().is_empty() {
             return Err(InvalidUri::EmptyUri);
         }
 
         // scheme
-        let (scheme, rest) = parse_scheme(value)?;
+        let scheme: Option<Scheme> = match s.find("://") {
+            Some(scheme_idx) => Some(Scheme::from(&s[..scheme_idx])),
+            None => None,
+        };
+
+        if let Some(scheme) = &scheme {
+            s = &s[(scheme.as_str().len() + 3)..];
+        }
 
         // authority
-        let (authority, rest) = parse_authority(rest)?;
+        let mut authority: Option<Authority> = None;
+        let mut path_start = 0;
+
+        let authority_str = {
+            if s.starts_with("/") {
+                None
+            } else {
+                for (i, c) in s.as_bytes().iter().enumerate() {
+                    match c {
+                        b'#' | b'?' | b'/' => {
+                            path_start = i;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+
+                if path_start > 0 {
+                    Some(&s[..path_start])
+                } else {
+                    Some(s)
+                }
+            }
+        };
+
+        if let Some(s) = authority_str {
+            authority = Some(Authority::from_str(s)?);
+        }
 
         // path and query
-        let path_query = PathAndQuery::from_str(&rest)?;
+        let path_query_str = match authority_str {
+            Some(authority2) => &s[authority2.len()..],
+            None => &s,
+        };
+
+        let path_query = PathAndQuery::from_str(path_query_str)?;
 
         Ok(Uri::new(scheme, authority, path_query))
     }
 }
-
-fn parse_scheme(mut value: String) -> Result<(Option<Scheme>, String), InvalidUri> {
-    if let Some(scheme_sep_idx) = value.find("://") {
-        let scheme = Scheme::from(&value[..scheme_sep_idx]);
-        let rest = value.split_off(scheme_sep_idx + 3);
-        Ok((Some(scheme), rest))
-    } else {
-        Ok((None, value))
-    }
-}
-
-fn parse_authority(mut value: String) -> Result<(Option<Authority>, String), InvalidUri> {
-    if value.starts_with("/") {
-        return Ok((None, value));
-    }
-
-    let mut user_info: Option<String> = None;
-    let mut port: Option<u16> = None;
-    let host: String;
-
-    if let Some(user_info_sep_idx) = value.find("@") {
-        user_info = value[..user_info_sep_idx].to_owned().into();
-        value = value.split_off(user_info_sep_idx + 1);
-    }
-
-    // Ipv6 address
-    if let Some(ipv6_start_idx) = value.find("[") {
-        let ipv6_end_idx = value.find("]").ok_or(InvalidUri::InvalidHost)?;
-        host = value[(ipv6_start_idx + 1)..ipv6_end_idx].to_owned().into();
-        value = value.split_off(ipv6_end_idx + 1);
-    }
-    // Anything before the port separator is the host
-    else if let Some(port_sep_idx) = value.find(":") {
-        host = value[..port_sep_idx].to_owned();
-        value = value.split_off(port_sep_idx); // the port
-    }
-    // If there is not port separator everything before the "/", "#" or "?" if the host
-    else {
-        let len = value.len();
-        let slash_idx = value.find("/").unwrap_or(len);
-        let fragment_idx = value.find("#").unwrap_or(len);
-        let query_idx = value.find("?").unwrap_or(len);
-        let sep_idx = slash_idx.min(fragment_idx).min(query_idx);
-        host = value[..sep_idx].to_owned();
-        value = value.split_off(sep_idx);
-    }
-
-    // Parse the port if any
-    if let Some(port_sep_idx) = value.find(":") {
-        // Parse the port
-        let port_end_idx = value.find("/").unwrap_or(value.len());
-        port = u16::from_str(&value[(port_sep_idx + 1)..port_end_idx])
-            .map_err(|_| InvalidUri::InvalidPort)?
-            .into();
-
-        value = value.split_off(port_end_idx);
-    }
-
-    let authority = Authority::new(user_info, host, port);
-    Ok((Some(authority), value))
-}
-
 #[cfg(test)]
 mod tests {
     use crate::http::uri::{InvalidUri, Uri};

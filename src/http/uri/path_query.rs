@@ -165,36 +165,38 @@ impl<'a> Iterator for GetAll<'a> {
 impl FromStr for PathAndQuery {
     type Err = InvalidUri;
 
-    fn from_str(mut s: &str) -> Result<Self, Self::Err> {
-        println!("path_query: {s}");
-
-        if s.is_empty() {
-            return Ok(PathAndQuery::new("/".to_owned(), None, None));
-        }
-
-        // if !s.starts_with("/") {
-        //     return Err(InvalidUri::InvalidPath);
-        // }
-
-        let mut fragment: Option<String> = None;
-        let mut query: Option<String> = None;
-
-        if let Some(fragment_idx) = s.find("#") {
-            fragment = Some(s[(fragment_idx + 1)..].to_owned());
-            s = &s[..fragment_idx];
-        }
-
-        if let Some(query_idx) = s.find("?") {
-            query = Some(s[(query_idx + 1)..].to_owned());
-            s = &s[..query_idx];
-        }
-
-        let path = if s.starts_with("/") {
-            s.to_owned()
-        } else {
-            format!("/{s}")
-        };
-
-        Ok(PathAndQuery::new(path, query, fragment))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_path_query_string(s.to_owned())
     }
+}
+
+fn parse_path_query_string(mut s: String) -> Result<PathAndQuery, InvalidUri> {
+    if s.is_empty() {
+        return Ok(PathAndQuery::new("/".to_owned(), None, None));
+    }
+
+    // if !s.starts_with("/") {
+    //     return Err(InvalidUri::InvalidPath);
+    // }
+
+    let mut fragment: Option<String> = None;
+    let mut query: Option<String> = None;
+
+    if let Some(fragment_idx) = s.find("#") {
+        fragment = Some(s[(fragment_idx + 1)..].to_owned());
+        let _ = s.split_off(fragment_idx);
+    }
+
+    if let Some(query_idx) = s.find("?") {
+        query = Some(s[(query_idx + 1)..].to_owned());
+        let _ = s.split_off(query_idx);
+    }
+
+    let path = if s.starts_with("/") {
+        s.to_owned()
+    } else {
+        format!("/{s}")
+    };
+
+    Ok(PathAndQuery::new(path, query, fragment))
 }
