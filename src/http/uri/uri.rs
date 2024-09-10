@@ -133,7 +133,7 @@ impl FromStr for Uri {
 }
 #[cfg(test)]
 mod tests {
-    use crate::http::uri::{InvalidUri, Uri};
+    use crate::http::uri::Uri;
     use std::str::FromStr;
 
     #[test]
