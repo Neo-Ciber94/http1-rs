@@ -114,7 +114,7 @@ impl FromStr for Uri {
 
         // path and query
         let path_query_str = match authority_str {
-            Some(authority2) => &s[authority2.len()..],
+            Some(a) => &s[a.len()..],
             None => &s,
         };
 
