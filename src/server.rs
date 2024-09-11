@@ -95,7 +95,9 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
         buf.clear();
     }
 
-    Ok(builder.build(buf.into()))
+    // Read the body
+    let body = buf.into();
+    Ok(builder.build(body))
 }
 
 fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
