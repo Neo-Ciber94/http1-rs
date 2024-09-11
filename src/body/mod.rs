@@ -1,6 +1,11 @@
 pub mod http_body;
 
-use std::{convert::Infallible, error::Error, fmt::Debug};
+use std::{
+    convert::Infallible,
+    error::Error,
+    fmt::Debug,
+    io::{BufReader, Read},
+};
 
 use crate::error::BoxError;
 use http_body::HttpBody;
@@ -77,9 +82,37 @@ impl HttpBody for SizedBody {
     }
 }
 
+impl From<Vec<u8>> for Body {
+    fn from(value: Vec<u8>) -> Self {
+        Body::new(SizedBody(Some(value)))
+    }
+}
+
 impl From<String> for Body {
     fn from(value: String) -> Self {
-        let bytes = value.bytes().collect::<_>();
-        Body::new(SizedBody(Some(bytes)))
+        value.into_bytes().into()
+    }
+}
+
+impl<'a> From<&'a str> for Body {
+    fn from(value: &'a str) -> Self {
+        value.as_bytes().iter().cloned().collect::<Vec<_>>().into()
+    }
+}
+
+impl<R> HttpBody for BufReader<R>
+where
+    R: Read,
+{
+    type Err = BoxError;
+    type Data = Vec<u8>;
+
+    fn read(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        let mut buf = Vec::with_capacity(512);
+        match Read::read(self, &mut buf) {
+            Ok(0) => Ok(None),
+            Ok(n) => Ok(Some(buf[0..n].to_vec())),
+            Err(err) => Err(err.into()),
+        }
     }
 }
