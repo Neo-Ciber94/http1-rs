@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    body::Body,
+    body::{http_body::HttpBody, Body},
     handler::RequestHandler,
     http::{
         headers::{HeaderName, Headers},
@@ -136,7 +136,7 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
 
 fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
     let version = response.version();
-    let (status, headers, body) = response.into_parts();
+    let (status, headers, mut body) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
@@ -162,27 +162,35 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
     write!(stream, "\r\n")?;
 
     // 3. Write body
-    match body {
-        Body::Payload(mut data) => {
-            stream.write_all(data.as_mut())?;
-            stream.flush()?;
-        }
-        Body::Stream(recv) => {
-            while let Ok(mut chunk) = recv.recv() {
-                // Write the chunk size
-                let size = chunk.len();
-                write!(stream, "{size:X}\r\n")?;
+    // match body {
+    //     Body::Payload(mut data) => {
+    //         stream.write_all(data.as_mut())?;
+    //         stream.flush()?;
+    //     }
+    //     Body::Stream(recv) => {
+    //         while let Ok(mut chunk) = recv.recv() {
+    //             // Write the chunk size
+    //             let size = chunk.len();
+    //             write!(stream, "{size:X}\r\n")?;
 
-                // Write the chunk data
-                stream.write_all(chunk.as_mut())?;
-                write!(stream, "\r\n")?;
+    //             // Write the chunk data
+    //             stream.write_all(chunk.as_mut())?;
+    //             write!(stream, "\r\n")?;
 
-                // Send
-                stream.flush()?;
-            }
+    //             // Send
+    //             stream.flush()?;
+    //         }
 
-            // Last chunk
-            write!(stream, "0\r\n\r\n")?;
+    //         // Last chunk
+    //         write!(stream, "0\r\n\r\n")?;
+    //     }
+    // }
+
+    loop {
+        match body.read() {
+            Ok(Some(bytes)) => stream.write_all(&bytes)?,
+            Ok(None) => break,
+            Err(err) => return Err(std::io::Error::other(err)),
         }
     }
 
