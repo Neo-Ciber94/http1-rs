@@ -187,11 +187,16 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
     // }
 
     loop {
-        match body.read() {
+        match body.read_next() {
             Ok(Some(bytes)) => stream.write_all(&bytes)?,
             Ok(None) => break,
             Err(err) => return Err(std::io::Error::other(err)),
         }
+    }
+
+    let last_bytes =  body.read_last().map_err(std::io::Error::other)?;
+    if let Some(bytes) = last_bytes{
+        stream.write_all(&bytes)?;
     }
 
     Ok(())

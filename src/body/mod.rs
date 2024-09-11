@@ -4,7 +4,8 @@ use std::{
     convert::Infallible,
     error::Error,
     fmt::Debug,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Write},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use crate::error::BoxError;
@@ -21,9 +22,9 @@ where
     type Err = BoxError;
     type Data = Vec<u8>;
 
-    fn read(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         self.0
-            .read()
+            .read_next()
             .map(|data| data.map(|x| x.into()))
             .map_err(|e| e.into())
     }
@@ -60,8 +61,8 @@ impl HttpBody for Body {
     type Err = BoxError;
     type Data = Vec<u8>;
 
-    fn read(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        self.inner.0.read()
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        self.inner.0.read_next()
     }
 }
 
@@ -77,14 +78,24 @@ impl HttpBody for SizedBody {
     type Err = Infallible;
     type Data = Vec<u8>;
 
-    fn read(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         Ok(self.0.take())
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.0.as_ref().map(|x| x.len())
     }
 }
 
 impl From<Vec<u8>> for Body {
     fn from(value: Vec<u8>) -> Self {
         Body::new(SizedBody(Some(value)))
+    }
+}
+
+impl<'a> From<&'a [u8]> for Body {
+    fn from(value: &'a [u8]) -> Self {
+        value.iter().cloned().collect::<Vec<_>>().into()
     }
 }
 
@@ -107,12 +118,52 @@ where
     type Err = BoxError;
     type Data = Vec<u8>;
 
-    fn read(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         let mut buf = Vec::with_capacity(512);
         match Read::read(self, &mut buf) {
             Ok(0) => Ok(None),
             Ok(n) => Ok(Some(buf[0..n].to_vec())),
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+pub struct ChunkedBody(Receiver<Vec<u8>>);
+
+impl ChunkedBody {
+    pub fn new() -> (Self, Sender<Vec<u8>>) {
+        let (sender, recv) = channel();
+
+        let this = ChunkedBody(recv);
+        (this, sender)
+    }
+}
+
+impl HttpBody for ChunkedBody {
+    type Err = BoxError;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        match self.0.recv() {
+            Ok(chunk) => {
+                let mut buf = Vec::new();
+                // Write the chunk size
+                let size = chunk.len();
+                write!(buf, "{size:X}\r\n")?;
+
+                // Write the chunk data
+                buf.write_all(&chunk)?;
+                write!(buf, "\r\n")?;
+
+                Ok(Some(buf))
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn read_last(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        let mut buf = Vec::new();
+        write!(buf, "0\r\n\r\n")?;
+        Ok(Some(buf))
     }
 }
