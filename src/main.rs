@@ -1,6 +1,6 @@
 use http1::{
     body::ChunkedBody,
-    http::{response::Response, status::StatusCode},
+    http::{headers, response::Response, status::StatusCode},
     server::Server,
 };
 use std::{thread, time::Duration};
@@ -23,9 +23,9 @@ fn main() {
 
             Response::builder()
                 .insert_header("X-Server", "MyServer")
-                .insert_header("Content-Type", "text/html")
-                .insert_header("Transfer-Encoding", "chunked")
-                .insert_header("Connection", "keep-alive")
+                .insert_header(headers::CONTENT_TYPE, "text/html")
+                .insert_header(headers::TRANSFER_ENCODING, "chunked")
+                .insert_header(headers::CONNECTION, "keep-alive")
                 .status(StatusCode::OK)
                 .build(chunked.into())
         })

@@ -9,7 +9,7 @@ use crate::{
     body::{http_body::HttpBody, Body},
     handler::RequestHandler,
     http::{
-        headers::{HeaderName, Headers},
+        headers::{self, HeaderName, Headers},
         method::Method,
         request::Request,
         response::Response,
@@ -148,10 +148,7 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
 
     // 2. Write headers
     if let Some(content_length) = body.size_hint() {
-        headers.insert(
-            HeaderName::from_static("Content-Length"),
-            content_length.to_string(),
-        );
+        headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
     }
 
     for (name, mut values) in headers {

@@ -4,11 +4,11 @@ use std::{borrow::Cow, fmt::Display, hash::Hash};
 pub struct HeaderName(Cow<'static, str>);
 
 impl HeaderName {
-    pub fn from_static(s: &'static str) -> Self {
+    pub const fn from_static(s: &'static str) -> Self {
         HeaderName(Cow::Borrowed(s))
     }
 
-    pub fn from_string(s: String) -> Self {
+    pub const fn from_string(s: String) -> Self {
         HeaderName(Cow::Owned(s))
     }
 
