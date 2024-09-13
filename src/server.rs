@@ -192,7 +192,10 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
 
     loop {
         match body.read_next() {
-            Ok(Some(bytes)) => stream.write_all(&bytes)?,
+            Ok(Some(bytes)) => {
+                stream.write_all(&bytes)?;
+                stream.flush()?;
+            }
             Ok(None) => break,
             Err(err) => return Err(std::io::Error::other(err)),
         }

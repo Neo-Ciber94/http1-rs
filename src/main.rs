@@ -22,7 +22,7 @@ fn main() {
             });
 
             Response::builder()
-                .insert_header("X-Server", "Custom")
+                .insert_header("X-Server", "MyServer")
                 .insert_header("Content-Type", "text/html")
                 .insert_header("Transfer-Encoding", "chunked")
                 .insert_header("Connection", "keep-alive")

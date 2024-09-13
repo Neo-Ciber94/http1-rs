@@ -155,31 +155,38 @@ impl HttpBody for ChunkedBody {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        fn send_chunk(chunk: Vec<u8>) -> Result<Vec<u8>, ChunkedBodyError> {
+            let mut buf = Vec::new();
+
+            // Write the chunk size
+            let size = chunk.len();
+            write!(buf, "{size:X}\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+
+            // Write the chunk data
+            buf.write_all(&chunk)
+                .map_err(|e| ChunkedBodyError(e.into()))?;
+
+            write!(buf, "\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+            return Ok(buf);
+        }
+
         match self.0.as_mut() {
             Some(rx) => {
-                // If disconnected, send the last chunk
-                if let Err(TryRecvError::Disconnected) = rx.try_recv() {
-                    let _ = self.0.take(); // Drop the receiver if the sender was disconnected
-                    let mut buf = Vec::new();
-                    write!(buf, "0\r\n\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
-                    return Ok(Some(buf));
+                // Try read the next chunk, if ready sends it
+                match rx.try_recv() {
+                    Ok(chunk) => return send_chunk(chunk).map(Some),
+                    Err(TryRecvError::Disconnected) => {
+                        let _ = self.0.take(); // Drop the receiver if the sender was disconnected
+                        let mut buf = Vec::new();
+                        write!(buf, "0\r\n\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+                        return Ok(Some(buf));
+                    }
+                    Err(_) => {}
                 }
 
+                // Otherwise wait for the next chunk
                 match rx.recv() {
-                    Ok(chunk) => {
-                        let mut buf = Vec::new();
-                        // Write the chunk size
-                        let size = chunk.len();
-                        write!(buf, "{size:X}\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
-
-                        // Write the chunk data
-                        buf.write_all(&chunk)
-                            .map_err(|e| ChunkedBodyError(e.into()))?;
-                        write!(buf, "\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
-
-                        Ok(Some(buf))
-                    }
-
+                    Ok(chunk) => send_chunk(chunk).map(Some),
                     Err(err) => Err(ChunkedBodyError(err.into())),
                 }
             }
