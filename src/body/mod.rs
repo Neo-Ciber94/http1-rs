@@ -2,8 +2,7 @@ pub mod http_body;
 
 use std::{
     convert::Infallible,
-    error::Error,
-    fmt::{Debug, Display},
+    fmt::Debug,
     io::{BufReader, Read, Write},
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
 };
@@ -138,17 +137,6 @@ impl ChunkedBody {
         (this, sender)
     }
 }
-
-#[derive(Debug)]
-pub struct ChunkedBodyError(BoxError);
-
-impl Display for ChunkedBodyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for ChunkedBodyError {}
 
 impl HttpBody for ChunkedBody {
     type Err = BoxError;
