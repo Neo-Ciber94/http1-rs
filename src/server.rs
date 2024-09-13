@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, ErrorKind, Write},
     net::{SocketAddr, TcpListener, TcpStream},
     str::FromStr,
     sync::{Arc, Mutex},
@@ -33,7 +33,11 @@ impl Server {
     ) {
         let request = read_request(&mut stream).expect("Failed to read request");
         let response = handler.handle(request);
-        write_response(response, &mut stream).unwrap()
+        match write_response(response, &mut stream) {
+            Ok(_) => {}
+            Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
+            Err(err) => eprintln!("{err}"),
+        }
     }
 
     pub fn listen<H: RequestHandler + Send + Sync + 'static>(
@@ -192,11 +196,6 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
             Ok(None) => break,
             Err(err) => return Err(std::io::Error::other(err)),
         }
-    }
-
-    let last_bytes =  body.read_last().map_err(std::io::Error::other)?;
-    if let Some(bytes) = last_bytes{
-        stream.write_all(&bytes)?;
     }
 
     Ok(())
