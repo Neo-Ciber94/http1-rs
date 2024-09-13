@@ -1,5 +1,5 @@
 use http1::{
-    body::Body,
+    body::ChunkedBody,
     http::{response::Response, status::StatusCode},
     server::Server,
 };
@@ -12,13 +12,13 @@ fn main() {
     server
         .listen(|req| {
             println!("Request: {req:?}");
-            let (sender, body) = Body::stream();
+            let (chunked, sender) = ChunkedBody::new();
 
-            sender.send(b"Hello ".to_vec()).ok();
+            sender.send(b"<h1>Hello</h1>".to_vec()).ok();
 
             thread::spawn(move || {
                 thread::sleep(Duration::from_secs(2));
-                sender.send(b"World".to_vec()).ok();
+                sender.send(b"<h2>World</h2>".to_vec()).ok();
             });
 
             Response::builder()
@@ -27,7 +27,7 @@ fn main() {
                 .insert_header("Transfer-Encoding", "chunked")
                 .insert_header("Connection", "keep-alive")
                 .status(StatusCode::OK)
-                .build(body)
+                .build(chunked)
         })
         .unwrap();
 }

@@ -1,4 +1,8 @@
-use super::{headers::{HeaderName, Headers}, status::StatusCode, version::Version};
+use super::{
+    headers::{HeaderName, Headers},
+    status::StatusCode,
+    version::Version,
+};
 
 #[derive(Debug)]
 pub struct Response<T> {
@@ -97,8 +101,10 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn build<T>(self, body: T) -> Response<T> {
+    pub fn build<T>(self, body: impl Into<T>) -> Response<T> {
         let Self { status, headers } = self;
+        let body = body.into();
+
         Response {
             status,
             headers,
