@@ -16,7 +16,7 @@ struct BoxBodyInner<B: HttpBody>(B);
 impl<B: HttpBody> HttpBody for BoxBodyInner<B>
 where
     B: HttpBody,
-    B::Err: Error + Send + Sync + 'static,
+    B::Err: Into<BoxError>,
     B::Data: Into<Vec<u8>>,
 {
     type Err = BoxError;
@@ -35,7 +35,7 @@ struct BoxBody(Box<dyn HttpBody<Err = BoxError, Data = Vec<u8>>>);
 fn box_body<B>(body: B) -> BoxBody
 where
     B: HttpBody + 'static,
-    B::Err: Error + Send + Sync + 'static,
+    B::Err: Into<BoxError>,
     B::Data: Into<Vec<u8>>,
 {
     BoxBody(Box::new(BoxBodyInner(body)))
@@ -49,7 +49,7 @@ impl Body {
     pub fn new<B>(body: B) -> Self
     where
         B: HttpBody + 'static,
-        B::Err: Error + Send + Sync + 'static,
+        B::Err: Into<BoxError>,
         B::Data: Into<Vec<u8>>,
     {
         let inner = box_body(body);
@@ -151,22 +151,21 @@ impl Display for ChunkedBodyError {
 impl Error for ChunkedBodyError {}
 
 impl HttpBody for ChunkedBody {
-    type Err = ChunkedBodyError;
+    type Err = BoxError;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        fn send_chunk(chunk: Vec<u8>) -> Result<Vec<u8>, ChunkedBodyError> {
+        fn send_chunk(chunk: Vec<u8>) -> Result<Vec<u8>, BoxError> {
             let mut buf = Vec::new();
 
             // Write the chunk size
             let size = chunk.len();
-            write!(buf, "{size:X}\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+            write!(buf, "{size:X}\r\n")?;
 
             // Write the chunk data
-            buf.write_all(&chunk)
-                .map_err(|e| ChunkedBodyError(e.into()))?;
+            buf.write_all(&chunk)?;
 
-            write!(buf, "\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+            write!(buf, "\r\n")?;
             return Ok(buf);
         }
 
@@ -178,7 +177,7 @@ impl HttpBody for ChunkedBody {
                     Err(TryRecvError::Disconnected) => {
                         let _ = self.0.take(); // Drop the receiver if the sender was disconnected
                         let mut buf = Vec::new();
-                        write!(buf, "0\r\n\r\n").map_err(|e| ChunkedBodyError(e.into()))?;
+                        write!(buf, "0\r\n\r\n")?;
                         return Ok(Some(buf));
                     }
                     Err(_) => {}
@@ -187,7 +186,7 @@ impl HttpBody for ChunkedBody {
                 // Otherwise wait for the next chunk
                 match rx.recv() {
                     Ok(chunk) => send_chunk(chunk).map(Some),
-                    Err(err) => Err(ChunkedBodyError(err.into())),
+                    Err(err) => Err(err.into()),
                 }
             }
             None => Ok(None),
