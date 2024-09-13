@@ -27,7 +27,7 @@ fn main() {
                 .insert_header("Transfer-Encoding", "chunked")
                 .insert_header("Connection", "keep-alive")
                 .status(StatusCode::OK)
-                .build(chunked)
+                .build(chunked.into())
         })
         .unwrap();
 }
