@@ -140,13 +140,20 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
 
 fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
     let version = response.version();
-    let (status, headers, mut body) = response.into_parts();
+    let (status, mut headers, mut body) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
     write!(stream, "{version} {status} {reason_phrase}\r\n")?;
 
     // 2. Write headers
+    if let Some(content_length) = body.size_hint() {
+        headers.insert(
+            HeaderName::from_static("Content-Length"),
+            content_length.to_string(),
+        );
+    }
+
     for (name, mut values) in headers {
         write!(stream, "{name}: ")?;
 
@@ -164,31 +171,6 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
 
     // Headers end
     write!(stream, "\r\n")?;
-
-    // 3. Write body
-    // match body {
-    //     Body::Payload(mut data) => {
-    //         stream.write_all(data.as_mut())?;
-    //         stream.flush()?;
-    //     }
-    //     Body::Stream(recv) => {
-    //         while let Ok(mut chunk) = recv.recv() {
-    //             // Write the chunk size
-    //             let size = chunk.len();
-    //             write!(stream, "{size:X}\r\n")?;
-
-    //             // Write the chunk data
-    //             stream.write_all(chunk.as_mut())?;
-    //             write!(stream, "\r\n")?;
-
-    //             // Send
-    //             stream.flush()?;
-    //         }
-
-    //         // Last chunk
-    //         write!(stream, "0\r\n\r\n")?;
-    //     }
-    // }
 
     loop {
         match body.read_next() {
