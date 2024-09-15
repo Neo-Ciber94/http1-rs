@@ -63,11 +63,10 @@ impl DateTime {
 
     pub fn month(&self) -> u32 {
         let millis = self.as_millis();
-        let years = self.year() as u128 - YEAR_EPOCH as u128;
-        let years_millis = years * YEAR_IN_MILLIS;
-        let mut remaining_ms = millis - years_millis;
+        let total_millis_until_year = millis_until_year(self.year());
+        let mut remaining_ms = millis - total_millis_until_year;
 
-        let days_in_month = if is_leap_year(years as u64) {
+        let days_in_month = if is_leap_year(self.year() as u64) {
             &DAYS_IN_MONTH_LEAP
         } else {
             &DAYS_IN_MONTH_COMMON
@@ -90,9 +89,8 @@ impl DateTime {
     pub fn day_of_month(&self) -> u8 {
         let millis = self.as_millis();
         let total_millis_until_year = millis_until_year(self.year());
-
-        // Remaining milliseconds after subtracting the full years
         let mut remaining_ms = millis - total_millis_until_year;
+
         let days_in_month = if is_leap_year(self.year() as u64) {
             &DAYS_IN_MONTH_LEAP
         } else {
