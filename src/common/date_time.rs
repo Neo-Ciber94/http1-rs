@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{fmt::Display, time::SystemTime};
 
 const SECONDS_IN_MILLIS: u128 = 1000;
 const MINUTES_IN_MILLIS: u128 = SECONDS_IN_MILLIS * 60;
@@ -16,7 +16,78 @@ const DAYS_IN_MONTH_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30
 //
 const YEAR_EPOCH: u32 = 1970;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Month {
+    January = 0,
+    February,
+    March,
+    April,
+    May,
+    June,
+    July,
+    August,
+    September,
+    October,
+    November,
+    December,
+}
+
+impl Month {
+    pub fn as_u8(&self) -> u8 {
+        *self as u8
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Month::January => "January",
+            Month::February => "February",
+            Month::March => "March",
+            Month::April => "April",
+            Month::May => "May",
+            Month::June => "June",
+            Month::July => "July",
+            Month::August => "August",
+            Month::September => "September",
+            Month::October => "October",
+            Month::November => "November",
+            Month::December => "December",
+        }
+    }
+}
+
+impl Display for Month {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidMonthIndex;
+
+impl TryFrom<u8> for Month {
+    type Error = InvalidMonthIndex;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Month::January),
+            1 => Ok(Month::February),
+            2 => Ok(Month::March),
+            3 => Ok(Month::April),
+            4 => Ok(Month::May),
+            5 => Ok(Month::June),
+            6 => Ok(Month::July),
+            7 => Ok(Month::August),
+            8 => Ok(Month::September),
+            9 => Ok(Month::October),
+            10 => Ok(Month::November),
+            11 => Ok(Month::December),
+            _ => Err(InvalidMonthIndex),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DateTime(u128);
 
 impl DateTime {
@@ -50,7 +121,7 @@ impl DateTime {
     }
 
     pub fn year(&self) -> u64 {
-        let mut remaining_days: u64 = self.as_days() as u64;
+        let mut remaining_days = self.as_days() as u64;
         let mut year = YEAR_EPOCH as u64;
 
         while remaining_days >= days_in_year(year) {
@@ -114,19 +185,108 @@ impl DateTime {
     }
 
     pub fn hours(&self) -> u8 {
-        todo!()
+        let remaining_ms_in_day = self.remaining_ms_in_day();
+        (remaining_ms_in_day / HOURS_IN_MILLIS) as u8
     }
 
     pub fn minutes(&self) -> u8 {
-        todo!()
+        let remaining_ms_in_day = self.remaining_ms_in_day();
+        let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
+        (remaining_ms_in_hour / MINUTES_IN_MILLIS) as u8
     }
 
     pub fn secs(&self) -> u8 {
-        todo!()
+        let remaining_ms_in_day = self.remaining_ms_in_day();
+        let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
+        let remaining_ms_in_minute = remaining_ms_in_hour % MINUTES_IN_MILLIS;
+        (remaining_ms_in_minute / SECONDS_IN_MILLIS) as u8
     }
 
     pub fn millis(&self) -> u16 {
-        todo!()
+        let remaining_ms_in_day = self.remaining_ms_in_day();
+        let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
+        let remaining_ms_in_minute = remaining_ms_in_hour % MINUTES_IN_MILLIS;
+        let remaining_ms_in_second = remaining_ms_in_minute % SECONDS_IN_MILLIS;
+        remaining_ms_in_second as u16
+    }
+
+    fn remaining_ms_in_day(&self) -> u128 {
+        let millis = self.as_millis();
+        let days = self.as_days();
+        let millis_in_full_days = days * DAYS_IN_MILLIS;
+        millis - millis_in_full_days
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DateTimeInfo {
+    pub year: u64,
+    pub month: u8,
+    pub day: u8,
+    pub hours: u8,
+    pub minutes: u8,
+    pub secs: u8,
+    pub millis: u16,
+}
+
+impl DateTime {
+    fn fmt_to_iso_8601_string(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let year: u64 = self.year();
+        let day = self.day_of_month();
+        let month = self.month() + 1;
+        let hour = self.hours();
+        let mins = self.minutes();
+        let secs = self.secs();
+        let millis = self.millis();
+
+        write!(
+            f,
+            "{year:04}-{month:02}-{day:02}T{hour:02}:{mins:02}:{secs:02}:{millis:03}Z"
+        )
+    }
+
+    pub fn to_iso_8601_string(&self) -> String {
+        self.fmt_with(
+            |DateTimeInfo {
+                 year,
+                 month,
+                 day,
+                 hours,
+                 minutes,
+                 secs,
+                 millis,
+             }| {
+                format!(
+                    "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}:{millis:03}Z"
+                )
+            },
+        )
+    }
+
+    pub fn fmt_with<F: FnOnce(DateTimeInfo) -> String>(&self, f: F) -> String {
+        let year = self.year();
+        let day = self.day_of_month();
+        let month = self.month() as u8 + 1;
+        let hours = self.hours();
+        let minutes = self.minutes();
+        let secs = self.secs();
+        let millis = self.millis();
+
+        f(DateTimeInfo {
+            year,
+            day,
+            month,
+            hours,
+            minutes,
+            secs,
+            millis,
+        })
+    }
+}
+
+impl Display for DateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt_to_iso_8601_string(f)
     }
 }
 
@@ -268,6 +428,15 @@ mod tests {
         let now = DateTime::now_utc();
         assert_eq!(now.year(), 2024);
         assert_eq!(now.month(), 8);
-        assert_eq!(now.day_of_month(), 15);
+        assert_eq!(now.day_of_month(), 16);
+        assert_eq!(now.hours(), 20)
+    }
+
+    #[test]
+    fn should_display_date_in_iso_format() {
+        let d = DateTime::now_utc();
+
+        println!("{d}");
+        assert_eq!(d.to_string(), "2024-09-15".to_owned())
     }
 }
