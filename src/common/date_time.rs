@@ -132,7 +132,7 @@ impl DateTime {
         year
     }
 
-    pub fn month(&self) -> u32 {
+    pub fn month(&self) -> Month {
         let millis = self.as_millis();
         let total_millis_until_year = millis_until_year(self.year());
         let mut remaining_ms = millis - total_millis_until_year;
@@ -148,13 +148,13 @@ impl DateTime {
             let month_ms = days as u128 * DAYS_IN_MILLIS;
 
             if remaining_ms < month_ms {
-                return month_idx as u32;
+                return Month::try_from(month_idx as u8).expect("Failed to get month from index");
             }
 
             remaining_ms -= month_ms;
         }
 
-        11
+        Month::December
     }
 
     pub fn day_of_month(&self) -> u8 {
@@ -233,7 +233,7 @@ impl DateTime {
     fn fmt_to_iso_8601_string(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let year: u64 = self.year();
         let day = self.day_of_month();
-        let month = self.month() + 1;
+        let month = self.month().as_u8() + 1;
         let hour = self.hours();
         let mins = self.minutes();
         let secs = self.secs();
@@ -266,7 +266,7 @@ impl DateTime {
     pub fn fmt_with<F: FnOnce(DateTimeInfo) -> String>(&self, f: F) -> String {
         let year = self.year();
         let day = self.day_of_month();
-        let month = self.month() as u8 + 1;
+        let month = self.month().as_u8() + 1;
         let hours = self.hours();
         let minutes = self.minutes();
         let secs = self.secs();
@@ -421,13 +421,15 @@ fn is_leap_year(year: u64) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::date_time::Month;
+
     use super::DateTime;
 
     #[test]
     fn should_get_date_year() {
         let now = DateTime::now_utc();
         assert_eq!(now.year(), 2024);
-        assert_eq!(now.month(), 8);
+        assert_eq!(now.month(), Month::September);
         assert_eq!(now.day_of_month(), 16);
         assert_eq!(now.hours(), 20)
     }
