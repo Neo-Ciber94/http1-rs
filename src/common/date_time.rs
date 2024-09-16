@@ -91,6 +91,10 @@ impl TryFrom<u8> for Month {
 pub struct DateTime(u128);
 
 impl DateTime {
+    pub fn builder() -> Builder {
+        Builder::new()
+    }
+
     pub fn now_utc() -> Self {
         let system_time = SystemTime::now();
         let duration = system_time
