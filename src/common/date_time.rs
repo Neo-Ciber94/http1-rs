@@ -108,7 +108,7 @@ impl DateTime {
         Self(ms)
     }
 
-    pub fn with_yymmdd(year: u32, month: u8, day: u8) -> Self {
+    pub fn with_yymmdd(year: u32, month: Month, day: u8) -> Self {
         Builder::new().year(year).month(month).day(day).build()
     }
 
@@ -250,7 +250,7 @@ impl DateTime {
     }
 
     pub fn to_iso_8601_string(&self) -> String {
-        self.fmt_with(
+        self.map(
             |DateTimeInfo {
                  year,
                  month,
@@ -261,13 +261,13 @@ impl DateTime {
                  millis,
              }| {
                 format!(
-                    "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}:{millis:03}Z"
+                    "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}.{millis:03}Z"
                 )
             },
         )
     }
 
-    pub fn fmt_with<F: FnOnce(DateTimeInfo) -> String>(&self, f: F) -> String {
+    pub fn map<F: FnOnce(&DateTimeInfo) -> String>(&self, f: F) -> String {
         let year = self.year();
         let day = self.day_of_month();
         let month = self.month().as_u8() + 1;
@@ -276,7 +276,7 @@ impl DateTime {
         let secs = self.secs();
         let millis = self.millis();
 
-        f(DateTimeInfo {
+        f(&DateTimeInfo {
             year,
             day,
             month,
@@ -297,7 +297,7 @@ impl Display for DateTime {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Builder {
     year: u32,
-    month: u8,
+    month: Month,
     day: u8,
     hours: u8,
     minutes: u8,
@@ -309,7 +309,7 @@ impl Builder {
     pub fn new() -> Self {
         Builder {
             year: 1970,
-            month: 0,
+            month: Month::January,
             day: 0,
             hours: 0,
             minutes: 0,
@@ -323,7 +323,7 @@ impl Builder {
         self
     }
 
-    pub fn month(mut self, month: u8) -> Self {
+    pub fn month(mut self, month: Month) -> Self {
         self.month = month;
         self
     }
@@ -379,12 +379,12 @@ impl Builder {
             &DAYS_IN_MONTH_COMMON
         };
 
-        for m in 0..(month + 1) as usize {
+        for m in 0..(month as usize) {
             ms += days_in_month[m] as u128 * DAYS_IN_MILLIS;
         }
 
         // Add milliseconds for the remaining days, hours, seconds, and millis
-        ms += (day as u128) * DAYS_IN_MILLIS;
+        ms += (day as u128 - 1) * DAYS_IN_MILLIS;
         ms += hours as u128 * HOURS_IN_MILLIS;
         ms += minutes as u128 * MINUTES_IN_MILLIS;
         ms += secs as u128 * SECONDS_IN_MILLIS;
@@ -430,19 +430,38 @@ mod tests {
     use super::DateTime;
 
     #[test]
-    fn should_get_date_year() {
-        let now = DateTime::now_utc();
-        assert_eq!(now.year(), 2024);
-        assert_eq!(now.month(), Month::September);
-        assert_eq!(now.day_of_month(), 16);
-        assert_eq!(now.hours(), 20)
+    fn should_create_date_with_builder() {
+        let dt = DateTime::builder()
+            .year(2024)
+            .month(Month::September)
+            .day(20)
+            .hours(18)
+            .minutes(30)
+            .secs(45)
+            .millis(190)
+            .build();
+
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), Month::September);
+        assert_eq!(dt.day_of_month(), 20);
+        assert_eq!(dt.hours(), 18);
+        assert_eq!(dt.minutes(), 30);
+        assert_eq!(dt.secs(), 45);
+        assert_eq!(dt.millis(), 190);
     }
 
     #[test]
-    fn should_display_date_in_iso_format() {
-        let d = DateTime::now_utc();
+    fn should_display_date_as_iso_format() {
+        let dt = DateTime::builder()
+            .year(2025)
+            .month(Month::January)
+            .day(3)
+            .hours(16)
+            .minutes(15)
+            .secs(42)
+            .millis(555)
+            .build();
 
-        println!("{d}");
-        assert_eq!(d.to_string(), "2024-09-15".to_owned())
+        assert_eq!(dt.to_iso_8601_string(), "2025-01-03T16:15:42.555Z")
     }
 }
