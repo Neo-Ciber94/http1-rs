@@ -10,6 +10,7 @@ fn main() {
     let server = Server::new(addr);
 
     server
+        .on_ready(|addr| println!("Listening on http://{addr}"))
         .listen(|req| {
             println!("Request: {req:?}");
             let (chunked, sender) = ChunkedBody::new();

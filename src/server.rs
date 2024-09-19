@@ -20,11 +20,15 @@ use crate::{
 
 pub struct Server {
     addr: SocketAddr,
+    on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
 }
 
 impl Server {
     pub fn new(addr: SocketAddr) -> Self {
-        Server { addr }
+        Server {
+            addr,
+            on_ready: None,
+        }
     }
 
     fn handle_incoming(
@@ -40,15 +44,22 @@ impl Server {
         }
     }
 
+    pub fn on_ready<F: FnOnce(&SocketAddr) + 'static>(mut self, f: F) -> Self {
+        self.on_ready = Some(Box::new(f));
+        self
+    }
+
     pub fn listen<H: RequestHandler + Send + Sync + 'static>(
-        self,
+        mut self,
         handler: H,
     ) -> std::io::Result<()> {
         let addr = self.addr;
-        let listener = TcpListener::bind(&self.addr)?;
+        let listener = TcpListener::bind(&addr)?;
         let handler_mutex = Mutex::new(Arc::new(handler));
 
-        println!("Listening on: {addr:?}");
+        if let Some(on_ready) = self.on_ready.take() {
+            on_ready(&addr)
+        }
 
         for connection in listener.incoming() {
             match connection {
