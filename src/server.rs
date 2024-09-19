@@ -7,6 +7,7 @@ use std::{
 
 use crate::{
     body::{http_body::HttpBody, Body},
+    common::date_time::DateTime,
     handler::RequestHandler,
     http::{
         headers::{self, HeaderName, Headers},
@@ -18,9 +19,15 @@ use crate::{
     },
 };
 
+#[derive(Clone, Debug)]
+struct ServerConfig {
+    include_date_header: bool,
+}
+
 pub struct Server {
     addr: SocketAddr,
     on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
+    include_date_header: bool,
 }
 
 impl Server {
@@ -28,19 +35,7 @@ impl Server {
         Server {
             addr,
             on_ready: None,
-        }
-    }
-
-    fn handle_incoming(
-        handler: Arc<dyn RequestHandler + Send + Sync + 'static>,
-        mut stream: TcpStream,
-    ) {
-        let request = read_request(&mut stream).expect("Failed to read request");
-        let response = handler.handle(request);
-        match write_response(response, &mut stream) {
-            Ok(_) => {}
-            Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
-            Err(err) => eprintln!("{err}"),
+            include_date_header: true,
         }
     }
 
@@ -49,15 +44,43 @@ impl Server {
         self
     }
 
+    pub fn include_date_header(mut self, include: bool) -> Self {
+        self.include_date_header = include;
+        self
+    }
+
+    fn handle_incoming(
+        handler: Arc<dyn RequestHandler + Send + Sync + 'static>,
+        config: ServerConfig,
+        mut stream: TcpStream,
+    ) {
+        let request = read_request(&mut stream).expect("Failed to read request");
+        let response = handler.handle(request);
+        match write_response(response, &mut stream, &config) {
+            Ok(_) => {}
+            Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
+            Err(err) => eprintln!("{err}"),
+        }
+    }
+
     pub fn listen<H: RequestHandler + Send + Sync + 'static>(
-        mut self,
+        self,
         handler: H,
     ) -> std::io::Result<()> {
-        let addr = self.addr;
+        let Self {
+            addr,
+            include_date_header,
+            mut on_ready,
+        } = self;
+
+        let server_config = ServerConfig {
+            include_date_header,
+        };
+
         let listener = TcpListener::bind(&addr)?;
         let handler_mutex = Mutex::new(Arc::new(handler));
 
-        if let Some(on_ready) = self.on_ready.take() {
+        if let Some(on_ready) = on_ready.take() {
             on_ready(&addr)
         }
 
@@ -66,7 +89,10 @@ impl Server {
                 Ok(stream) => {
                     let lock = handler_mutex.lock().expect("Failed to acquire lock");
                     let request_handler = lock.clone();
-                    std::thread::spawn(move || Self::handle_incoming(request_handler, stream));
+                    let config = server_config.clone();
+                    std::thread::spawn(move || {
+                        Self::handle_incoming(request_handler, config, stream)
+                    });
                 }
                 Err(err) => return Err(err),
             }
@@ -149,7 +175,11 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
     Some((key.to_owned(), values))
 }
 
-fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::Result<()> {
+fn write_response(
+    response: Response<Body>,
+    stream: &mut TcpStream,
+    config: &ServerConfig,
+) -> std::io::Result<()> {
     let version = response.version();
     let (status, mut headers, mut body) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
@@ -158,6 +188,10 @@ fn write_response(response: Response<Body>, stream: &mut TcpStream) -> std::io::
     write!(stream, "{version} {status} {reason_phrase}\r\n")?;
 
     // 2. Write headers
+    if config.include_date_header {
+        headers.insert(headers::DATE, DateTime::now_utc().to_string());
+    }
+
     if let Some(content_length) = body.size_hint() {
         headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
     }
