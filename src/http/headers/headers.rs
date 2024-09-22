@@ -2,7 +2,13 @@ use core::str;
 
 use private::Sealed;
 
-use super::{entry::HeaderEntry, non_empty_list::NonEmptyList, value::HeaderValue, HeaderName};
+use super::{non_empty_list::NonEmptyList, value::HeaderValue, HeaderName};
+
+#[derive(Debug, Clone)]
+struct HeaderEntry {
+    pub(crate) key: HeaderName,
+    pub(crate) value: NonEmptyList<HeaderValue>,
+}
 
 #[derive(Default, Debug, Clone)]
 pub struct Headers {
@@ -28,7 +34,7 @@ impl Headers {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.get(idx)?;
-                entry.iter().next()
+                entry.value.iter().next()
             }
             None => None,
         }
@@ -38,7 +44,7 @@ impl Headers {
         let iter = key
             .find(&self)
             .map(|idx| &self.entries[idx])
-            .map(|x| x.iter());
+            .map(|x| x.value.iter());
 
         GetAll { iter }
     }
@@ -95,7 +101,7 @@ impl Headers {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.remove(idx);
-                Some(entry.take())
+                Some(entry.value.take_first())
             }
             None => None,
         }
@@ -213,7 +219,7 @@ impl<'a> Iterator for Iter<'a> {
 
         let entry = self.entries.get(self.index)?;
         self.index += 1;
-        Some((&entry.key, entry.iter()))
+        Some((&entry.key, entry.value.iter()))
     }
 }
 
@@ -240,7 +246,7 @@ impl Iterator for IntoIter {
 
         let entry = self.entries.remove(0);
         let key = entry.key.clone();
-        Some((key, entry.into_iter()))
+        Some((key, entry.value.into_iter()))
     }
 }
 
