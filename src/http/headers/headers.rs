@@ -498,4 +498,22 @@ mod tests {
 
         assert!(iter.next().is_none());
     }
+
+    #[test]
+    fn should_extend_headers() {
+        let mut first = Headers::new();
+        first.append("numbers".into(), "1");
+        first.append("fruits".into(), "apple");
+
+        let mut second = Headers::new();
+        second.append("color".into(), "red");
+        second.append("animal".into(), "fox");
+
+        first.extend(second);
+
+        assert_eq!(first.get("numbers"), Some(&HeaderValue::from("1")));
+        assert_eq!(first.get("fruits"), Some(&HeaderValue::from("apple")));
+        assert_eq!(first.get("color"), Some(&HeaderValue::from("red")));
+        assert_eq!(first.get("animal"), Some(&HeaderValue::from("fox")));
+    }
 }
