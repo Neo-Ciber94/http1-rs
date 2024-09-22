@@ -181,13 +181,36 @@ fn write_response(
     config: &ServerConfig,
 ) -> std::io::Result<()> {
     let version = response.version();
-    let (status, mut headers, mut body) = response.into_parts();
+    let (status, headers, mut body) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
     write!(stream, "{version} {status} {reason_phrase}\r\n")?;
 
     // 2. Write headers
+    write_headers(headers, &body, stream, config)?;
+
+    // 3. Write body
+    loop {
+        match body.read_next() {
+            Ok(Some(bytes)) => {
+                stream.write_all(&bytes)?;
+                stream.flush()?;
+            }
+            Ok(None) => break,
+            Err(err) => return Err(std::io::Error::other(err)),
+        }
+    }
+
+    Ok(())
+}
+
+fn write_headers(
+    mut headers: Headers,
+    body: &Body,
+    stream: &mut TcpStream,
+    config: &ServerConfig,
+) -> std::io::Result<()> {
     if config.include_date_header {
         headers.insert(headers::DATE, DateTime::now_utc().to_string());
     }
@@ -213,17 +236,6 @@ fn write_response(
 
     // Headers end
     write!(stream, "\r\n")?;
-
-    loop {
-        match body.read_next() {
-            Ok(Some(bytes)) => {
-                stream.write_all(&bytes)?;
-                stream.flush()?;
-            }
-            Ok(None) => break,
-            Err(err) => return Err(std::io::Error::other(err)),
-        }
-    }
 
     Ok(())
 }
