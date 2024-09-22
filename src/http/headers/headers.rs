@@ -151,6 +151,48 @@ impl Headers {
     }
 }
 
+impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a, HeaderValue>)> for Headers {
+    fn extend<T: IntoIterator<Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>)>>(
+        &mut self,
+        iter: T,
+    ) {
+        for (name, values) in iter {
+            for val in values {
+                self.append(name.clone(), val.clone());
+            }
+        }
+    }
+}
+
+impl<'a> Extend<(HeaderName, super::entry::IntoIter<HeaderValue>)> for Headers {
+    fn extend<T: IntoIterator<Item = (HeaderName, super::entry::IntoIter<HeaderValue>)>>(
+        &mut self,
+        iter: T,
+    ) {
+        for (name, values) in iter {
+            for val in values {
+                self.append(name.clone(), val.clone());
+            }
+        }
+    }
+}
+
+impl Extend<(HeaderName, HeaderValue)> for Headers {
+    fn extend<T: IntoIterator<Item = (HeaderName, HeaderValue)>>(&mut self, iter: T) {
+        for (name, value) in iter {
+            self.append(name, value);
+        }
+    }
+}
+
+impl<'a> Extend<(&'a HeaderName, &'a HeaderValue)> for Headers {
+    fn extend<T: IntoIterator<Item = (&'a HeaderName, &'a HeaderValue)>>(&mut self, iter: T) {
+        for (name, value) in iter {
+            self.append(name.clone(), value.clone());
+        }
+    }
+}
+
 pub struct GetAll<'a> {
     iter: Option<super::entry::Iter<'a, HeaderValue>>,
 }
