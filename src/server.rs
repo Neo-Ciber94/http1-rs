@@ -128,7 +128,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
         }
 
         if let Some((key, values)) = read_header(line) {
-            values.iter().for_each(|v| {
+            values.into_iter().for_each(|v| {
                 headers.append(HeaderName::from_string(key.clone()), v);
             })
         }
@@ -200,12 +200,12 @@ fn write_response(
         write!(stream, "{name}: ")?;
 
         if let Some(first_value) = values.next() {
-            stream.write_all(first_value.as_bytes())?;
+            stream.write_all(first_value.as_str().as_bytes())?;
         }
 
         for value in values {
             stream.write_all(b", ")?;
-            stream.write_all(value.as_bytes())?;
+            stream.write_all(value.as_str().as_bytes())?;
         }
 
         stream.write_all(b"\r\n")?;

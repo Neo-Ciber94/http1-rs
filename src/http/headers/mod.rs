@@ -1,9 +1,11 @@
 mod entry;
 mod headers;
 mod name;
+mod value;
 
 pub use headers::*;
 pub use name::*;
+pub use value::*;
 
 // Headers
 

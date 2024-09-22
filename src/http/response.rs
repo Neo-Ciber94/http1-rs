@@ -1,5 +1,5 @@
 use super::{
-    headers::{HeaderName, Headers},
+    headers::{HeaderName, HeaderValue, Headers},
     status::StatusCode,
     version::Version,
 };
@@ -91,12 +91,12 @@ impl ResponseBuilder {
         &mut self.headers
     }
 
-    pub fn insert_header<K: Into<HeaderName>>(mut self, key: K, value: impl Into<String>) -> Self {
+    pub fn insert_header<K: Into<HeaderName>>(mut self, key: K, value: impl Into<HeaderValue>) -> Self {
         self.headers.insert(key.into(), value);
         self
     }
 
-    pub fn append_header<K: Into<HeaderName>>(mut self, key: K, value: impl Into<String>) -> Self {
+    pub fn append_header<K: Into<HeaderName>>(mut self, key: K, value: impl Into<HeaderValue>) -> Self {
         self.headers.append(key.into(), value);
         self
     }

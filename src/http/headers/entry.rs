@@ -1,33 +1,33 @@
 use super::HeaderName;
 
 #[derive(Debug, Clone)]
-pub enum EntryValue {
-    Single(String),
-    List(Vec<String>),
+pub enum EntryValue<T> {
+    Single(T),
+    List(Vec<T>),
 }
 
 #[derive(Debug, Clone)]
-pub struct Entry {
+pub struct HeaderEntry<T> {
     pub(crate) key: HeaderName,
-    pub(crate) value: EntryValue,
+    pub(crate) value: EntryValue<T>,
 }
 
-impl Entry {
-    pub fn take(self) -> String {
+impl<T> HeaderEntry<T> {
+    pub fn take(self) -> T {
         match self.value {
             EntryValue::Single(x) => x,
             EntryValue::List(mut list) => list.remove(0),
         }
     }
 
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<T> {
         match &self.value {
             EntryValue::Single(x) => Iter::Once(Some(x)),
             EntryValue::List(values) => Iter::List { values, pos: 0 },
         }
     }
 
-    pub fn into_iter(self) -> IntoIter {
+    pub fn into_iter(self) -> IntoIter<T> {
         match self.value {
             EntryValue::Single(x) => IntoIter::Once(Some(x)),
             EntryValue::List(values) => IntoIter::List { values },
@@ -35,13 +35,13 @@ impl Entry {
     }
 }
 
-pub enum Iter<'a> {
-    Once(Option<&'a str>),
-    List { values: &'a Vec<String>, pos: usize },
+pub enum Iter<'a, T> {
+    Once(Option<&'a T>),
+    List { values: &'a Vec<T>, pos: usize },
 }
 
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a str;
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -49,19 +49,19 @@ impl<'a> Iterator for Iter<'a> {
             Iter::List { values, pos } => {
                 let next = values.get(*pos)?;
                 *pos += 1;
-                Some(next.as_str())
+                Some(next)
             }
         }
     }
 }
 
-pub enum IntoIter {
-    Once(Option<String>),
-    List { values: Vec<String> },
+pub enum IntoIter<T> {
+    Once(Option<T>),
+    List { values: Vec<T> },
 }
 
-impl Iterator for IntoIter {
-    type Item = String;
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {

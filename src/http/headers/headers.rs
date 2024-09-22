@@ -3,13 +3,14 @@ use core::str;
 use private::Sealed;
 
 use super::{
-    entry::{Entry, EntryValue},
+    entry::{EntryValue, HeaderEntry},
+    value::HeaderValue,
     HeaderName,
 };
 
 #[derive(Default, Debug, Clone)]
 pub struct Headers {
-    entries: Vec<Entry>,
+    entries: Vec<HeaderEntry<HeaderValue>>,
 }
 
 impl Headers {
@@ -27,13 +28,13 @@ impl Headers {
         self.entries.is_empty()
     }
 
-    pub fn get(&self, key: impl AsHeaderName) -> Option<&str> {
+    pub fn get(&self, key: impl AsHeaderName) -> Option<&HeaderValue> {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.get(idx)?;
                 match &entry.value {
-                    EntryValue::Single(x) => Some(x.as_str()),
-                    EntryValue::List(list) => Some(list[0].as_str()),
+                    EntryValue::Single(x) => Some(x),
+                    EntryValue::List(list) => Some(&list[0]),
                 }
             }
             None => None,
@@ -49,7 +50,7 @@ impl Headers {
         GetAll { iter }
     }
 
-    pub fn get_mut(&mut self, key: impl AsHeaderName) -> Option<&mut String> {
+    pub fn get_mut(&mut self, key: impl AsHeaderName) -> Option<&mut HeaderValue> {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.get_mut(idx)?;
@@ -66,7 +67,11 @@ impl Headers {
         key.find(self).is_some()
     }
 
-    pub fn insert(&mut self, key: HeaderName, value: impl Into<String>) -> Option<String> {
+    pub fn insert(
+        &mut self,
+        key: HeaderName,
+        value: impl Into<HeaderValue>,
+    ) -> Option<HeaderValue> {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -77,7 +82,7 @@ impl Headers {
                 }
             }
             None => {
-                self.entries.push(Entry {
+                self.entries.push(HeaderEntry {
                     key,
                     value: EntryValue::Single(value.into()),
                 });
@@ -86,7 +91,7 @@ impl Headers {
         }
     }
 
-    pub fn append(&mut self, key: HeaderName, value: impl Into<String>) -> bool {
+    pub fn append(&mut self, key: HeaderName, value: impl Into<HeaderValue>) -> bool {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -103,7 +108,7 @@ impl Headers {
                 true
             }
             None => {
-                self.entries.push(Entry {
+                self.entries.push(HeaderEntry {
                     key,
                     value: EntryValue::Single(value.into()),
                 });
@@ -112,7 +117,7 @@ impl Headers {
         }
     }
 
-    pub fn remove(&mut self, key: impl AsHeaderName) -> Option<String> {
+    pub fn remove(&mut self, key: impl AsHeaderName) -> Option<HeaderValue> {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.remove(idx);
@@ -147,11 +152,11 @@ impl Headers {
 }
 
 pub struct GetAll<'a> {
-    iter: Option<super::entry::Iter<'a>>,
+    iter: Option<super::entry::Iter<'a, HeaderValue>>,
 }
 
 impl<'a> Iterator for GetAll<'a> {
-    type Item = &'a str;
+    type Item = &'a HeaderValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter {
@@ -162,7 +167,7 @@ impl<'a> Iterator for GetAll<'a> {
 }
 
 pub struct Keys<'a> {
-    iter: std::slice::Iter<'a, Entry>,
+    iter: std::slice::Iter<'a, HeaderEntry<HeaderValue>>,
 }
 
 impl<'a> Iterator for Keys<'a> {
@@ -174,12 +179,12 @@ impl<'a> Iterator for Keys<'a> {
 }
 
 pub struct Iter<'a> {
-    entries: &'a Vec<Entry>,
+    entries: &'a Vec<HeaderEntry<HeaderValue>>,
     index: usize,
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (&'a HeaderName, super::entry::Iter<'a>);
+    type Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index > self.entries.len() {
@@ -193,7 +198,7 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a Headers {
-    type Item = (&'a HeaderName, super::entry::Iter<'a>);
+    type Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>);
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -202,11 +207,11 @@ impl<'a> IntoIterator for &'a Headers {
 }
 
 pub struct IntoIter {
-    entries: Vec<Entry>,
+    entries: Vec<HeaderEntry<HeaderValue>>,
 }
 
 impl Iterator for IntoIter {
-    type Item = (HeaderName, super::entry::IntoIter);
+    type Item = (HeaderName, super::entry::IntoIter<HeaderValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.entries.is_empty() {
@@ -220,7 +225,7 @@ impl Iterator for IntoIter {
 }
 
 impl IntoIterator for Headers {
-    type Item = (HeaderName, super::entry::IntoIter);
+    type Item = (HeaderName, super::entry::IntoIter<HeaderValue>);
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -278,6 +283,8 @@ mod private {
 
 #[cfg(test)]
 mod tests {
+    use crate::http::headers::value::HeaderValue;
+
     use super::Headers;
 
     #[test]
@@ -296,18 +303,21 @@ mod tests {
         headers.insert("xyz".into(), "2");
         headers.insert("JKL".into(), "3");
 
-        assert_eq!(headers.get("ABC"), Some("1"));
-        assert_eq!(headers.get("XyZ"), Some("2"));
-        assert_eq!(headers.get("jKl"), Some("3"));
+        assert_eq!(headers.get("ABC"), Some(&HeaderValue::from("1")));
+        assert_eq!(headers.get("XyZ"), Some(&HeaderValue::from("2")));
+        assert_eq!(headers.get("jKl"), Some(&HeaderValue::from("3")));
     }
 
     #[test]
     fn should_get_mut() {
         let mut headers = Headers::new();
         headers.insert("Accept".into(), "hello");
-        headers.get_mut("accept").unwrap().push_str("-world");
+        *headers.get_mut("accept").unwrap() = HeaderValue::from("hello-world");
 
-        assert_eq!(headers.get("accept"), Some("hello-world"));
+        assert_eq!(
+            headers.get("accept"),
+            Some(&HeaderValue::from("hello-world"))
+        );
     }
 
     #[test]
@@ -317,10 +327,17 @@ mod tests {
         headers.append("Fruits".into(), "strawberry");
         headers.append("Fruits".into(), "banana");
 
-        assert_eq!(headers.get("fruits"), Some("apple"));
+        assert_eq!(headers.get("fruits"), Some(&HeaderValue::from("apple")));
         assert_eq!(
-            headers.get_all("fruits").collect::<Vec<&str>>(),
-            vec!["apple", "strawberry", "banana"]
+            headers
+                .get_all("fruits")
+                .cloned()
+                .collect::<Vec<HeaderValue>>(),
+            vec![
+                HeaderValue::from("apple"),
+                HeaderValue::from("strawberry"),
+                HeaderValue::from("banana")
+            ]
         );
     }
 
@@ -333,8 +350,14 @@ mod tests {
         headers.insert("accept".into(), "text/plain");
         headers.insert("accept-encoding".into(), "br");
 
-        assert_eq!(headers.get("accept"), Some("text/plain"));
-        assert_eq!(headers.get("accept-encoding"), Some("br"))
+        assert_eq!(
+            headers.get("accept"),
+            Some(&HeaderValue::from("text/plain"))
+        );
+        assert_eq!(
+            headers.get("accept-encoding"),
+            Some(&HeaderValue::from("br"))
+        )
     }
 
     #[test]
@@ -344,13 +367,13 @@ mod tests {
         headers.insert("xyz".into(), "2");
         headers.insert("JKL".into(), "3");
 
-        assert_eq!(headers.remove("abc"), Some("1".to_owned()));
+        assert_eq!(headers.remove("abc"), Some(HeaderValue::from("1")));
         assert_eq!(headers.remove("abc"), None);
 
-        assert_eq!(headers.remove("xYz"), Some("2".to_owned()));
+        assert_eq!(headers.remove("xYz"), Some(HeaderValue::from("2")));
         assert_eq!(headers.remove("xYz"), None);
 
-        assert_eq!(headers.remove("jKL"), Some("3".to_owned()));
+        assert_eq!(headers.remove("jKL"), Some(HeaderValue::from("3")));
         assert_eq!(headers.remove("jKL"), None);
     }
 
@@ -369,20 +392,27 @@ mod tests {
         let (numbers_name, numbers) = iter.next().unwrap();
         assert_eq!(numbers_name.as_str(), "numbers");
         assert_eq!(
-            numbers.collect::<Vec<&str>>(),
-            vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]
+            numbers.cloned().collect::<Vec<HeaderValue>>(),
+            vec![
+                HeaderValue::from("1"),
+                HeaderValue::from("2"),
+                HeaderValue::from("3")
+            ]
         );
 
         let (fruits_name, fruits) = iter.next().unwrap();
         assert_eq!(fruits_name.as_str(), "fruits");
         assert_eq!(
-            fruits.collect::<Vec<&str>>(),
-            vec!["apple".to_owned(), "strawberry".to_owned()]
+            fruits.cloned().collect::<Vec<HeaderValue>>(),
+            vec![HeaderValue::from("apple"), HeaderValue::from("strawberry")]
         );
 
         let (food_name, foods) = iter.next().unwrap();
         assert_eq!(food_name.as_str(), "food");
-        assert_eq!(foods.collect::<Vec<&str>>(), vec!["pizza".to_owned()]);
+        assert_eq!(
+            foods.cloned().collect::<Vec<HeaderValue>>(),
+            vec![HeaderValue::from("pizza")]
+        );
 
         assert!(iter.next().is_none())
     }
@@ -402,20 +432,27 @@ mod tests {
         let (numbers_name, numbers) = iter.next().unwrap();
         assert_eq!(numbers_name.as_str(), "numbers");
         assert_eq!(
-            numbers.collect::<Vec<String>>(),
-            vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]
+            numbers.collect::<Vec<HeaderValue>>(),
+            vec![
+                HeaderValue::from("1"),
+                HeaderValue::from("2"),
+                HeaderValue::from("3")
+            ]
         );
 
         let (fruits_name, fruits) = iter.next().unwrap();
         assert_eq!(fruits_name.as_str(), "fruits");
         assert_eq!(
-            fruits.collect::<Vec<String>>(),
-            vec!["apple".to_owned(), "strawberry".to_owned()]
+            fruits.collect::<Vec<HeaderValue>>(),
+            vec![HeaderValue::from("apple"), HeaderValue::from("strawberry")]
         );
 
         let (food_name, foods) = iter.next().unwrap();
         assert_eq!(food_name.as_str(), "food");
-        assert_eq!(foods.collect::<Vec<String>>(), vec!["pizza".to_owned()]);
+        assert_eq!(
+            foods.collect::<Vec<HeaderValue>>(),
+            vec![HeaderValue::from("pizza")]
+        );
 
         assert!(iter.next().is_none());
     }
