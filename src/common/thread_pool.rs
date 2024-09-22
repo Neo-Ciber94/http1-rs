@@ -1,8 +1,9 @@
 use std::{
+    any::Any,
     collections::HashMap,
     fmt::Debug,
     sync::{
-        atomic::AtomicUsize,
+        atomic::{AtomicBool, AtomicUsize},
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
@@ -16,15 +17,15 @@ struct WorkerTaskCount(Arc<AtomicUsize>);
 
 impl WorkerTaskCount {
     pub fn get(&self) -> usize {
-        self.0.load(std::sync::atomic::Ordering::Relaxed)
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     pub fn increment(&self) {
-        self.0.fetch_add(1, std::sync::atomic::Ordering::Acquire);
+        self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn decrement(&self) {
-        self.0.fetch_sub(1, std::sync::atomic::Ordering::Acquire);
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -36,6 +37,7 @@ impl Worker {
     pub fn new(
         name: Option<String>,
         stack_size: Option<usize>,
+        is_terminated: Arc<AtomicBool>,
         receiver: Arc<Mutex<Receiver<Task>>>,
         task_count: WorkerTaskCount,
     ) -> std::io::Result<Self> {
@@ -51,11 +53,17 @@ impl Worker {
 
         let handle = builder.spawn(move || {
             let lock = receiver.lock().expect("Failed to get task receiver lock");
-            while let Ok(task) = lock.recv() {
-                task();
 
-                // Decrement task count
-                task_count.decrement();
+            while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
+                match lock.recv() {
+                    Ok(task) => {
+                        task();
+
+                        // Decrement task count
+                        task_count.decrement();
+                    }
+                    Err(_) => break,
+                }
             }
         })?;
 
@@ -80,6 +88,13 @@ impl HandleId {
         HandleId(id)
     }
 }
+
+#[derive(Debug)]
+pub enum TerminateError {
+    JoinError(Box<dyn Any + 'static>),
+    Other(String),
+}
+
 type AdditionalHandleMap = Arc<Mutex<HashMap<HandleId, JoinHandle<()>>>>;
 
 pub struct ThreadPool {
@@ -89,6 +104,7 @@ pub struct ThreadPool {
     sender: Sender<Task>,
     task_count: WorkerTaskCount,
     spawn_on_full: bool,
+    is_terminated: Arc<AtomicBool>,
     additional_handles: AdditionalHandleMap,
 }
 
@@ -122,7 +138,16 @@ impl ThreadPool {
         self.task_count.get()
     }
 
+    pub fn is_terminated(&self) -> bool {
+        self.is_terminated
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
     pub fn enqueue<F: FnOnce() + Send + Sync + 'static>(&mut self, f: F) -> std::io::Result<()> {
+        if self.is_terminated() {
+            return Err(std::io::Error::other("ThreadPool was terminated"));
+        }
+
         // All workers are in use, we spawn a new thread
         if self.spawn_on_full && self.pending_count() > self.worker_count() {
             return self.spawn_additional_task(f);
@@ -170,15 +195,38 @@ impl ThreadPool {
 
         return Ok(());
     }
+
+    pub fn terminate(&mut self) -> Result<(), TerminateError> {
+        self.is_terminated
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+
+        let workers = std::mem::take(&mut self.workers);
+        for w in workers {
+            w.handle
+                .join()
+                .map_err(|err| TerminateError::JoinError(err))?;
+        }
+
+        let mut handles_lock = self
+            .additional_handles
+            .lock()
+            .map_err(|_| TerminateError::Other(format!("Failed to get additional handles lock")))?;
+
+        let handle_entries = handles_lock.drain();
+
+        for (_, handle) in handle_entries {
+            handle
+                .join()
+                .map_err(|err| TerminateError::JoinError(err))?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
-        let workers = std::mem::take(&mut self.workers);
-
-        for worker in workers {
-            let _ = worker.handle.join();
-        }
+       self.terminate().expect("Failed to drop ThreadPool")
     }
 }
 
@@ -233,11 +281,13 @@ impl Builder {
 
         let task_count = WorkerTaskCount(Default::default());
         let receiver = Arc::new(Mutex::new(receiver));
+        let is_terminated = Arc::new(AtomicBool::new(false));
 
         for _ in 0..worker_count {
             let worker = Worker::new(
                 name.clone(),
                 stack_size,
+                is_terminated.clone(),
                 receiver.clone(),
                 task_count.clone(),
             )?;
@@ -251,7 +301,69 @@ impl Builder {
             task_count,
             spawn_on_full,
             stack_size,
+            is_terminated,
             additional_handles: Default::default(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{atomic::AtomicBool, Arc};
+
+    use super::ThreadPool;
+
+    #[derive(Clone)]
+    struct Work(Arc<AtomicBool>);
+    impl Work {
+        pub fn work(&self) {
+            // loop {
+            //     let is_done = self.0.load(std::sync::atomic::Ordering::Relaxed);
+
+            //     if is_done {
+            //         break;
+            //     }
+
+            //     println!("working...");
+            //     std::thread::yield_now();
+            // }
+        }
+    }
+
+    #[test]
+    fn should_drop_thread_pool() {
+        let pool = ThreadPool::with_workers(2).unwrap();
+        drop(pool);
+    }
+
+    #[test]
+    fn should_enqueue_tasks() {
+        let mut pool = ThreadPool::with_workers(2).unwrap();
+        pool.enqueue(|| {}).unwrap();
+        pool.enqueue(|| {}).unwrap();
+        pool.enqueue(|| {}).unwrap();
+    }
+
+    #[test]
+    fn should_block_until_all_worker_finish() {
+        let mut pool = ThreadPool::with_workers(2).unwrap();
+        let is_done = Arc::new(AtomicBool::new(false));
+
+        let work = Work(is_done.clone());
+        {
+            for _ in 0..2 {
+                let w = work.clone();
+                pool.enqueue(move || w.work()).unwrap();
+            }
+        }
+
+        assert_eq!(pool.is_terminated(), false);
+        assert_eq!(pool.worker_count(), 2);
+        assert_eq!(pool.pending_count(), 2);
+
+        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+
+        assert_eq!(pool.worker_count(), 2);
+        assert_eq!(pool.pending_count(), 0);
     }
 }
