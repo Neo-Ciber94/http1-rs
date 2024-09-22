@@ -2,11 +2,7 @@ use core::str;
 
 use private::Sealed;
 
-use super::{
-    entry::{EntryValue, HeaderEntry},
-    value::HeaderValue,
-    HeaderName,
-};
+use super::{entry::HeaderEntry, non_empty_list::NonEmptyList, value::HeaderValue, HeaderName};
 
 #[derive(Default, Debug, Clone)]
 pub struct Headers {
@@ -32,10 +28,7 @@ impl Headers {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.get(idx)?;
-                match &entry.value {
-                    EntryValue::Single(x) => Some(x),
-                    EntryValue::List(list) => Some(&list[0]),
-                }
+                entry.iter().next()
             }
             None => None,
         }
@@ -54,10 +47,7 @@ impl Headers {
         match key.find(&self) {
             Some(idx) => {
                 let entry = self.entries.get_mut(idx)?;
-                match &mut entry.value {
-                    EntryValue::Single(x) => Some(x),
-                    EntryValue::List(list) => Some(&mut list[0]),
-                }
+                entry.value.first_mut()
             }
             None => None,
         }
@@ -72,20 +62,15 @@ impl Headers {
         key: HeaderName,
         value: impl Into<HeaderValue>,
     ) -> Option<HeaderValue> {
+        let value = NonEmptyList::single(value.into());
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
-                let ret = std::mem::replace(&mut entry.value, EntryValue::Single(value.into()));
-                match ret {
-                    EntryValue::Single(x) => Some(x),
-                    EntryValue::List(mut list) => Some(list.remove(0)),
-                }
+                let prev = std::mem::replace(&mut entry.value, value);
+                Some(prev.take_first())
             }
             None => {
-                self.entries.push(HeaderEntry {
-                    key,
-                    value: EntryValue::Single(value.into()),
-                });
+                self.entries.push(HeaderEntry { key, value });
                 None
             }
         }
@@ -95,23 +80,12 @@ impl Headers {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
-
-                match &mut entry.value {
-                    EntryValue::Single(x) => {
-                        let cur = std::mem::take(x);
-                        let list = vec![cur, value.into()];
-                        entry.value = EntryValue::List(list);
-                    }
-                    EntryValue::List(list) => list.push(value.into()),
-                }
-
+                entry.value.push(value.into());
                 true
             }
             None => {
-                self.entries.push(HeaderEntry {
-                    key,
-                    value: EntryValue::Single(value.into()),
-                });
+                let value = NonEmptyList::single(value.into());
+                self.entries.push(HeaderEntry { key, value });
                 false
             }
         }
@@ -151,8 +125,10 @@ impl Headers {
     }
 }
 
-impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a>)> for Headers {
-    fn extend<T: IntoIterator<Item = (&'a HeaderName, super::entry::Iter<'a>)>>(
+impl<'a> Extend<(&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>)> for Headers {
+    fn extend<
+        T: IntoIterator<Item = (&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>)>,
+    >(
         &mut self,
         iter: T,
     ) {
@@ -164,8 +140,10 @@ impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a>)> for Headers {
     }
 }
 
-impl<'a> Extend<(HeaderName, super::entry::IntoIter)> for Headers {
-    fn extend<T: IntoIterator<Item = (HeaderName, super::entry::IntoIter)>>(
+impl<'a> Extend<(HeaderName, super::non_empty_list::IntoIter<HeaderValue>)> for Headers {
+    fn extend<
+        T: IntoIterator<Item = (HeaderName, super::non_empty_list::IntoIter<HeaderValue>)>,
+    >(
         &mut self,
         iter: T,
     ) {
@@ -194,7 +172,7 @@ impl<'a> Extend<(&'a HeaderName, &'a HeaderValue)> for Headers {
 }
 
 pub struct GetAll<'a> {
-    iter: Option<super::entry::Iter<'a>>
+    iter: Option<super::non_empty_list::Iter<'a, HeaderValue>>,
 }
 
 impl<'a> Iterator for GetAll<'a> {
@@ -226,7 +204,7 @@ pub struct Iter<'a> {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (&'a HeaderName, super::entry::Iter<'a>);
+    type Item = (&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index > self.entries.len() {
@@ -240,7 +218,7 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a Headers {
-    type Item = (&'a HeaderName, super::entry::Iter<'a>);
+    type Item = (&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>);
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -253,7 +231,7 @@ pub struct IntoIter {
 }
 
 impl Iterator for IntoIter {
-    type Item = (HeaderName, super::entry::IntoIter);
+    type Item = (HeaderName, super::non_empty_list::IntoIter<HeaderValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.entries.is_empty() {
@@ -267,7 +245,7 @@ impl Iterator for IntoIter {
 }
 
 impl IntoIterator for Headers {
-    type Item = (HeaderName, super::entry::IntoIter);
+    type Item = (HeaderName, super::non_empty_list::IntoIter<HeaderValue>);
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {

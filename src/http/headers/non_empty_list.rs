@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 enum Inner<T> {
@@ -20,6 +20,13 @@ impl<T> NonEmptyList<T> {
         match &self.0 {
             Inner::Single(_) => 1,
             Inner::List(vec) => vec.len(),
+        }
+    }
+
+    pub fn take_first(self) -> T {
+        match self.0 {
+            Inner::Single(x) => x,
+            Inner::List(mut vec) => vec.remove(0),
         }
     }
 
@@ -66,6 +73,15 @@ impl<T> Deref for NonEmptyList<T> {
     }
 }
 
+impl<T> DerefMut for NonEmptyList<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match &mut self.0 {
+            Inner::Single(value) => std::slice::from_mut(value),
+            Inner::List(vec) => vec.as_mut_slice(),
+        }
+    }
+}
+
 pub struct EmptyVecError;
 
 impl<T> TryFrom<Vec<T>> for NonEmptyList<T> {
@@ -84,9 +100,11 @@ impl<T> TryFrom<Vec<T>> for NonEmptyList<T> {
     }
 }
 
+pub type Iter<'a, T> = std::slice::Iter<'a, T>;
+
 impl<'a, T> IntoIterator for &'a NonEmptyList<T> {
     type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.deref().iter()
