@@ -10,93 +10,50 @@ use crate::{
     common::date_time::DateTime,
     handler::RequestHandler,
     http::{
-        headers::{self, HeaderName, Headers},
-        method::Method,
-        request::Request,
-        response::Response,
-        uri::Uri,
-        version::Version,
+        headers::{self, HeaderName, Headers}, method::Method, request::Request, response::Response, uri::Uri, version::Version
     },
+    server::ServerConfig,
 };
 
-#[derive(Clone, Debug)]
-pub struct ServerConfig {
-    pub include_date_header: bool,
-}
-
-pub struct Server {
+fn listen<H: RequestHandler + Send + Sync + 'static>(
+    handler: H,
     addr: SocketAddr,
-    on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
     config: ServerConfig,
+    mut on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
+) -> std::io::Result<()> {
+    let listener = TcpListener::bind(&addr)?;
+    let handler_mutex = Mutex::new(Arc::new(handler));
+
+    if let Some(on_ready) = on_ready.take() {
+        on_ready(&addr)
+    }
+
+    for connection in listener.incoming() {
+        match connection {
+            Ok(stream) => {
+                let lock = handler_mutex.lock().expect("Failed to acquire lock");
+                let request_handler = lock.clone();
+                let config = config.clone();
+                std::thread::spawn(move || handle_incoming(request_handler, config, stream));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    Ok(())
 }
 
-impl Server {
-    pub fn new(addr: SocketAddr) -> Self {
-        Server {
-            addr,
-            on_ready: None,
-            config: ServerConfig {
-                include_date_header: true,
-            },
-        }
-    }
-
-    pub fn on_ready<F: FnOnce(&SocketAddr) + 'static>(mut self, f: F) -> Self {
-        self.on_ready = Some(Box::new(f));
-        self
-    }
-
-    pub fn include_date_header(mut self, include: bool) -> Self {
-        self.config.include_date_header = include;
-        self
-    }
-
-    fn handle_incoming(
-        handler: Arc<dyn RequestHandler + Send + Sync + 'static>,
-        config: ServerConfig,
-        mut stream: TcpStream,
-    ) {
-        let request = read_request(&mut stream).expect("Failed to read request");
-        let response = handler.handle(request);
-        match write_response(response, &mut stream, &config) {
-            Ok(_) => {}
-            Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
-            Err(err) => eprintln!("{err}"),
-        }
-    }
-
-    pub fn listen<H: RequestHandler + Send + Sync + 'static>(
-        self,
-        handler: H,
-    ) -> std::io::Result<()> {
-        let Self {
-            addr,
-            config,
-            mut on_ready,
-        } = self;
-
-        let listener = TcpListener::bind(&addr)?;
-        let handler_mutex = Mutex::new(Arc::new(handler));
-
-        if let Some(on_ready) = on_ready.take() {
-            on_ready(&addr)
-        }
-
-        for connection in listener.incoming() {
-            match connection {
-                Ok(stream) => {
-                    let lock = handler_mutex.lock().expect("Failed to acquire lock");
-                    let request_handler = lock.clone();
-                    let config = config.clone();
-                    std::thread::spawn(move || {
-                        Self::handle_incoming(request_handler, config, stream)
-                    });
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        Ok(())
+fn handle_incoming(
+    handler: Arc<dyn RequestHandler + Send + Sync + 'static>,
+    config: ServerConfig,
+    mut stream: TcpStream,
+) {
+    let request = read_request(&mut stream).expect("Failed to read request");
+    let response = handler.handle(request);
+    match write_response(response, &mut stream, &config) {
+        Ok(_) => {}
+        Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
+        Err(err) => eprintln!("{err}"),
     }
 }
 
