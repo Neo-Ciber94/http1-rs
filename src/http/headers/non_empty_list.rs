@@ -46,6 +46,13 @@ impl<T> NonEmptyList<T> {
 
         Ok(list.remove(index))
     }
+
+    pub fn into_iter(self) -> IntoIter<T> {
+        match self.0 {
+            Inner::Single(x) => IntoIter(IteratorInner::Single(Some(x))),
+            Inner::List(vec) => IntoIter(IteratorInner::Iter(vec.into_iter())),
+        }
+    }
 }
 
 impl<T> Deref for NonEmptyList<T> {
@@ -73,6 +80,45 @@ impl<T> TryFrom<Vec<T>> for NonEmptyList<T> {
             Ok(NonEmptyList::single(value.remove(0)))
         } else {
             Ok(NonEmptyList(Inner::List(value)))
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a NonEmptyList<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().iter()
+    }
+}
+
+enum IteratorInner<T> {
+    Single(Option<T>),
+    Iter(std::vec::IntoIter<T>),
+}
+
+pub struct IntoIter<T>(IteratorInner<T>);
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.0 {
+            IteratorInner::Single(x) => x.take(),
+            IteratorInner::Iter(iter) => iter.next(),
+        }
+    }
+}
+
+impl<T> IntoIterator for NonEmptyList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.0 {
+            Inner::Single(x) => IntoIter(IteratorInner::Single(Some(x))),
+            Inner::List(vec) => IntoIter(IteratorInner::Iter(vec.into_iter())),
         }
     }
 }
