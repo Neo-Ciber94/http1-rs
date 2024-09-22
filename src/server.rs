@@ -20,14 +20,14 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-struct ServerConfig {
+pub struct ServerConfig {
     include_date_header: bool,
 }
 
 pub struct Server {
     addr: SocketAddr,
     on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
-    include_date_header: bool,
+    config: ServerConfig,
 }
 
 impl Server {
@@ -35,7 +35,9 @@ impl Server {
         Server {
             addr,
             on_ready: None,
-            include_date_header: true,
+            config: ServerConfig {
+                include_date_header: true,
+            },
         }
     }
 
@@ -45,7 +47,7 @@ impl Server {
     }
 
     pub fn include_date_header(mut self, include: bool) -> Self {
-        self.include_date_header = include;
+        self.config.include_date_header = include;
         self
     }
 
@@ -69,13 +71,9 @@ impl Server {
     ) -> std::io::Result<()> {
         let Self {
             addr,
-            include_date_header,
+            config,
             mut on_ready,
         } = self;
-
-        let server_config = ServerConfig {
-            include_date_header,
-        };
 
         let listener = TcpListener::bind(&addr)?;
         let handler_mutex = Mutex::new(Arc::new(handler));
@@ -89,7 +87,7 @@ impl Server {
                 Ok(stream) => {
                     let lock = handler_mutex.lock().expect("Failed to acquire lock");
                     let request_handler = lock.clone();
-                    let config = server_config.clone();
+                    let config = config.clone();
                     std::thread::spawn(move || {
                         Self::handle_incoming(request_handler, config, stream)
                     });
