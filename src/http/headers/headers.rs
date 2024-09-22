@@ -10,7 +10,7 @@ use super::{
 
 #[derive(Default, Debug, Clone)]
 pub struct Headers {
-    entries: Vec<HeaderEntry<HeaderValue>>,
+    entries: Vec<HeaderEntry>,
 }
 
 impl Headers {
@@ -151,8 +151,8 @@ impl Headers {
     }
 }
 
-impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a, HeaderValue>)> for Headers {
-    fn extend<T: IntoIterator<Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>)>>(
+impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a>)> for Headers {
+    fn extend<T: IntoIterator<Item = (&'a HeaderName, super::entry::Iter<'a>)>>(
         &mut self,
         iter: T,
     ) {
@@ -164,8 +164,8 @@ impl<'a> Extend<(&'a HeaderName, super::entry::Iter<'a, HeaderValue>)> for Heade
     }
 }
 
-impl<'a> Extend<(HeaderName, super::entry::IntoIter<HeaderValue>)> for Headers {
-    fn extend<T: IntoIterator<Item = (HeaderName, super::entry::IntoIter<HeaderValue>)>>(
+impl<'a> Extend<(HeaderName, super::entry::IntoIter)> for Headers {
+    fn extend<T: IntoIterator<Item = (HeaderName, super::entry::IntoIter)>>(
         &mut self,
         iter: T,
     ) {
@@ -194,7 +194,7 @@ impl<'a> Extend<(&'a HeaderName, &'a HeaderValue)> for Headers {
 }
 
 pub struct GetAll<'a> {
-    iter: Option<super::entry::Iter<'a, HeaderValue>>,
+    iter: Option<super::entry::Iter<'a>>
 }
 
 impl<'a> Iterator for GetAll<'a> {
@@ -209,7 +209,7 @@ impl<'a> Iterator for GetAll<'a> {
 }
 
 pub struct Keys<'a> {
-    iter: std::slice::Iter<'a, HeaderEntry<HeaderValue>>,
+    iter: std::slice::Iter<'a, HeaderEntry>,
 }
 
 impl<'a> Iterator for Keys<'a> {
@@ -221,12 +221,12 @@ impl<'a> Iterator for Keys<'a> {
 }
 
 pub struct Iter<'a> {
-    entries: &'a Vec<HeaderEntry<HeaderValue>>,
+    entries: &'a Vec<HeaderEntry>,
     index: usize,
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>);
+    type Item = (&'a HeaderName, super::entry::Iter<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index > self.entries.len() {
@@ -240,7 +240,7 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a Headers {
-    type Item = (&'a HeaderName, super::entry::Iter<'a, HeaderValue>);
+    type Item = (&'a HeaderName, super::entry::Iter<'a>);
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -249,11 +249,11 @@ impl<'a> IntoIterator for &'a Headers {
 }
 
 pub struct IntoIter {
-    entries: Vec<HeaderEntry<HeaderValue>>,
+    entries: Vec<HeaderEntry>,
 }
 
 impl Iterator for IntoIter {
-    type Item = (HeaderName, super::entry::IntoIter<HeaderValue>);
+    type Item = (HeaderName, super::entry::IntoIter);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.entries.is_empty() {
@@ -267,7 +267,7 @@ impl Iterator for IntoIter {
 }
 
 impl IntoIterator for Headers {
-    type Item = (HeaderName, super::entry::IntoIter<HeaderValue>);
+    type Item = (HeaderName, super::entry::IntoIter);
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {

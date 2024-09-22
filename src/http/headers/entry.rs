@@ -1,33 +1,33 @@
-use super::HeaderName;
+use super::{HeaderName, HeaderValue};
 
 #[derive(Debug, Clone)]
-pub enum EntryValue<T> {
-    Single(T),
-    List(Vec<T>),
+pub enum EntryValue {
+    Single(HeaderValue),
+    List(Vec<HeaderValue>),
 }
 
 #[derive(Debug, Clone)]
-pub struct HeaderEntry<T> {
+pub struct HeaderEntry {
     pub(crate) key: HeaderName,
-    pub(crate) value: EntryValue<T>,
+    pub(crate) value: EntryValue,
 }
 
-impl<T> HeaderEntry<T> {
-    pub fn take(self) -> T {
+impl HeaderEntry {
+    pub fn take(self) -> HeaderValue {
         match self.value {
             EntryValue::Single(x) => x,
             EntryValue::List(mut list) => list.remove(0),
         }
     }
 
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter {
         match &self.value {
             EntryValue::Single(x) => Iter::Once(Some(x)),
             EntryValue::List(values) => Iter::List { values, pos: 0 },
         }
     }
 
-    pub fn into_iter(self) -> IntoIter<T> {
+    pub fn into_iter(self) -> IntoIter {
         match self.value {
             EntryValue::Single(x) => IntoIter::Once(Some(x)),
             EntryValue::List(values) => IntoIter::List { values },
@@ -35,13 +35,16 @@ impl<T> HeaderEntry<T> {
     }
 }
 
-pub enum Iter<'a, T> {
-    Once(Option<&'a T>),
-    List { values: &'a Vec<T>, pos: usize },
+pub enum Iter<'a> {
+    Once(Option<&'a HeaderValue>),
+    List {
+        values: &'a Vec<HeaderValue>,
+        pos: usize,
+    },
 }
 
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a HeaderValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -55,13 +58,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-pub enum IntoIter<T> {
-    Once(Option<T>),
-    List { values: Vec<T> },
+pub enum IntoIter {
+    Once(Option<HeaderValue>),
+    List { values: Vec<HeaderValue> },
 }
 
-impl<T> Iterator for IntoIter<T> {
-    type Item = T;
+impl Iterator for IntoIter {
+    type Item = HeaderValue;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
