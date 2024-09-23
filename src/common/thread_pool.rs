@@ -298,6 +298,7 @@ impl Builder {
                 receiver.clone(),
                 task_count.clone(),
             )?;
+
             workers.push(worker);
         }
 
