@@ -5,7 +5,7 @@ use std::{
     sync::{
         atomic::{AtomicBool, AtomicUsize},
         mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
+        Arc, Mutex, TryLockError,
     },
     thread::JoinHandle,
 };
@@ -21,11 +21,18 @@ impl WorkerTaskCount {
     }
 
     pub fn increment(&self) {
-        self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.0.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
     }
 
     pub fn decrement(&self) {
-        self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+    }
+}
+
+struct WorkerTaskCountGuard(WorkerTaskCount);
+impl Drop for WorkerTaskCountGuard {
+    fn drop(&mut self) {
+        self.0.decrement();
     }
 }
 
@@ -52,17 +59,17 @@ impl Worker {
         }
 
         let handle = builder.spawn(move || {
-            let lock = receiver.lock().expect("Failed to get task receiver lock");
-
             while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
-                match lock.recv() {
-                    Ok(task) => {
-                        task();
-
-                        // Decrement task count
-                        task_count.decrement();
-                    }
-                    Err(_) => break,
+                match receiver.try_lock() {
+                    Ok(lock) => match lock.recv() {
+                        Ok(task) => {
+                            let _guard = WorkerTaskCountGuard(task_count.clone());
+                            task();
+                        }
+                        Err(_) => break,
+                    },
+                    Err(TryLockError::Poisoned(err)) => panic!("{err}"),
+                    Err(TryLockError::WouldBlock) => {}
                 }
             }
         })?;
@@ -140,7 +147,7 @@ impl ThreadPool {
 
     pub fn is_terminated(&self) -> bool {
         self.is_terminated
-            .load(std::sync::atomic::Ordering::Acquire)
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn enqueue<F: FnOnce() + Send + Sync + 'static>(&mut self, f: F) -> std::io::Result<()> {
@@ -193,7 +200,7 @@ impl ThreadPool {
             .map_err(|_| std::io::Error::other("Failed to lock additional handles lock"))?
             .insert(handle_id, handle);
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn terminate(&mut self) -> Result<(), TerminateError> {
@@ -226,7 +233,7 @@ impl ThreadPool {
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
-       self.terminate().expect("Failed to drop ThreadPool")
+        self.terminate().expect("Failed to drop ThreadPool")
     }
 }
 
@@ -317,13 +324,7 @@ mod tests {
     struct Work(Arc<AtomicBool>);
     impl Work {
         pub fn work(&self) {
-            // loop {
-            //     let is_done = self.0.load(std::sync::atomic::Ordering::Relaxed);
-
-            //     if is_done {
-            //         break;
-            //     }
-
+            // while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
             //     println!("working...");
             //     std::thread::yield_now();
             // }
