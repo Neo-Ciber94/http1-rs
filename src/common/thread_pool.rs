@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     sync::{
         atomic::{AtomicBool, AtomicUsize},
-        mpsc::{channel, Receiver, Sender},
+        mpsc::{channel, Receiver, Sender, TryRecvError},
         Arc, Mutex, TryLockError,
     },
     thread::JoinHandle,
@@ -61,12 +61,13 @@ impl Worker {
         let handle = builder.spawn(move || {
             while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
                 match receiver.try_lock() {
-                    Ok(lock) => match lock.recv() {
+                    Ok(lock) => match lock.try_recv() {
                         Ok(task) => {
                             let _guard = WorkerTaskCountGuard(task_count.clone());
                             task();
                         }
-                        Err(_) => break,
+                        Err(TryRecvError::Empty) => {}
+                        Err(TryRecvError::Disconnected) => break,
                     },
                     Err(TryLockError::Poisoned(err)) => panic!("{err}"),
                     Err(TryLockError::WouldBlock) => {}
