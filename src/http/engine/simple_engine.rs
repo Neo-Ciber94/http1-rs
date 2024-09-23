@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader, ErrorKind, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{TcpListener, TcpStream},
     str::FromStr,
     sync::{Arc, Mutex},
 };
@@ -10,37 +10,55 @@ use crate::{
     common::date_time::DateTime,
     handler::RequestHandler,
     http::{
-        headers::{self, HeaderName, Headers}, method::Method, request::Request, response::Response, uri::Uri, version::Version
+        headers::{self, HeaderName, Headers},
+        method::Method,
+        request::Request,
+        response::Response,
+        uri::Uri,
+        version::Version,
     },
     server::ServerConfig,
 };
 
-fn listen<H: RequestHandler + Send + Sync + 'static>(
-    handler: H,
-    addr: SocketAddr,
-    config: ServerConfig,
-    mut on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
-) -> std::io::Result<()> {
-    let listener = TcpListener::bind(&addr)?;
-    let handler_mutex = Mutex::new(Arc::new(handler));
+use super::{Engine, EngineStartInfo};
 
-    if let Some(on_ready) = on_ready.take() {
-        on_ready(&addr)
-    }
+pub struct SimpleEngine;
 
-    for connection in listener.incoming() {
-        match connection {
-            Ok(stream) => {
-                let lock = handler_mutex.lock().expect("Failed to acquire lock");
-                let request_handler = lock.clone();
-                let config = config.clone();
-                std::thread::spawn(move || handle_incoming(request_handler, config, stream));
-            }
-            Err(err) => return Err(err),
+impl Engine for SimpleEngine {
+    type Ret = std::io::Result<()>;
+
+    fn start<H: RequestHandler + Send + Sync + 'static>(
+        self,
+        info: EngineStartInfo<H>,
+    ) -> Self::Ret {
+        let EngineStartInfo {
+            addr,
+            config,
+            handler,
+            mut on_ready,
+        } = info;
+
+        let listener = TcpListener::bind(&addr)?;
+        let handler_mutex = Mutex::new(Arc::new(handler));
+
+        if let Some(on_ready) = on_ready.take() {
+            on_ready(&addr)
         }
-    }
 
-    Ok(())
+        for connection in listener.incoming() {
+            match connection {
+                Ok(stream) => {
+                    let lock = handler_mutex.lock().expect("Failed to acquire lock");
+                    let request_handler = lock.clone();
+                    let config = config.clone();
+                    std::thread::spawn(move || handle_incoming(request_handler, config, stream));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn handle_incoming(

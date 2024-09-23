@@ -11,7 +11,7 @@ fn main() {
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))
-        .listen(handle_request)
+        .start(handle_request)
         .unwrap();
 }
 

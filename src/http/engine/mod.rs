@@ -1,9 +1,9 @@
-pub mod threadpooled_engine;
+pub mod simple_engine;
 
-use std::net::SocketAddr;
 use crate::{handler::RequestHandler, server::ServerConfig};
+use std::net::SocketAddr;
 
-pub struct ServerStartInfo<H: RequestHandler> {
+pub struct EngineStartInfo<H: RequestHandler> {
     pub addr: SocketAddr,
     pub on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
     pub config: ServerConfig,
@@ -15,6 +15,6 @@ pub trait Engine {
 
     fn start<H: RequestHandler + Send + Sync + 'static>(
         self,
-        info: ServerStartInfo<H>,
+        info: EngineStartInfo<H>,
     ) -> Self::Ret;
 }
