@@ -7,7 +7,7 @@ use std::{
     thread::JoinHandle,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HandleId(usize);
 
 impl HandleId {
@@ -90,9 +90,10 @@ impl ThreadSpawner {
 
     pub fn join_all(&mut self) -> std::io::Result<()> {
         let mut tasks = self.tasks.write().expect("Failed to acquire lock");
-        let entries = tasks.drain();
+        let handles: Vec<JoinHandle<()>> = tasks.drain().map(|(_, handle)| handle).collect();
+        drop(tasks);
 
-        for (_, join_handle) in entries {
+        for join_handle in handles {
             join_handle
                 .join()
                 .map_err(|_| std::io::Error::other("Failed to join thread"))?;

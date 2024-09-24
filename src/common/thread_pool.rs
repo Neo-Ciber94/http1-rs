@@ -281,10 +281,12 @@ mod tests {
     struct Work(Arc<AtomicBool>);
     impl Work {
         pub fn work(&self) {
+            println!("working...");
             while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
-                println!("working...");
                 std::thread::yield_now();
             }
+
+            println!("work done!");
         }
     }
 
@@ -385,10 +387,10 @@ mod tests {
             }
         }
 
-        // assert_eq!(pool.pending_count(), 2);
-        // assert_eq!(pool.additional_task_count(), 3);
+        assert_eq!(pool.pending_count(), 2);
+        assert_eq!(pool.additional_task_count(), 3);
 
-        // is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
         // std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
         // assert_eq!(pool.pending_count(), 0);
