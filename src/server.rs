@@ -10,34 +10,23 @@ pub struct ServerConfig {
     pub include_date_header: bool,
 }
 
-pub struct Server<E> {
+pub struct Server {
     addr: SocketAddr,
     on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
     config: ServerConfig,
-    engine: E,
 }
 
-impl Server<()> {
-    pub fn new(addr: SocketAddr) -> Server<SimpleEngine> {
-        Server::with_engine(addr, SimpleEngine)
-    }
-
-    pub fn with_engine<E>(addr: SocketAddr, engine: E) -> Server<E> {
+impl Server {
+    pub fn new(addr: SocketAddr) -> Server {
         Server {
             addr,
-            engine,
             on_ready: None,
             config: ServerConfig {
                 include_date_header: true,
             },
         }
     }
-}
 
-impl<E> Server<E>
-where
-    E: Engine,
-{
     pub fn on_ready<F: FnOnce(&SocketAddr) + 'static>(mut self, f: F) -> Self {
         self.on_ready = Some(Box::new(f));
         self
@@ -48,12 +37,22 @@ where
         self
     }
 
-    pub fn start<H: RequestHandler + Send + Sync + 'static>(self, handler: H) -> E::Ret {
+    pub fn start<H: RequestHandler + Send + Sync + 'static>(
+        self,
+        handler: H,
+    ) -> std::io::Result<()> {
+        self.start_with(SimpleEngine, handler)
+    }
+
+    pub fn start_with<E: Engine, H: RequestHandler + Send + Sync + 'static>(
+        self,
+        engine: E,
+        handler: H,
+    ) -> E::Ret {
         let Self {
             addr,
             config,
             on_ready,
-            engine,
         } = self;
 
         engine.start(EngineStartInfo {

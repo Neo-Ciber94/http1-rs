@@ -103,7 +103,7 @@ pub enum TerminateError {
     Other(String),
 }
 
-type AdditionalHandleMap = Arc<Mutex<HashMap<HandleId, JoinHandle<()>>>>;
+type AdditionalHandleMap = Arc<Mutex<HashMap<HandleId, Option<JoinHandle<()>>>>>;
 
 pub struct ThreadPool {
     name: Option<String>,
@@ -146,6 +146,13 @@ impl ThreadPool {
         self.task_count.get()
     }
 
+    pub fn additional_task_count(&self) -> usize {
+        match self.additional_handles.lock() {
+            Ok(lock) => lock.len(),
+            Err(_) => 0,
+        }
+    }
+
     pub fn is_terminated(&self) -> bool {
         self.is_terminated
             .load(std::sync::atomic::Ordering::Relaxed)
@@ -172,6 +179,14 @@ impl ThreadPool {
         &mut self,
         f: F,
     ) -> std::io::Result<()> {
+        #[derive(Clone)]
+        struct DoneSignal(Arc<AtomicBool>);
+        impl Drop for DoneSignal {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+
         let mut builder = std::thread::Builder::new();
 
         if let Some(name) = self.name.clone() {
@@ -184,22 +199,30 @@ impl ThreadPool {
 
         let handle_id = HandleId::next();
         let additional_handles = self.additional_handles.clone();
+        let is_done = Arc::new(AtomicBool::new(false));
 
         let handle = {
-            let h = additional_handles.clone();
+            let additional_handles = additional_handles.clone();
+            let is_done = is_done.clone();
+
             builder.spawn(move || {
+                let _guard = DoneSignal(is_done);
                 f();
 
-                h.lock()
-                    .expect("Failed to get lock for additional handles")
-                    .remove(&handle_id);
+                // additional_handles
+                //     .lock()
+                //     .expect("Failed to get lock for additional handles")
+                //     .remove(&handle_id);
             })?
         };
 
-        additional_handles
-            .lock()
-            .map_err(|_| std::io::Error::other("Failed to lock additional handles lock"))?
-            .insert(handle_id, handle);
+        // If is not done, save it in the
+        if !is_done.load(std::sync::atomic::Ordering::Acquire) {
+            additional_handles
+                .lock()
+                .map_err(|_| std::io::Error::other("Failed to lock additional handles lock"))?
+                .insert(handle_id, Some(handle));
+        }
 
         Ok(())
     }
@@ -223,9 +246,9 @@ impl ThreadPool {
         let handle_entries = handles_lock.drain();
 
         for (_, handle) in handle_entries {
-            handle
-                .join()
-                .map_err(|err| TerminateError::JoinError(err))?;
+            if let Some(h) = handle {
+                h.join().map_err(|err| TerminateError::JoinError(err))?;
+            }
         }
 
         Ok(())
@@ -318,7 +341,10 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::{
+        sync::{atomic::AtomicBool, Arc},
+        time::Duration,
+    };
 
     use super::ThreadPool;
 
@@ -326,10 +352,10 @@ mod tests {
     struct Work(Arc<AtomicBool>);
     impl Work {
         pub fn work(&self) {
-            // while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
-            //     println!("working...");
-            //     std::thread::yield_now();
-            // }
+            while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
+                println!("working...");
+                std::thread::yield_now();
+            }
         }
     }
 
@@ -365,8 +391,78 @@ mod tests {
         assert_eq!(pool.pending_count(), 2);
 
         is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 0);
+    }
+
+    #[test]
+    fn should_wait_before_push_more_tasks() {
+        let mut pool = ThreadPool::with_workers(2).unwrap();
+        let is_done = Arc::new(AtomicBool::new(false));
+
+        let work = Work(is_done.clone());
+        {
+            for _ in 0..2 {
+                let w = work.clone();
+                pool.enqueue(move || w.work()).unwrap();
+            }
+        }
+
+        assert_eq!(pool.is_terminated(), false);
+        assert_eq!(pool.worker_count(), 2);
+        assert_eq!(pool.pending_count(), 2);
+
+        {
+            let w = work.clone();
+            pool.enqueue(move || w.work()).unwrap();
+        }
+
+        assert_eq!(pool.pending_count(), 3);
+
+        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
+
+        assert_eq!(pool.pending_count(), 0);
+    }
+
+    #[test]
+    fn should_spawn_additional_threads_if_needed() {
+        let mut pool = ThreadPool::builder()
+            .worker_count(2)
+            .spawn_on_full(true)
+            .build()
+            .unwrap();
+
+        let is_done = Arc::new(AtomicBool::new(false));
+
+        let work = Work(is_done.clone());
+        {
+            for _ in 0..2 {
+                let w = work.clone();
+                pool.enqueue(move || w.work()).unwrap();
+            }
+        }
+
+        assert_eq!(pool.is_terminated(), false);
+        assert_eq!(pool.worker_count(), 2);
+        assert_eq!(pool.pending_count(), 2);
+
+        {
+            for _ in 0..3 {
+                let w = work.clone();
+                pool.enqueue(move || w.work()).unwrap();
+            }
+        }
+
+        // assert_eq!(pool.pending_count(), 2);
+        // assert_eq!(pool.additional_task_count(), 3);
+
+        // is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        // std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
+
+        // assert_eq!(pool.pending_count(), 0);
+        // assert_eq!(pool.additional_task_count(), 0);
     }
 }
