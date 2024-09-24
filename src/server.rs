@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use crate::{
     handler::RequestHandler,
-    http::engine::{simple_engine::SimpleEngine, Engine, EngineStartInfo},
+    http::engine::{default_engine::DefaultEngine, Engine, EngineStartInfo},
 };
 
 #[derive(Clone, Debug)]
@@ -41,7 +41,7 @@ impl Server {
         self,
         handler: H,
     ) -> std::io::Result<()> {
-        self.start_with(SimpleEngine, handler)
+        self.start_with(DefaultEngine, handler)
     }
 
     pub fn start_with<E: Engine, H: RequestHandler + Send + Sync + 'static>(

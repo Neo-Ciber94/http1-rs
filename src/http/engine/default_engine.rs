@@ -22,9 +22,9 @@ use crate::{
 
 use super::{Engine, EngineStartInfo};
 
-pub struct SimpleEngine;
+pub struct DefaultEngine;
 
-impl Engine for SimpleEngine {
+impl Engine for DefaultEngine {
     type Ret = std::io::Result<()>;
 
     fn start<H: RequestHandler + Send + Sync + 'static>(
