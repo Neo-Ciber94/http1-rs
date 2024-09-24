@@ -45,8 +45,8 @@ impl Engine for DefaultEngine {
             on_ready(&addr)
         }
 
-        for connection in listener.incoming() {
-            match connection {
+        for stream in listener.incoming() {
+            match stream {
                 Ok(stream) => {
                     let lock = handler_mutex.lock().expect("Failed to acquire lock");
                     let request_handler = lock.clone();
