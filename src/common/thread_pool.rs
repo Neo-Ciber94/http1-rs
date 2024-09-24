@@ -1,6 +1,5 @@
 use std::{
     any::Any,
-    collections::HashMap,
     fmt::Debug,
     sync::{
         atomic::{AtomicBool, AtomicUsize},
@@ -9,6 +8,8 @@ use std::{
     },
     thread::JoinHandle,
 };
+
+use super::thread_spawner::ThreadSpawner;
 
 type Task = Box<dyn FnOnce() + Send + Sync + 'static>;
 
@@ -87,23 +88,11 @@ impl Debug for Worker {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct HandleId(usize);
-impl HandleId {
-    pub fn next() -> Self {
-        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Acquire);
-        HandleId(id)
-    }
-}
-
 #[derive(Debug)]
 pub enum TerminateError {
     JoinError(Box<dyn Any + 'static>),
     Other(String),
 }
-
-type AdditionalHandleMap = Arc<Mutex<HashMap<HandleId, Option<JoinHandle<()>>>>>;
 
 pub struct ThreadPool {
     name: Option<String>,
@@ -113,7 +102,7 @@ pub struct ThreadPool {
     task_count: WorkerTaskCount,
     spawn_on_full: bool,
     is_terminated: Arc<AtomicBool>,
-    additional_handles: AdditionalHandleMap,
+    additional_tasks_spawner: ThreadSpawner,
 }
 
 impl ThreadPool {
@@ -147,10 +136,7 @@ impl ThreadPool {
     }
 
     pub fn additional_task_count(&self) -> usize {
-        match self.additional_handles.lock() {
-            Ok(lock) => lock.len(),
-            Err(_) => 0,
-        }
+        self.additional_tasks_spawner.pending_count()
     }
 
     pub fn is_terminated(&self) -> bool {
@@ -165,7 +151,12 @@ impl ThreadPool {
 
         // All workers are in use, we spawn a new thread
         if self.spawn_on_full && self.pending_count() > self.worker_count() {
-            return self.spawn_additional_task(f);
+            let name = self.name.clone();
+            let stack_size = self.stack_size.clone();
+            return self
+                .additional_tasks_spawner
+                .spawn(name, stack_size, f)
+                .map(|_| ());
         }
 
         self.task_count.increment();
@@ -173,58 +164,6 @@ impl ThreadPool {
         self.sender
             .send(task)
             .map_err(|err| std::io::Error::other(err))
-    }
-
-    fn spawn_additional_task<F: FnOnce() + Send + Sync + 'static>(
-        &mut self,
-        f: F,
-    ) -> std::io::Result<()> {
-        #[derive(Clone)]
-        struct DoneSignal(Arc<AtomicBool>);
-        impl Drop for DoneSignal {
-            fn drop(&mut self) {
-                self.0.store(true, std::sync::atomic::Ordering::Release);
-            }
-        }
-
-        let mut builder = std::thread::Builder::new();
-
-        if let Some(name) = self.name.clone() {
-            builder = builder.name(name);
-        }
-
-        if let Some(stack_size) = self.stack_size {
-            builder = builder.stack_size(stack_size);
-        }
-
-        let handle_id = HandleId::next();
-        let additional_handles = self.additional_handles.clone();
-        let is_done = Arc::new(AtomicBool::new(false));
-
-        let handle = {
-            let additional_handles = additional_handles.clone();
-            let is_done = is_done.clone();
-
-            builder.spawn(move || {
-                let _guard = DoneSignal(is_done);
-                f();
-
-                // additional_handles
-                //     .lock()
-                //     .expect("Failed to get lock for additional handles")
-                //     .remove(&handle_id);
-            })?
-        };
-
-        // If is not done, save it in the
-        if !is_done.load(std::sync::atomic::Ordering::Acquire) {
-            additional_handles
-                .lock()
-                .map_err(|_| std::io::Error::other("Failed to lock additional handles lock"))?
-                .insert(handle_id, Some(handle));
-        }
-
-        Ok(())
     }
 
     pub fn terminate(&mut self) -> Result<(), TerminateError> {
@@ -238,19 +177,9 @@ impl ThreadPool {
                 .map_err(|err| TerminateError::JoinError(err))?;
         }
 
-        let mut handles_lock = self
-            .additional_handles
-            .lock()
-            .map_err(|_| TerminateError::Other(format!("Failed to get additional handles lock")))?;
-
-        let handle_entries = handles_lock.drain();
-
-        for (_, handle) in handle_entries {
-            if let Some(h) = handle {
-                h.join().map_err(|err| TerminateError::JoinError(err))?;
-            }
-        }
-
+        self.additional_tasks_spawner
+            .join_all()
+            .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
         Ok(())
     }
 }
@@ -334,7 +263,7 @@ impl Builder {
             spawn_on_full,
             stack_size,
             is_terminated,
-            additional_handles: Default::default(),
+            additional_tasks_spawner: Default::default(),
         })
     }
 }
