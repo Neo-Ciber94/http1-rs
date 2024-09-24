@@ -20,7 +20,7 @@ use crate::{
     server::ServerConfig,
 };
 
-use super::{Engine, EngineStartInfo};
+use super::engine::{Engine, EngineStartInfo};
 
 pub struct DefaultEngine;
 
