@@ -1,18 +1,13 @@
 use crate::{handler::RequestHandler, server::ServerConfig};
-use std::net::SocketAddr;
-
-pub struct EngineStartInfo<H: RequestHandler> {
-    pub addr: SocketAddr,
-    pub on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
-    pub config: ServerConfig,
-    pub handler: H,
-}
+use std::net::TcpListener;
 
 pub trait Engine {
-    type Ret;
+    type Output;
 
     fn start<H: RequestHandler + Send + Sync + 'static>(
         self,
-        info: EngineStartInfo<H>,
-    ) -> Self::Ret;
+        listener: TcpListener,
+        config: ServerConfig,
+        handler: H,
+    ) -> std::io::Result<Self::Output>;
 }

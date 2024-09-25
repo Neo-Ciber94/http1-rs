@@ -1,11 +1,8 @@
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 
 use crate::{
     handler::RequestHandler,
-    http::engine::{
-        default_engine::DefaultEngine,
-        engine::{Engine, EngineStartInfo},
-    },
+    http::engine::{default_engine::DefaultEngine, engine::Engine},
 };
 
 #[derive(Clone, Debug)]
@@ -51,18 +48,19 @@ impl Server {
         self,
         engine: E,
         handler: H,
-    ) -> E::Ret {
+    ) -> std::io::Result<E::Output> {
         let Self {
             addr,
             config,
-            on_ready,
+            mut on_ready,
         } = self;
 
-        engine.start(EngineStartInfo {
-            addr,
-            config,
-            handler,
-            on_ready,
-        })
+        let listener = TcpListener::bind(&addr)?;
+
+        if let Some(on_ready) = on_ready.take() {
+            on_ready(&addr)
+        }
+
+        engine.start(listener, config, handler)
     }
 }
