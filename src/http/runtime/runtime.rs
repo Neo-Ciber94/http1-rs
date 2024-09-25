@@ -1,7 +1,7 @@
 use crate::{handler::RequestHandler, server::ServerConfig};
 use std::net::TcpListener;
 
-pub trait Engine {
+pub trait Runtime {
     type Output;
 
     fn start<H: RequestHandler + Send + Sync + 'static>(

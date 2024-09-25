@@ -5,11 +5,11 @@ use std::{
 
 use crate::{handler::RequestHandler, http::protocol::h1::handle_incoming, server::ServerConfig};
 
-use super::engine::Engine;
+use super::runtime::Runtime;
 
-pub struct DefaultEngine;
+pub struct DefaultRuntime;
 
-impl Engine for DefaultEngine {
+impl Runtime for DefaultRuntime {
     type Output = ();
 
     fn start<H: RequestHandler + Send + Sync + 'static>(

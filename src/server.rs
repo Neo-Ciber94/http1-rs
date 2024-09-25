@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpListener};
 
 use crate::{
     handler::RequestHandler,
-    http::engine::{default_engine::DefaultEngine, engine::Engine},
+    http::runtime::{runtime::Runtime, DefaultRuntime},
 };
 
 #[derive(Clone, Debug)]
@@ -41,10 +41,10 @@ impl Server {
         self,
         handler: H,
     ) -> std::io::Result<()> {
-        self.start_with(DefaultEngine, handler)
+        self.start_with(DefaultRuntime, handler)
     }
 
-    pub fn start_with<E: Engine, H: RequestHandler + Send + Sync + 'static>(
+    pub fn start_with<E: Runtime, H: RequestHandler + Send + Sync + 'static>(
         self,
         engine: E,
         handler: H,
