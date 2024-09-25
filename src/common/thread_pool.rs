@@ -209,6 +209,8 @@ impl ThreadPool {
             if all_idle {
                 break;
             }
+
+            std::thread::yield_now()
         }
 
         self.inner
@@ -319,7 +321,7 @@ mod tests {
     impl Work {
         pub fn work(&self) {
             println!("working...");
-            while !self.0.load(std::sync::atomic::Ordering::Acquire) {
+            while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
                 std::thread::yield_now();
             }
 
@@ -334,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn should_enqueue_tasks() {
+    fn should_execute_tasks() {
         let pool = ThreadPool::with_workers(2).unwrap();
         pool.execute(|| {}).unwrap();
         pool.execute(|| {}).unwrap();
@@ -407,30 +409,38 @@ mod tests {
 
         let work = Work(is_done.clone());
         {
+            // Submit two tasks that will use the initial pool threads
             for _ in 0..2 {
                 let w = work.clone();
                 pool.execute(move || w.work()).unwrap();
             }
         }
 
+        // Ensure the pool has initialized as expected
         assert_eq!(pool.is_terminated(), false);
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
 
         {
+            // Submit three additional tasks which will trigger spawning additional threads
             for _ in 0..3 {
                 let w = work.clone();
                 pool.execute(move || w.work()).unwrap();
             }
         }
 
+        // Check if tasks are being properly managed
         assert_eq!(pool.pending_count(), 2);
         assert_eq!(pool.additional_task_count(), 3);
 
+        // Now, unlock the tasks
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        // std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
-        // assert_eq!(pool.pending_count(), 0);
-        // assert_eq!(pool.additional_task_count(), 0);
+        // Add a brief sleep to allow the tasks to finish
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        // Verify that all tasks have completed
+        assert_eq!(pool.pending_count(), 0);
+        assert_eq!(pool.additional_task_count(), 0);
     }
 }
