@@ -41,7 +41,7 @@ impl Server {
         self,
         handler: H,
     ) -> std::io::Result<()> {
-        self.start_with(DefaultRuntime, handler)
+        self.start_with(DefaultRuntime::default(), handler)
     }
 
     pub fn start_with<E: Runtime, H: RequestHandler + Send + Sync + 'static>(

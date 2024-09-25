@@ -1,13 +1,22 @@
-use std::{
-    net::TcpListener,
-    sync::{Arc, Mutex},
-};
+use std::net::TcpListener;
 
-use crate::{handler::RequestHandler, http::protocol::h1::handle_incoming, server::ServerConfig};
+use crate::{common::thread_pool::ThreadPool, handler::RequestHandler, server::ServerConfig};
 
-use super::runtime::Runtime;
+use super::{runtime::Runtime, thread_pooled_runtime::ThreadPooledRuntime};
 
-pub struct DefaultRuntime;
+pub struct DefaultRuntime(ThreadPooledRuntime);
+
+impl Default for DefaultRuntime {
+    fn default() -> Self {
+        let pool = ThreadPool::builder()
+            .name("default_runtime")
+            .spawn_on_full(false) // should be true
+            .build()
+            .expect("Failed to create default runtime ThreadPool");
+
+        DefaultRuntime(ThreadPooledRuntime::with_pool(pool))
+    }
+}
 
 impl Runtime for DefaultRuntime {
     type Output = ();
@@ -18,20 +27,6 @@ impl Runtime for DefaultRuntime {
         config: ServerConfig,
         handler: H,
     ) -> std::io::Result<Self::Output> {
-        let handler = Mutex::new(Arc::new(handler));
-
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let config = config.clone();
-                    let handler_lock = handler.lock().expect("Failed to acquire handler lock");
-                    let request_handler = handler_lock.clone();
-                    std::thread::spawn(move || handle_incoming(request_handler, config, stream));
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        Ok(())
+        self.0.start(listener, config, handler)
     }
 }

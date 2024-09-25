@@ -144,7 +144,7 @@ impl ThreadPool {
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn enqueue<F: FnOnce() + Send + Sync + 'static>(&mut self, f: F) -> std::io::Result<()> {
+    pub fn spawn<F: FnOnce() + Send + Sync + 'static>(&mut self, f: F) -> std::io::Result<()> {
         if self.is_terminated() {
             return Err(std::io::Error::other("ThreadPool was terminated"));
         }
@@ -299,9 +299,9 @@ mod tests {
     #[test]
     fn should_enqueue_tasks() {
         let mut pool = ThreadPool::with_workers(2).unwrap();
-        pool.enqueue(|| {}).unwrap();
-        pool.enqueue(|| {}).unwrap();
-        pool.enqueue(|| {}).unwrap();
+        pool.spawn(|| {}).unwrap();
+        pool.spawn(|| {}).unwrap();
+        pool.spawn(|| {}).unwrap();
     }
 
     #[test]
@@ -313,7 +313,7 @@ mod tests {
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.enqueue(move || w.work()).unwrap();
+                pool.spawn(move || w.work()).unwrap();
             }
         }
 
@@ -337,7 +337,7 @@ mod tests {
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.enqueue(move || w.work()).unwrap();
+                pool.spawn(move || w.work()).unwrap();
             }
         }
 
@@ -347,7 +347,7 @@ mod tests {
 
         {
             let w = work.clone();
-            pool.enqueue(move || w.work()).unwrap();
+            pool.spawn(move || w.work()).unwrap();
         }
 
         assert_eq!(pool.pending_count(), 3);
@@ -372,7 +372,7 @@ mod tests {
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.enqueue(move || w.work()).unwrap();
+                pool.spawn(move || w.work()).unwrap();
             }
         }
 
@@ -383,7 +383,7 @@ mod tests {
         {
             for _ in 0..3 {
                 let w = work.clone();
-                pool.enqueue(move || w.work()).unwrap();
+                pool.spawn(move || w.work()).unwrap();
             }
         }
 
