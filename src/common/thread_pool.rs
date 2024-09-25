@@ -319,7 +319,7 @@ mod tests {
     impl Work {
         pub fn work(&self) {
             println!("working...");
-            while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
+            while !self.0.load(std::sync::atomic::Ordering::Acquire) {
                 std::thread::yield_now();
             }
 
@@ -358,7 +358,7 @@ mod tests {
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
 
-        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        is_done.store(true, std::sync::atomic::Ordering::Release);
         std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
         assert_eq!(pool.worker_count(), 2);
@@ -389,7 +389,7 @@ mod tests {
 
         assert_eq!(pool.pending_count(), 3);
 
-        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        is_done.store(true, std::sync::atomic::Ordering::Release);
         std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
         assert_eq!(pool.pending_count(), 0);
@@ -427,7 +427,7 @@ mod tests {
         assert_eq!(pool.pending_count(), 2);
         assert_eq!(pool.additional_task_count(), 3);
 
-        is_done.store(true, std::sync::atomic::Ordering::Relaxed);
+        is_done.store(true, std::sync::atomic::Ordering::Release);
         // std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
 
         // assert_eq!(pool.pending_count(), 0);
