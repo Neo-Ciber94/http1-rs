@@ -1,27 +1,11 @@
 use std::{
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, AtomicUsize},
-        Arc, RwLock,
-    },
+    sync::{Arc, RwLock},
     thread::JoinHandle,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HandleId(usize);
-
-impl HandleId {
-    pub fn next() -> Self {
-        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-
-        let next_id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-        HandleId(next_id)
-    }
-}
-
 #[derive(Default)]
 pub struct ThreadSpawner {
-    tasks: Arc<RwLock<HashMap<HandleId, JoinHandle<()>>>>,
+    tasks: Arc<RwLock<Vec<JoinHandle<()>>>>,
 }
 
 impl ThreadSpawner {
@@ -35,12 +19,20 @@ impl ThreadSpawner {
         self.tasks.read().expect("Failed to acquire lock").len()
     }
 
+    fn check_for_finished(&self) {
+        self.tasks
+            .write()
+            .expect("Failed to acquire write lock")
+            .retain(|handle| !handle.is_finished());
+    }
+
     pub fn spawn<F: FnOnce() + Send + 'static>(
         &self,
         name: Option<String>,
         stack_size: Option<usize>,
         f: F,
-    ) -> std::io::Result<HandleId> {
+    ) -> std::io::Result<()> {
+        self.check_for_finished();
         let mut builder = std::thread::Builder::new();
 
         if let Some(name) = name {
@@ -51,50 +43,22 @@ impl ThreadSpawner {
             builder = builder.stack_size(stack_size);
         }
 
-        let tasks = self.tasks.clone();
-        let handle_id = HandleId::next();
-        let is_done: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+        let join_handle = builder.spawn(f)?;
 
-        let join_handle = {
-            let tasks = tasks.clone();
-            let is_done = is_done.clone();
+        self.tasks
+            .write()
+            .expect("Failed to acquire write lock")
+            .push(join_handle);
 
-            builder.spawn(move || {
-                f();
-
-                is_done.store(true, std::sync::atomic::Ordering::Relaxed);
-
-                let exists = tasks
-                    .read()
-                    .expect("Failed to acquire lock")
-                    .contains_key(&handle_id);
-
-                if exists {
-                    tasks
-                        .write()
-                        .expect("Failed to acquire lock")
-                        .remove(&handle_id);
-                }
-            })?
-        };
-
-        if !is_done.load(std::sync::atomic::Ordering::Acquire) {
-            tasks
-                .write()
-                .expect("Failed to acquire lock")
-                .insert(handle_id, join_handle);
-        }
-
-        Ok(handle_id)
+        Ok(())
     }
 
     pub fn join(&self) -> std::io::Result<()> {
         let mut tasks = self.tasks.write().expect("Failed to acquire lock");
-        let handles: Vec<JoinHandle<()>> = tasks.drain().map(|(_, handle)| handle).collect();
-        drop(tasks);
+        let join_handles = tasks.drain(..);
 
-        for join_handle in handles {
-            join_handle
+        for handle in join_handles {
+            handle
                 .join()
                 .map_err(|_| std::io::Error::other("Failed to join thread"))?;
         }
