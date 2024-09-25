@@ -23,8 +23,8 @@ use crate::{
  * Handles and send a response to a HTTP1 request.
  */
 pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static>(
-    handler: H,
-    config: ServerConfig,
+    handler: &H,
+    config: &ServerConfig,
     mut stream: TcpStream,
 ) {
     let request = read_request(&mut stream).expect("Failed to read request");
