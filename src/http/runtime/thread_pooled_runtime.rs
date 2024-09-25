@@ -42,7 +42,7 @@ impl Runtime for ThreadPooledRuntime {
                     let config = config.clone();
                     let handler_lock = handler.lock().expect("Failed to acquire handler lock");
                     let request_handler = handler_lock.clone();
-                    thread_pool.spawn(move || handle_incoming(request_handler, config, stream))?;
+                    thread_pool.spawn(move || handle_incoming(&request_handler, &config, stream))?;
                 }
                 Err(err) => return Err(err),
             }
