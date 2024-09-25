@@ -1,13 +1,10 @@
-use std::{
-    cell::{Ref, RefCell},
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::{common::thread_pool::ThreadPool, http::protocol::h1::handle_incoming};
 
 use super::runtime::Runtime;
 
-pub struct ThreadPooledRuntime(RefCell<ThreadPool>);
+pub struct ThreadPooledRuntime(ThreadPool);
 
 impl ThreadPooledRuntime {
     pub fn new() -> std::io::Result<Self> {
@@ -16,11 +13,11 @@ impl ThreadPooledRuntime {
     }
 
     pub fn with_pool(pool: ThreadPool) -> Self {
-        ThreadPooledRuntime(RefCell::new(pool))
+        ThreadPooledRuntime(pool)
     }
 
-    pub fn pool(&self) -> Ref<ThreadPool> {
-        self.0.borrow()
+    pub fn pool(&self) -> &ThreadPool {
+        &self.0
     }
 }
 
@@ -33,7 +30,7 @@ impl Runtime for ThreadPooledRuntime {
         config: crate::server::ServerConfig,
         handler: H,
     ) -> std::io::Result<Self::Output> {
-        let mut thread_pool = self.0.borrow_mut();
+        let thread_pool = &self.0;
         let handler = Mutex::new(Arc::new(handler));
 
         for stream in listener.incoming() {
@@ -42,7 +39,8 @@ impl Runtime for ThreadPooledRuntime {
                     let config = config.clone();
                     let handler_lock = handler.lock().expect("Failed to acquire handler lock");
                     let request_handler = handler_lock.clone();
-                    thread_pool.spawn(move || handle_incoming(&request_handler, &config, stream))?;
+                    thread_pool
+                        .execute(move || handle_incoming(&request_handler, &config, stream))?;
                 }
                 Err(err) => return Err(err),
             }

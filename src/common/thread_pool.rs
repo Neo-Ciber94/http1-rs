@@ -38,6 +38,7 @@ impl Drop for WorkerTaskCountGuard {
 }
 
 struct Worker {
+    is_active: Arc<AtomicBool>,
     handle: JoinHandle<()>,
 }
 
@@ -49,6 +50,13 @@ impl Worker {
         receiver: Arc<Mutex<Receiver<Task>>>,
         task_count: WorkerTaskCount,
     ) -> std::io::Result<Self> {
+        struct IsActiveGuard(Arc<AtomicBool>);
+        impl Drop for IsActiveGuard {
+            fn drop(&mut self) {
+                self.0.store(false, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
         let mut builder = std::thread::Builder::new();
 
         if let Some(name) = name {
@@ -59,24 +67,37 @@ impl Worker {
             builder = builder.stack_size(stack_size);
         }
 
-        let handle = builder.spawn(move || {
-            while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
-                match receiver.try_lock() {
-                    Ok(lock) => match lock.try_recv() {
-                        Ok(task) => {
-                            let _guard = WorkerTaskCountGuard(task_count.clone());
-                            task();
-                        }
-                        Err(TryRecvError::Empty) => {}
-                        Err(TryRecvError::Disconnected) => break,
-                    },
-                    Err(TryLockError::Poisoned(err)) => panic!("{err}"),
-                    Err(TryLockError::WouldBlock) => {}
-                }
-            }
-        })?;
+        let is_active = Arc::new(AtomicBool::new(false));
+        let handle = {
+            let is_active = is_active.clone();
 
-        Ok(Worker { handle })
+            builder.spawn(move || {
+                while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
+                    match receiver.try_lock() {
+                        Ok(lock) => match lock.try_recv() {
+                            Ok(task) => {
+                                is_active.store(true, std::sync::atomic::Ordering::Relaxed);
+                                let _is_active_guard = IsActiveGuard(is_active.clone());
+                                let _work_count_guard = WorkerTaskCountGuard(task_count.clone());
+
+                                // Execute the task
+                                task();
+                            }
+                            Err(TryRecvError::Empty) => {}
+                            Err(TryRecvError::Disconnected) => break,
+                        },
+                        Err(TryLockError::Poisoned(err)) => panic!("{err}"),
+                        Err(TryLockError::WouldBlock) => {}
+                    }
+                }
+            })?
+        };
+
+        Ok(Worker { handle, is_active })
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.is_active.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -94,7 +115,7 @@ pub enum TerminateError {
     Other(String),
 }
 
-pub struct ThreadPool {
+struct State {
     name: Option<String>,
     stack_size: Option<usize>,
     workers: Vec<Worker>,
@@ -105,14 +126,19 @@ pub struct ThreadPool {
     additional_tasks_spawner: ThreadSpawner,
 }
 
+#[derive(Clone)]
+pub struct ThreadPool {
+    inner: Arc<State>,
+}
+
 impl ThreadPool {
     pub fn new() -> std::io::Result<Self> {
         let parallelism = std::thread::available_parallelism()?;
         Self::with_workers(parallelism.get())
     }
 
-    pub fn with_workers(worker_count: usize) -> std::io::Result<Self> {
-        Builder::new().worker_count(worker_count).build()
+    pub fn with_workers(num_threads: usize) -> std::io::Result<Self> {
+        Builder::new().num_threads(num_threads).build()
     }
 
     pub fn builder() -> Builder {
@@ -120,65 +146,74 @@ impl ThreadPool {
     }
 
     pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+        self.inner.name.as_deref()
     }
 
     pub fn stack_size(&self) -> Option<usize> {
-        self.stack_size
+        self.inner.stack_size
     }
 
     pub fn worker_count(&self) -> usize {
-        self.workers.len()
+        self.inner.workers.len()
     }
 
     pub fn pending_count(&self) -> usize {
-        self.task_count.get()
+        self.inner.task_count.get()
     }
 
     pub fn additional_task_count(&self) -> usize {
-        self.additional_tasks_spawner.pending_count()
+        self.inner.additional_tasks_spawner.pending_count()
     }
 
     pub fn is_terminated(&self) -> bool {
-        self.is_terminated
+        self.inner
+            .is_terminated
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn spawn<F: FnOnce() + Send + Sync + 'static>(&mut self, f: F) -> std::io::Result<()> {
+    pub fn execute<F: FnOnce() + Send + Sync + 'static>(&self, f: F) -> std::io::Result<()> {
         if self.is_terminated() {
             return Err(std::io::Error::other("ThreadPool was terminated"));
         }
 
         // All workers are in use, we spawn a new thread
-        if self.spawn_on_full && self.pending_count() > self.worker_count() {
-            let name = self.name.clone();
-            let stack_size = self.stack_size.clone();
+        if self.inner.spawn_on_full && self.pending_count() > self.worker_count() {
+            let name = self.inner.name.clone();
+            let stack_size = self.inner.stack_size.clone();
             return self
+                .inner
                 .additional_tasks_spawner
                 .spawn(name, stack_size, f)
                 .map(|_| ());
         }
 
-        self.task_count.increment();
+        self.inner.task_count.increment();
         let task = Box::new(f);
-        self.sender
+        self.inner
+            .sender
             .send(task)
             .map_err(|err| std::io::Error::other(err))
     }
 
-    pub fn terminate(&mut self) -> Result<(), TerminateError> {
-        self.is_terminated
+    pub fn join(&self) -> Result<(), TerminateError> {
+        self.inner
+            .is_terminated
             .store(true, std::sync::atomic::Ordering::Relaxed);
 
-        let workers = std::mem::take(&mut self.workers);
-        for w in workers {
-            w.handle
-                .join()
-                .map_err(|err| TerminateError::JoinError(err))?;
+        let workers = &self.inner.workers;
+
+        // Wait until all workers have not work again
+        loop {
+            let all_idle = workers.iter().all(|w| !w.is_active());
+
+            if all_idle {
+                break;
+            }
         }
 
-        self.additional_tasks_spawner
-            .join_all()
+        self.inner
+            .additional_tasks_spawner
+            .join()
             .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
         Ok(())
     }
@@ -186,14 +221,14 @@ impl ThreadPool {
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
-        self.terminate().expect("Failed to drop ThreadPool")
+        self.join().expect("Failed to drop ThreadPool")
     }
 }
 
 pub struct Builder {
     name: Option<String>,
     stack_size: Option<usize>,
-    worker_count: usize,
+    num_threads: usize,
     spawn_on_full: bool,
 }
 
@@ -202,7 +237,7 @@ impl Builder {
         Builder {
             name: None,
             stack_size: None,
-            worker_count: 4,
+            num_threads: 4,
             spawn_on_full: false,
         }
     }
@@ -222,9 +257,9 @@ impl Builder {
         self
     }
 
-    pub fn worker_count(mut self, worker_count: usize) -> Self {
-        assert!(worker_count > 0, "Worker count must be greater than 0");
-        self.worker_count = worker_count;
+    pub fn num_threads(mut self, num_threads: usize) -> Self {
+        assert!(num_threads > 0, "Number of threads must be greater than 0");
+        self.num_threads = num_threads;
         self
     }
 
@@ -232,18 +267,18 @@ impl Builder {
         let Self {
             name,
             stack_size,
-            worker_count,
+            num_threads,
             spawn_on_full,
         } = self;
 
         let (sender, receiver) = channel::<Task>();
-        let mut workers = Vec::with_capacity(worker_count);
+        let mut workers = Vec::with_capacity(num_threads);
 
         let task_count = WorkerTaskCount(Default::default());
         let receiver = Arc::new(Mutex::new(receiver));
         let is_terminated = Arc::new(AtomicBool::new(false));
 
-        for _ in 0..worker_count {
+        for _ in 0..num_threads {
             let worker = Worker::new(
                 name.clone(),
                 stack_size,
@@ -255,7 +290,7 @@ impl Builder {
             workers.push(worker);
         }
 
-        Ok(ThreadPool {
+        let inner = Arc::new(State {
             name,
             workers,
             sender,
@@ -264,7 +299,9 @@ impl Builder {
             stack_size,
             is_terminated,
             additional_tasks_spawner: Default::default(),
-        })
+        });
+
+        Ok(ThreadPool { inner })
     }
 }
 
@@ -298,22 +335,22 @@ mod tests {
 
     #[test]
     fn should_enqueue_tasks() {
-        let mut pool = ThreadPool::with_workers(2).unwrap();
-        pool.spawn(|| {}).unwrap();
-        pool.spawn(|| {}).unwrap();
-        pool.spawn(|| {}).unwrap();
+        let pool = ThreadPool::with_workers(2).unwrap();
+        pool.execute(|| {}).unwrap();
+        pool.execute(|| {}).unwrap();
+        pool.execute(|| {}).unwrap();
     }
 
     #[test]
     fn should_block_until_all_worker_finish() {
-        let mut pool = ThreadPool::with_workers(2).unwrap();
+        let pool = ThreadPool::with_workers(2).unwrap();
         let is_done = Arc::new(AtomicBool::new(false));
 
         let work = Work(is_done.clone());
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.spawn(move || w.work()).unwrap();
+                pool.execute(move || w.work()).unwrap();
             }
         }
 
@@ -330,14 +367,14 @@ mod tests {
 
     #[test]
     fn should_wait_before_push_more_tasks() {
-        let mut pool = ThreadPool::with_workers(2).unwrap();
+        let pool = ThreadPool::with_workers(2).unwrap();
         let is_done = Arc::new(AtomicBool::new(false));
 
         let work = Work(is_done.clone());
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.spawn(move || w.work()).unwrap();
+                pool.execute(move || w.work()).unwrap();
             }
         }
 
@@ -347,7 +384,7 @@ mod tests {
 
         {
             let w = work.clone();
-            pool.spawn(move || w.work()).unwrap();
+            pool.execute(move || w.work()).unwrap();
         }
 
         assert_eq!(pool.pending_count(), 3);
@@ -360,8 +397,8 @@ mod tests {
 
     #[test]
     fn should_spawn_additional_threads_if_needed() {
-        let mut pool = ThreadPool::builder()
-            .worker_count(2)
+        let pool = ThreadPool::builder()
+            .num_threads(2)
             .spawn_on_full(true)
             .build()
             .unwrap();
@@ -372,7 +409,7 @@ mod tests {
         {
             for _ in 0..2 {
                 let w = work.clone();
-                pool.spawn(move || w.work()).unwrap();
+                pool.execute(move || w.work()).unwrap();
             }
         }
 
@@ -383,7 +420,7 @@ mod tests {
         {
             for _ in 0..3 {
                 let w = work.clone();
-                pool.spawn(move || w.work()).unwrap();
+                pool.execute(move || w.work()).unwrap();
             }
         }
 

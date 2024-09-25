@@ -36,7 +36,7 @@ impl ThreadSpawner {
     }
 
     pub fn spawn<F: FnOnce() + Send + 'static>(
-        &mut self,
+        &self,
         name: Option<String>,
         stack_size: Option<usize>,
         f: F,
@@ -88,7 +88,7 @@ impl ThreadSpawner {
         Ok(handle_id)
     }
 
-    pub fn join_all(&mut self) -> std::io::Result<()> {
+    pub fn join(&self) -> std::io::Result<()> {
         let mut tasks = self.tasks.write().expect("Failed to acquire lock");
         let handles: Vec<JoinHandle<()>> = tasks.drain().map(|(_, handle)| handle).collect();
         drop(tasks);
