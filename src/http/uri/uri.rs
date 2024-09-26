@@ -1,4 +1,4 @@
-use std::{borrow::Cow, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use super::{Authority, PathAndQuery, Scheme};
 
@@ -62,6 +62,21 @@ pub enum InvalidUri {
     EmptyHost,
     InvalidPort(String),
     EmptyUri,
+}
+
+impl Display for InvalidUri {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InvalidUri::DecodeError => write!(f, "Failed to decode URI"),
+            InvalidUri::InvalidScheme => write!(f, "Invalid URI scheme"),
+            InvalidUri::InvalidHost => write!(f, "Invalid URI host"),
+            InvalidUri::InvalidPath => write!(f, "Invalid URI path"),
+            InvalidUri::InvalidQuery => write!(f, "Invalid URI query"),
+            InvalidUri::EmptyHost => write!(f, "Empty host in URI"),
+            InvalidUri::InvalidPort(port) => write!(f, "Invalid port in URI: {}", port),
+            InvalidUri::EmptyUri => write!(f, "Empty URI"),
+        }
+    }
 }
 
 impl FromStr for Uri {
@@ -131,6 +146,23 @@ impl FromStr for Uri {
         Ok(Uri::new(scheme, authority, path_query))
     }
 }
+
+impl TryFrom<String> for Uri {
+    type Error = InvalidUri;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Uri::from_str(value.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Uri {
+    type Error = InvalidUri;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Uri::from_str(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::http::uri::Uri;

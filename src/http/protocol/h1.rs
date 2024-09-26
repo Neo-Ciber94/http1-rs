@@ -46,9 +46,9 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
     let mut builder = Request::builder();
 
     let (method, url, version) = read_request_line(&buf)?;
-    *builder.method_mut() = method;
-    *builder.url_mut() = url;
-    *builder.version_mut() = version;
+    *builder.method_mut().unwrap() = method;
+    *builder.uri_mut().unwrap() = url;
+    *builder.version_mut().unwrap() = version;
 
     // Read headers
     let mut headers = Headers::new();
@@ -72,7 +72,11 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
 
     // Read the body
     let body = buf.into();
-    Ok(builder.build(body))
+    let response = builder
+        .build(body)
+        .map_err(|err| std::io::Error::other(err))?;
+
+    Ok(response)
 }
 
 fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
