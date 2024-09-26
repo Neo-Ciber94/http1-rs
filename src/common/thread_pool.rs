@@ -285,7 +285,7 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::{sync::{atomic::AtomicBool, Arc}, time::Duration};
 
     use super::ThreadPool;
 
@@ -334,6 +334,7 @@ mod tests {
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
         pool.join().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
 
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 0);
@@ -364,6 +365,7 @@ mod tests {
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
         pool.join().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
 
         assert_eq!(pool.pending_count(), 0);
     }
