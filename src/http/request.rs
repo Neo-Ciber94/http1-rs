@@ -3,7 +3,10 @@ use std::fmt::Display;
 use super::{
     headers::{HeaderName, HeaderValue, Headers},
     method::Method,
-    uri::{InvalidUri, PathAndQuery, Uri},
+    uri::{
+        path_query::PathAndQuery,
+        uri::{InvalidUri, Uri},
+    },
     version::Version,
 };
 
@@ -291,5 +294,11 @@ impl Builder {
             headers,
             body,
         })
+    }
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
     }
 }

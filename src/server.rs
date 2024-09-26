@@ -20,11 +20,13 @@ impl Default for Config {
     }
 }
 
+type OnReady = Option<Box<dyn FnOnce(&SocketAddr)>>;
+
 /// The server implementation.
 pub struct Server {
     addr: SocketAddr,
     config: Config,
-    on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
+    on_ready: OnReady,
 }
 
 impl Server {
@@ -71,7 +73,7 @@ impl Server {
             mut on_ready,
         } = self;
 
-        let listener = TcpListener::bind(&addr)?;
+        let listener = TcpListener::bind(addr)?;
 
         if let Some(on_ready) = on_ready.take() {
             on_ready(&addr)

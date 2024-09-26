@@ -31,7 +31,7 @@ impl Headers {
     }
 
     pub fn get(&self, key: impl AsHeaderName) -> Option<&HeaderValue> {
-        match key.find(&self) {
+        match key.find(self) {
             Some(idx) => {
                 let entry = self.entries.get(idx)?;
                 entry.value.iter().next()
@@ -42,7 +42,7 @@ impl Headers {
 
     pub fn get_all(&self, key: impl AsHeaderName) -> GetAll {
         let iter = key
-            .find(&self)
+            .find(self)
             .map(|idx| &self.entries[idx])
             .map(|x| x.value.iter());
 
@@ -50,7 +50,7 @@ impl Headers {
     }
 
     pub fn get_mut(&mut self, key: impl AsHeaderName) -> Option<&mut HeaderValue> {
-        match key.find(&self) {
+        match key.find(self) {
             Some(idx) => {
                 let entry = self.entries.get_mut(idx)?;
                 entry.value.first_mut()
@@ -98,7 +98,7 @@ impl Headers {
     }
 
     pub fn remove(&mut self, key: impl AsHeaderName) -> Option<HeaderValue> {
-        match key.find(&self) {
+        match key.find(self) {
             Some(idx) => {
                 let entry = self.entries.remove(idx);
                 Some(entry.value.take_first())
@@ -123,12 +123,6 @@ impl Headers {
             index: 0,
         }
     }
-
-    pub fn into_iter(self) -> IntoIter {
-        IntoIter {
-            entries: self.entries,
-        }
-    }
 }
 
 impl<'a> Extend<(&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>)> for Headers {
@@ -146,7 +140,7 @@ impl<'a> Extend<(&'a HeaderName, super::non_empty_list::Iter<'a, HeaderValue>)> 
     }
 }
 
-impl<'a> Extend<(HeaderName, super::non_empty_list::IntoIter<HeaderValue>)> for Headers {
+impl Extend<(HeaderName, super::non_empty_list::IntoIter<HeaderValue>)> for Headers {
     fn extend<
         T: IntoIterator<Item = (HeaderName, super::non_empty_list::IntoIter<HeaderValue>)>,
     >(
@@ -255,7 +249,9 @@ impl IntoIterator for Headers {
     type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_iter()
+        IntoIter {
+            entries: self.entries,
+        }
     }
 }
 

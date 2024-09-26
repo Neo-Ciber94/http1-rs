@@ -105,6 +105,7 @@ impl Response<()> {
 ///
 /// The `Builder` allows setting the status code and headers before
 /// building the final response with a body.
+#[derive(Default)]
 pub struct Builder {
     status: StatusCode,
     headers: Headers,

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use super::{Authority, PathAndQuery, Scheme};
+use super::{authority::Authority, path_query::PathAndQuery, scheme::Scheme};
 
 // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -88,10 +88,9 @@ impl FromStr for Uri {
         }
 
         // scheme
-        let scheme: Option<Scheme> = match s.find("://") {
-            Some(scheme_idx) => Some(Scheme::from(&s[..scheme_idx])),
-            None => None,
-        };
+        let scheme: Option<Scheme> = s
+            .find("://")
+            .map(|scheme_idx| Scheme::from(&s[..scheme_idx]));
 
         if let Some(scheme) = &scheme {
             s = &s[(scheme.as_str().len() + 3)..];
@@ -131,7 +130,7 @@ impl FromStr for Uri {
         let path_query_str = {
             let pq = match authority_str {
                 Some(a) => &s[a.len()..],
-                None => &s,
+                None => s,
             };
 
             if pq.starts_with("/") {
@@ -165,8 +164,9 @@ impl<'a> TryFrom<&'a str> for Uri {
 
 #[cfg(test)]
 mod tests {
-    use crate::http::uri::Uri;
     use std::str::FromStr;
+
+    use crate::http::uri::uri::Uri;
 
     #[test]
     fn should_parse_uri_with_empty_path() {

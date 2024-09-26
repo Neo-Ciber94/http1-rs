@@ -13,7 +13,7 @@ use crate::{
         method::Method,
         request::Request,
         response::Response,
-        uri::Uri,
+        uri::uri::Uri,
         version::Version,
     },
     server::Config,
@@ -29,7 +29,7 @@ pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static>(
 ) {
     let request = read_request(&mut stream).expect("Failed to read request");
     let response = handler.handle(request);
-    match write_response(response, &mut stream, &config) {
+    match write_response(response, &mut stream, config) {
         Ok(_) => {}
         Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
         Err(err) => eprintln!("{err}"),
@@ -72,9 +72,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
 
     // Read the body
     let body = buf.into();
-    let response = builder
-        .build(body)
-        .map_err(|err| std::io::Error::other(err))?;
+    let response = builder.build(body).map_err(std::io::Error::other)?;
 
     Ok(response)
 }

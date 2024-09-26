@@ -68,7 +68,7 @@ impl<T> Deref for NonEmptyList<T> {
     fn deref(&self) -> &Self::Target {
         match &self.0 {
             Inner::Single(value) => std::slice::from_ref(value),
-            Inner::List(vec) => &vec,
+            Inner::List(vec) => vec,
         }
     }
 }

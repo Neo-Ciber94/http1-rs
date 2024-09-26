@@ -36,6 +36,12 @@ impl StatusCode {
     }
 }
 
+impl Default for StatusCode {
+    fn default() -> Self {
+        StatusCode::OK
+    }
+}
+
 macro_rules! status_codes {
     ($($status_code:expr, $reason_phrase:expr, $kconst:ident),*) => {
         impl StatusCode {

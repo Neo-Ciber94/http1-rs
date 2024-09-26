@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
-use super::InvalidUri;
+use super::uri::InvalidUri;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PathAndQuery {
@@ -119,7 +119,7 @@ impl QueryMap {
     pub fn get(&self, key: impl AsRef<str>) -> Option<&str> {
         self.0.get(key.as_ref()).and_then(|s| match s {
             QueryValue::One(s) => Some(s.as_str()),
-            QueryValue::List(list) => list.get(0).map(|s| s.as_str()),
+            QueryValue::List(list) => list.first().map(|s| s.as_str()),
         })
     }
 
@@ -127,10 +127,7 @@ impl QueryMap {
         match self.0.get(key.as_ref()) {
             None => GetAll::Empty,
             Some(QueryValue::One(s)) => GetAll::Once(Some(s)),
-            Some(QueryValue::List(list)) => GetAll::List {
-                list: &list,
-                pos: 0,
-            },
+            Some(QueryValue::List(list)) => GetAll::List { list, pos: 0 },
         }
     }
 

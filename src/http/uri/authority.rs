@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use super::InvalidUri;
+use super::uri::InvalidUri;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Authority {

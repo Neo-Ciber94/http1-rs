@@ -412,3 +412,9 @@ mod tests {
         assert_eq!(pool.additional_task_count(), 0);
     }
 }
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
