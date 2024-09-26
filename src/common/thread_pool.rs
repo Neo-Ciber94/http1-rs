@@ -11,7 +11,7 @@ use std::{
 
 use super::thread_spawner::ThreadSpawner;
 
-type Task = Box<dyn FnOnce() + Send + Sync + 'static>;
+type Task = Box<dyn FnOnce() + Send + 'static>;
 
 #[derive(Clone)]
 struct WorkerTaskCount(Arc<AtomicUsize>);
@@ -171,7 +171,7 @@ impl ThreadPool {
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn execute<F: FnOnce() + Send + Sync + 'static>(&self, f: F) -> std::io::Result<()> {
+    pub fn execute<F: FnOnce() + Send + 'static>(&self, f: F) -> std::io::Result<()> {
         if self.is_terminated() {
             return Err(std::io::Error::other("ThreadPool was terminated"));
         }
@@ -192,7 +192,9 @@ impl ThreadPool {
         self.inner
             .sender
             .send(task)
-            .map_err(|err| std::io::Error::other(err))
+            .expect("Failed to send a task to the ThreadPool");
+
+        Ok(())
     }
 
     pub fn join(&self) -> Result<(), TerminateError> {
@@ -213,17 +215,17 @@ impl ThreadPool {
             std::thread::yield_now()
         }
 
-        self.inner
-            .additional_tasks_spawner
-            .join()
-            .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
+        // self.inner
+        //     .additional_tasks_spawner
+        //     .join()
+        //     .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
         Ok(())
     }
 }
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
-        self.join().expect("Failed to drop ThreadPool")
+        self.join().expect("Failed to drop ThreadPool");
     }
 }
 
