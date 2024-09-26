@@ -205,9 +205,9 @@ impl ThreadPool {
         let workers = &self.inner.workers;
 
         loop {
-            let all_idle = workers.iter().all(|w| !w.is_active());
+            let is_idle = workers.iter().all(|w| !w.is_active());
 
-            if all_idle {
+            if is_idle {
                 break;
             }
 
@@ -219,12 +219,6 @@ impl ThreadPool {
             .join()
             .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
         Ok(())
-    }
-}
-
-impl Drop for ThreadPool {
-    fn drop(&mut self) {
-        self.join().expect("Failed to drop ThreadPool");
     }
 }
 
