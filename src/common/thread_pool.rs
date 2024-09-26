@@ -30,13 +30,6 @@ impl WorkerTaskCount {
     }
 }
 
-struct WorkerTaskCountGuard(WorkerTaskCount);
-impl Drop for WorkerTaskCountGuard {
-    fn drop(&mut self) {
-        self.0.decrement();
-    }
-}
-
 struct Worker {
     is_active: Arc<AtomicBool>,
     handle: JoinHandle<()>,
@@ -49,6 +42,13 @@ impl Worker {
         receiver: Arc<Mutex<Receiver<Task>>>,
         task_count: WorkerTaskCount,
     ) -> std::io::Result<Self> {
+        struct WorkerTaskCountGuard(WorkerTaskCount);
+        impl Drop for WorkerTaskCountGuard {
+            fn drop(&mut self) {
+                self.0.decrement();
+            }
+        }
+
         struct IsActiveGuard(Arc<AtomicBool>);
         impl Drop for IsActiveGuard {
             fn drop(&mut self) {
