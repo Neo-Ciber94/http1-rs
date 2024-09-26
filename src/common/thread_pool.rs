@@ -46,7 +46,6 @@ impl Worker {
     pub fn new(
         name: Option<String>,
         stack_size: Option<usize>,
-        is_terminated: Arc<AtomicBool>,
         receiver: Arc<Mutex<Receiver<Task>>>,
         task_count: WorkerTaskCount,
     ) -> std::io::Result<Self> {
@@ -72,7 +71,7 @@ impl Worker {
             let is_active = is_active.clone();
 
             builder.spawn(move || {
-                while !is_terminated.load(std::sync::atomic::Ordering::Acquire) {
+                loop {
                     match receiver.try_lock() {
                         Ok(lock) => match lock.try_recv() {
                             Ok(task) => {
@@ -122,7 +121,6 @@ struct State {
     sender: Sender<Task>,
     task_count: WorkerTaskCount,
     spawn_on_full: bool,
-    is_terminated: Arc<AtomicBool>,
     additional_tasks_spawner: ThreadSpawner,
 }
 
@@ -165,17 +163,7 @@ impl ThreadPool {
         self.inner.additional_tasks_spawner.pending_count()
     }
 
-    pub fn is_terminated(&self) -> bool {
-        self.inner
-            .is_terminated
-            .load(std::sync::atomic::Ordering::Relaxed)
-    }
-
     pub fn execute<F: FnOnce() + Send + 'static>(&self, f: F) -> std::io::Result<()> {
-        if self.is_terminated() {
-            return Err(std::io::Error::other("ThreadPool was terminated"));
-        }
-
         // All workers are in use, we spawn a new thread
         if self.inner.spawn_on_full && self.pending_count() > self.worker_count() {
             let name = self.inner.name.clone();
@@ -198,10 +186,6 @@ impl ThreadPool {
     }
 
     pub fn join(&self) -> Result<(), TerminateError> {
-        self.inner
-            .is_terminated
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-
         let workers = &self.inner.workers;
 
         loop {
@@ -273,13 +257,10 @@ impl Builder {
 
         let task_count = WorkerTaskCount(Default::default());
         let receiver = Arc::new(Mutex::new(receiver));
-        let is_terminated = Arc::new(AtomicBool::new(false));
-
         for _ in 0..num_threads {
             let worker = Worker::new(
                 name.clone(),
                 stack_size,
-                is_terminated.clone(),
                 receiver.clone(),
                 task_count.clone(),
             )?;
@@ -294,7 +275,6 @@ impl Builder {
             task_count,
             spawn_on_full,
             stack_size,
-            is_terminated,
             additional_tasks_spawner: Default::default(),
         });
 
@@ -315,12 +295,9 @@ mod tests {
     struct Work(Arc<AtomicBool>);
     impl Work {
         pub fn work(&self) {
-            println!("working...");
             while !self.0.load(std::sync::atomic::Ordering::Relaxed) {
                 std::thread::yield_now();
             }
-
-            println!("work done!");
         }
     }
 
@@ -351,7 +328,6 @@ mod tests {
             }
         }
 
-        assert_eq!(pool.is_terminated(), false);
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
 
@@ -375,7 +351,6 @@ mod tests {
             }
         }
 
-        assert_eq!(pool.is_terminated(), false);
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
 
@@ -404,37 +379,29 @@ mod tests {
 
         let work = Work(is_done.clone());
         {
-            // Submit two tasks that will use the initial pool threads
             for _ in 0..2 {
                 let w = work.clone();
                 pool.execute(move || w.work()).unwrap();
             }
         }
 
-        // Ensure the pool has initialized as expected
-        assert_eq!(pool.is_terminated(), false);
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
 
         {
-            // Submit three additional tasks which will trigger spawning additional threads
             for _ in 0..3 {
                 let w = work.clone();
                 pool.execute(move || w.work()).unwrap();
             }
         }
 
-        // Check if tasks are being properly managed
         assert_eq!(pool.pending_count(), 2);
         assert_eq!(pool.additional_task_count(), 3);
 
-        // Now, unlock the tasks
         is_done.store(true, std::sync::atomic::Ordering::Release);
 
-        // Add a brief sleep to allow the tasks to finish
         std::thread::sleep(std::time::Duration::from_millis(50));
 
-        // Verify that all tasks have completed
         assert_eq!(pool.pending_count(), 0);
         assert_eq!(pool.additional_task_count(), 0);
     }
