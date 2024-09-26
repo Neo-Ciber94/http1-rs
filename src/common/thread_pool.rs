@@ -202,6 +202,7 @@ impl ThreadPool {
             .additional_tasks_spawner
             .join()
             .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
+
         Ok(())
     }
 }
@@ -284,10 +285,7 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{atomic::AtomicBool, Arc},
-        time::Duration,
-    };
+    use std::sync::{atomic::AtomicBool, Arc};
 
     use super::ThreadPool;
 
@@ -320,6 +318,9 @@ mod tests {
         let pool = ThreadPool::with_workers(2).unwrap();
         let is_done = Arc::new(AtomicBool::new(false));
 
+        assert_eq!(pool.worker_count(), 2);
+        assert_eq!(pool.pending_count(), 0);
+
         let work = Work(is_done.clone());
         {
             for _ in 0..2 {
@@ -332,7 +333,7 @@ mod tests {
         assert_eq!(pool.pending_count(), 2);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
+        pool.join().unwrap();
 
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 0);
@@ -362,7 +363,7 @@ mod tests {
         assert_eq!(pool.pending_count(), 3);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        std::thread::sleep(Duration::from_millis(10)); // Wait until all the tasks finish
+        pool.join().unwrap();
 
         assert_eq!(pool.pending_count(), 0);
     }
@@ -400,10 +401,9 @@ mod tests {
         assert_eq!(pool.additional_task_count(), 3);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        pool.join().unwrap();
 
         assert_eq!(pool.pending_count(), 0);
-        assert_eq!(pool.additional_task_count(), 3);
+        assert_eq!(pool.additional_task_count(), 0);
     }
 }

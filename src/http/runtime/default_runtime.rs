@@ -10,7 +10,7 @@ impl Default for DefaultRuntime {
     fn default() -> Self {
         let pool = ThreadPool::builder()
             .name("default_runtime")
-            .spawn_on_full(false) // should be true
+            .spawn_on_full(true)
             .build()
             .expect("Failed to create default runtime ThreadPool");
 
