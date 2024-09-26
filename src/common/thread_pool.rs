@@ -165,7 +165,7 @@ impl ThreadPool {
 
     pub fn execute<F: FnOnce() + Send + 'static>(&self, f: F) -> std::io::Result<()> {
         // All workers are in use, we spawn a new thread
-        if self.inner.spawn_on_full && self.pending_count() > self.worker_count() {
+        if self.inner.spawn_on_full && self.pending_count() >= self.worker_count() {
             let name = self.inner.name.clone();
             let stack_size = self.inner.stack_size.clone();
             return self
@@ -387,6 +387,7 @@ mod tests {
 
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
+        assert_eq!(pool.additional_task_count(), 0);
 
         {
             for _ in 0..3 {
@@ -403,6 +404,6 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(50));
 
         assert_eq!(pool.pending_count(), 0);
-        assert_eq!(pool.additional_task_count(), 0);
+        assert_eq!(pool.additional_task_count(), 3);
     }
 }
