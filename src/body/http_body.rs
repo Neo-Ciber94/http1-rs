@@ -11,6 +11,6 @@ pub trait HttpBody {
      * Returns the total size of the data to write.
      */
     fn size_hint(&self) -> Option<usize> {
-        return None;
+        None
     }
 }

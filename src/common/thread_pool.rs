@@ -167,7 +167,7 @@ impl ThreadPool {
         // All workers are in use, we spawn a new thread
         if self.inner.spawn_on_full && self.pending_count() >= self.worker_count() {
             let name = self.inner.name.clone();
-            let stack_size = self.inner.stack_size.clone();
+            let stack_size = self.inner.stack_size;
             return self
                 .inner
                 .additional_tasks_spawner

@@ -141,7 +141,7 @@ impl DateTime {
         let total_millis_until_year = millis_until_year(self.year());
         let mut remaining_ms = millis - total_millis_until_year;
 
-        let days_in_month = if is_leap_year(self.year() as u64) {
+        let days_in_month = if is_leap_year(self.year()) {
             &DAYS_IN_MONTH_LEAP
         } else {
             &DAYS_IN_MONTH_COMMON
@@ -166,7 +166,7 @@ impl DateTime {
         let total_millis_until_year = millis_until_year(self.year());
         let mut remaining_ms = millis - total_millis_until_year;
 
-        let days_in_month = if is_leap_year(self.year() as u64) {
+        let days_in_month = if is_leap_year(self.year()) {
             &DAYS_IN_MONTH_LEAP
         } else {
             &DAYS_IN_MONTH_COMMON
@@ -379,8 +379,8 @@ impl Builder {
             &DAYS_IN_MONTH_COMMON
         };
 
-        for m in 0..(month as usize) {
-            ms += days_in_month[m] as u128 * DAYS_IN_MILLIS;
+        for days_in_month in days_in_month.iter().cloned().take(month as usize) {
+            ms += days_in_month as u128 * DAYS_IN_MILLIS;
         }
 
         // Add milliseconds for the remaining days, hours, seconds, and millis
@@ -421,6 +421,12 @@ fn millis_in_year(year: u64) -> u64 {
 
 fn is_leap_year(year: u64) -> bool {
     (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]

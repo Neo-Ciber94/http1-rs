@@ -94,7 +94,7 @@ impl From<Vec<u8>> for Body {
 
 impl<'a> From<&'a [u8]> for Body {
     fn from(value: &'a [u8]) -> Self {
-        value.iter().cloned().collect::<Vec<_>>().into()
+        value.to_vec().into()
     }
 }
 
@@ -106,7 +106,7 @@ impl From<String> for Body {
 
 impl<'a> From<&'a str> for Body {
     fn from(value: &'a str) -> Self {
-        value.as_bytes().iter().cloned().collect::<Vec<_>>().into()
+        value.as_bytes().to_vec().into()
     }
 }
 
@@ -154,7 +154,7 @@ impl HttpBody for ChunkedBody {
             buf.write_all(&chunk)?;
 
             write!(buf, "\r\n")?;
-            return Ok(buf);
+            Ok(buf)
         }
 
         match self.0.as_mut() {
