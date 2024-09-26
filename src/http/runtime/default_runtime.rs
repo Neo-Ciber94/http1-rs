@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use crate::{common::thread_pool::ThreadPool, handler::RequestHandler, server::ServerConfig};
+use crate::{common::thread_pool::ThreadPool, handler::RequestHandler, server::Config};
 
 use super::{runtime::Runtime, thread_pooled_runtime::ThreadPooledRuntime};
 
@@ -24,7 +24,7 @@ impl Runtime for DefaultRuntime {
     fn start<H: RequestHandler + Send + Sync + 'static>(
         self,
         listener: TcpListener,
-        config: ServerConfig,
+        config: Config,
         handler: H,
     ) -> std::io::Result<Self::Output> {
         self.0.start(listener, config, handler)

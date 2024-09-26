@@ -27,7 +27,7 @@ impl Runtime for ThreadPooledRuntime {
     fn start<H: crate::handler::RequestHandler + Send + Sync + 'static>(
         self,
         listener: std::net::TcpListener,
-        config: crate::server::ServerConfig,
+        config: crate::server::Config,
         handler: H,
     ) -> std::io::Result<Self::Output> {
         let thread_pool = &self.0;

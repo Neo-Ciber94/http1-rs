@@ -16,7 +16,7 @@ use crate::{
         uri::Uri,
         version::Version,
     },
-    server::ServerConfig,
+    server::Config,
 };
 
 /**
@@ -24,7 +24,7 @@ use crate::{
  */
 pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static>(
     handler: &H,
-    config: &ServerConfig,
+    config: &Config,
     mut stream: TcpStream,
 ) {
     let request = read_request(&mut stream).expect("Failed to read request");
@@ -112,7 +112,7 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
 fn write_response(
     response: Response<Body>,
     stream: &mut TcpStream,
-    config: &ServerConfig,
+    config: &Config,
 ) -> std::io::Result<()> {
     let version = response.version();
     let (status, headers, mut body) = response.into_parts();
@@ -143,7 +143,7 @@ fn write_headers(
     mut headers: Headers,
     body: &Body,
     stream: &mut TcpStream,
-    config: &ServerConfig,
+    config: &Config,
 ) -> std::io::Result<()> {
     if config.include_date_header {
         headers.insert(headers::DATE, DateTime::now_utc().to_string());

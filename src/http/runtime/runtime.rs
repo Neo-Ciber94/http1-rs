@@ -1,4 +1,4 @@
-use crate::{handler::RequestHandler, server::ServerConfig};
+use crate::{handler::RequestHandler, server::Config};
 use std::net::TcpListener;
 
 pub trait Runtime {
@@ -7,7 +7,7 @@ pub trait Runtime {
     fn start<H: RequestHandler + Send + Sync + 'static>(
         self,
         listener: TcpListener,
-        config: ServerConfig,
+        config: Config,
         handler: H,
     ) -> std::io::Result<Self::Output>;
 }

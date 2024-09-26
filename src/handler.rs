@@ -5,7 +5,9 @@ use crate::{
     http::{request::Request, response::Response},
 };
 
+/// Handles a server request.
 pub trait RequestHandler {
+    /// Gets a request and returns a response.
     fn handle(&self, req: Request<Body>) -> Response<Body>;
 }
 

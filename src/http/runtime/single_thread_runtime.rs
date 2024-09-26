@@ -10,7 +10,7 @@ impl Runtime for SingleThreadRuntime {
     fn start<H: crate::handler::RequestHandler + Send + Sync + 'static>(
         self,
         listener: std::net::TcpListener,
-        config: crate::server::ServerConfig,
+        config: crate::server::Config,
         handler: H,
     ) -> std::io::Result<Self::Output> {
         for stream in listener.incoming() {

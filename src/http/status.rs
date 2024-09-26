@@ -1,9 +1,11 @@
 use std::fmt::Display;
 
+// Represents an status code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StatusCode(u16);
 
 impl StatusCode {
+    /// Constructs an status code.
     pub const fn new(status: u16) -> Self {
         // https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
         if status < 100 || status > 599 {
@@ -13,18 +15,22 @@ impl StatusCode {
         StatusCode(status)
     }
 
+    /// Returns the status as `u16`.
     pub const fn as_u16(&self) -> u16 {
         self.0
     }
 
+    /// Whether if this status is a redirections status code.
     pub fn is_redirection(&self) -> bool {
         self.0 >= 300 && self.0 < 400
     }
 
+    /// Whether if this status is a client error status code.
     pub fn is_client_error(&self) -> bool {
         self.0 >= 400 && self.0 < 500
     }
 
+    /// Whether if this status is a server error status code.
     pub fn is_server_error(&self) -> bool {
         self.0 >= 500
     }
@@ -37,6 +43,7 @@ macro_rules! status_codes {
                 pub const $kconst: StatusCode = StatusCode($status_code);
             )*
 
+            /// Returns the reason for this status code.
             pub fn reason_phrase(&self) -> Option<&str> {
                 match self.0 {
                     $(

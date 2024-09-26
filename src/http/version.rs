@@ -1,11 +1,14 @@
 use std::{fmt::Display, str::FromStr};
 
+/// Represents the http protocol version.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Version {
+    // HTTP/1.1 version.
     Http1_1,
 }
 
 impl Version {
+    /// Gets the version as `str`.
     pub fn as_str(&self) -> &str {
         match self {
             Version::Http1_1 => "HTTP/1.1",
@@ -19,6 +22,7 @@ impl Display for Version {
     }
 }
 
+///  An error when fails to parse the version.
 #[derive(Debug)]
 pub struct InvalidVersion {
     _priv: (),

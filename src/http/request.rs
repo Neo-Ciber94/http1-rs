@@ -5,6 +5,7 @@ use super::{
     version::Version,
 };
 
+/// Represents a request.
 #[derive(Debug)]
 pub struct Request<T> {
     headers: Headers,
@@ -63,21 +64,21 @@ impl<T> Request<T> {
 }
 
 impl Request<()> {
-    pub fn builder() -> RequestBuilder {
-        RequestBuilder::new()
+    pub fn builder() -> Builder {
+        Builder::new()
     }
 }
 
-pub struct RequestBuilder {
+pub struct Builder {
     headers: Headers,
     method: Method,
     version: Version,
     url: Uri,
 }
 
-impl RequestBuilder {
+impl Builder {
     pub fn new() -> Self {
-        RequestBuilder {
+        Builder {
             headers: Headers::new(),
             method: Method::GET,
             url: Uri::new(None, None, PathAndQuery::new("/".to_owned(), None, None)),

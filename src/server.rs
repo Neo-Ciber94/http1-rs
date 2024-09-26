@@ -5,38 +5,53 @@ use crate::{
     http::runtime::{runtime::Runtime, DefaultRuntime},
 };
 
+/// Server configuration.
 #[derive(Clone, Debug)]
-pub struct ServerConfig {
+pub struct Config {
+    /// Whether if include the `Date` header in each request.
     pub include_date_header: bool,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            include_date_header: true,
+        }
+    }
+}
+
+/// The server implementation.
 pub struct Server {
     addr: SocketAddr,
+    config: Config,
     on_ready: Option<Box<dyn FnOnce(&SocketAddr)>>,
-    config: ServerConfig,
 }
 
 impl Server {
-    pub fn new(addr: SocketAddr) -> Server {
+    /// Constructs a new server.
+    pub fn new(addr: SocketAddr) -> Self {
+        let config = Config::default();
+
         Server {
             addr,
+            config,
             on_ready: None,
-            config: ServerConfig {
-                include_date_header: true,
-            },
         }
     }
 
+    /// Adds a callback that will be executed right after the server starts.
     pub fn on_ready<F: FnOnce(&SocketAddr) + 'static>(mut self, f: F) -> Self {
         self.on_ready = Some(Box::new(f));
         self
     }
 
+    /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
         self
     }
 
+    /// Starts listening for requests using the default http1 `Runtime`.
     pub fn start<H: RequestHandler + Send + Sync + 'static>(
         self,
         handler: H,
@@ -44,6 +59,7 @@ impl Server {
         self.start_with(DefaultRuntime::default(), handler)
     }
 
+    /// Starts listening for requests using the given `Runtime`.
     pub fn start_with<E: Runtime, H: RequestHandler + Send + Sync + 'static>(
         self,
         engine: E,
