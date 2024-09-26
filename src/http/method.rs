@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+/// Represents a request method.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Method {
     GET,
@@ -15,6 +16,7 @@ pub enum Method {
 }
 
 impl Method {
+    /// Returns this method as str.
     pub fn as_str(&self) -> &str {
         match self {
             Method::GET => "GET",
