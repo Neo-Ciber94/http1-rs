@@ -204,7 +204,6 @@ impl ThreadPool {
 
         let workers = &self.inner.workers;
 
-        // Wait until all workers have not work again
         loop {
             let all_idle = workers.iter().all(|w| !w.is_active());
 
@@ -215,10 +214,10 @@ impl ThreadPool {
             std::thread::yield_now()
         }
 
-        // self.inner
-        //     .additional_tasks_spawner
-        //     .join()
-        //     .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
+        self.inner
+            .additional_tasks_spawner
+            .join()
+            .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
         Ok(())
     }
 }
