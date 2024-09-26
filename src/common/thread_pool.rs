@@ -285,7 +285,10 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::{atomic::AtomicBool, Arc}, time::Duration};
+    use std::{
+        sync::{atomic::AtomicBool, Arc},
+        time::Duration,
+    };
 
     use super::ThreadPool;
 

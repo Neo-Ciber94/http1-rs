@@ -91,7 +91,7 @@ impl Response<()> {
     /// # Example
     /// ```
     /// use http1::http::{status::StatusCode, response::Response};
-    /// 
+    ///
     /// let response = Response::builder()
     ///     .status(StatusCode::OK)
     ///     .build("Hello, World!");
