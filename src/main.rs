@@ -20,7 +20,7 @@ fn main() {
 }
 
 fn handle_request(req: Request<Body>) -> Response<Body> {
-    println!("Request: {req:?}");
+    println!("Request: {req:#?}");
     let (chunked, sender) = ChunkedBody::new();
 
     sender.send(b"<h1>Hello</h1>".to_vec()).ok();

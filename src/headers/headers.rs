@@ -1,4 +1,5 @@
 use core::str;
+use std::fmt::Debug;
 
 use private::Sealed;
 
@@ -10,9 +11,41 @@ struct HeaderEntry {
     pub(crate) value: NonEmptyList<HeaderValue>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone)]
 pub struct Headers {
     entries: Vec<HeaderEntry>,
+}
+
+impl Debug for Headers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        struct DebugHeaderValueList<'a>(crate::headers::non_empty_list::Iter<'a, HeaderValue>);
+        impl Debug for DebugHeaderValueList<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let values = self.0.clone().map(|x| x.as_str());
+                f.debug_list().entries(values).finish()
+            }
+        }
+
+        let mut map = f.debug_map();
+
+        for (key, mut values) in self {
+            debug_assert!(values.len() > 0);
+
+            // This shouldn't happen
+            if values.len() == 0 {
+                continue;
+            }
+
+            if values.len() == 1 {
+                let header_value = values.next().unwrap();
+                map.entry(&key.as_str(), &header_value.as_str());
+            } else {
+                map.entry(&key.as_str(), &DebugHeaderValueList(values));
+            }
+        }
+
+        map.finish()
+    }
 }
 
 impl Headers {

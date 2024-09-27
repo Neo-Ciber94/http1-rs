@@ -54,10 +54,9 @@ impl<T> NonEmptyList<T> {
         Ok(list.remove(index))
     }
 
-    pub fn into_iter(self) -> IntoIter<T> {
-        match self.0 {
-            Inner::Single(x) => IntoIter(IteratorInner::Single(Some(x))),
-            Inner::List(vec) => IntoIter(IteratorInner::Iter(vec.into_iter())),
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
+            iter: self.deref().iter(),
         }
     }
 }
@@ -100,14 +99,31 @@ impl<T> TryFrom<Vec<T>> for NonEmptyList<T> {
     }
 }
 
-pub type Iter<'a, T> = std::slice::Iter<'a, T>;
+#[derive(Clone)]
+pub struct Iter<'a, T> {
+    iter: std::slice::Iter<'a, T>,
+}
+
+impl<T> ExactSizeIterator for Iter<'_, T> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
 
 impl<'a, T> IntoIterator for &'a NonEmptyList<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.deref().iter()
+        self.iter()
     }
 }
 
