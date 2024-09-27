@@ -62,11 +62,11 @@ impl Server {
     }
 
     /// Starts listening for requests using the given `Runtime`.
-    pub fn start_with<E: Runtime, H: RequestHandler + Send + Sync + 'static>(
+    pub fn start_with<R: Runtime, H: RequestHandler + Send + Sync + 'static>(
         self,
-        engine: E,
+        runtime: R,
         handler: H,
-    ) -> std::io::Result<E::Output> {
+    ) -> std::io::Result<R::Output> {
         let Self {
             addr,
             config,
@@ -79,6 +79,6 @@ impl Server {
             on_ready(&addr)
         }
 
-        engine.start(listener, config, handler)
+        runtime.start(listener, config, handler)
     }
 }

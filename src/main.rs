@@ -1,7 +1,11 @@
 use http1::{
     body::{Body, ChunkedBody},
-    http::{headers, request::Request, response::Response, status::StatusCode},
+    headers,
+    request::Request,
+    response::Response,
+    runtime::SingleThreadRuntime,
     server::Server,
+    status::StatusCode,
 };
 use std::{thread, time::Duration};
 
@@ -11,7 +15,7 @@ fn main() {
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))
-        .start(handle_request)
+        .start_with(SingleThreadRuntime, handle_request)
         .unwrap();
 }
 
