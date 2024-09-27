@@ -8,7 +8,7 @@ pub mod protocol;
 pub mod request;
 pub mod response;
 pub mod runtime;
+pub mod server;
 pub mod status;
 pub mod uri;
 pub mod version;
-pub mod server;
