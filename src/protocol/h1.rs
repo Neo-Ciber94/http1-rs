@@ -54,7 +54,6 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
 
     while reader.read_line(&mut buf).unwrap() > 0 {
         let line = buf.trim();
-
         if line.is_empty() {
             break;
         }
@@ -66,6 +65,10 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
         }
 
         buf.clear();
+    }
+
+    if let Some(req_headers) = builder.headers_mut() {
+        req_headers.extend(headers);
     }
 
     // Read the body
