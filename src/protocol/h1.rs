@@ -105,7 +105,7 @@ fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
     let (key, rest) = str.split_once(": ")?;
     let mut values = Vec::new();
 
-    for value in rest.split(";").map(|s| s.trim()) {
+    for value in rest.split(",").map(|s| s.trim()) {
         values.push(value.to_owned())
     }
 
