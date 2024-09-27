@@ -1,4 +1,5 @@
 pub mod into_response;
+pub mod sse;
 
 use super::{
     headers::{HeaderName, HeaderValue, Headers},
