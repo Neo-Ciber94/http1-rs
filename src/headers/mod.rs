@@ -9,89 +9,63 @@ pub use value::*;
 
 // Headers
 
-pub const CONTENT_LENGTH: HeaderName = HeaderName::from_static("Content-Length");
+macro_rules! define_header_names {
+    ($($name:ident => $value:expr),* $(,)?) => {
+        $(
+            pub const $name: HeaderName = HeaderName::const_static($value);
+        )*
 
-pub const CONTENT_TYPE: HeaderName = HeaderName::from_static("Content-Type");
+        pub(crate) fn get_header_name(name: &str) -> Option<HeaderName> {
+            match name {
+                $(
+                    _ if $value.eq_ignore_ascii_case(name) => Some(HeaderName::const_static($value)),
+                )*
+                _ => None
+            }
+        }
+    };
+}
 
-pub const CONTENT_ENCODING: HeaderName = HeaderName::from_static("Content-Encoding");
-
-pub const TRANSFER_ENCODING: HeaderName = HeaderName::from_static("Transfer-Encoding");
-
-pub const CONTENT_DISPOSITION: HeaderName = HeaderName::from_static("Content-Disposition");
-
-pub const ACCEPT: HeaderName = HeaderName::from_static("Accept");
-
-pub const ACCEPT_ENCODING: HeaderName = HeaderName::from_static("Accept-Encoding");
-
-pub const ACCEPT_LANGUAGE: HeaderName = HeaderName::from_static("Accept-Language");
-
-pub const AUTHORIZATION: HeaderName = HeaderName::from_static("Authorization");
-
-pub const CACHE_CONTROL: HeaderName = HeaderName::from_static("Cache-Control");
-
-pub const CONNECTION: HeaderName = HeaderName::from_static("Connection");
-
-pub const COOKIE: HeaderName = HeaderName::from_static("Cookie");
-
-pub const SET_COOKIE: HeaderName = HeaderName::from_static("Set-Cookie");
-
-pub const HOST: HeaderName = HeaderName::from_static("Host");
-
-pub const USER_AGENT: HeaderName = HeaderName::from_static("User-Agent");
-
-pub const REFERER: HeaderName = HeaderName::from_static("Referer");
-
-pub const UPGRADE: HeaderName = HeaderName::from_static("Upgrade");
-
-pub const LOCATION: HeaderName = HeaderName::from_static("Location");
-
-pub const X_FORWARDED_FOR: HeaderName = HeaderName::from_static("X-Forwarded-For");
-
-pub const X_FRAME_OPTIONS: HeaderName = HeaderName::from_static("X-Frame-Options");
-
-pub const ORIGIN: HeaderName = HeaderName::from_static("Origin");
-
-pub const DATE: HeaderName = HeaderName::from_static("Date");
-
-pub const ETAG: HeaderName = HeaderName::from_static("ETag");
-
-pub const LAST_MODIFIED: HeaderName = HeaderName::from_static("Last-Modified");
-
-pub const IF_MATCH: HeaderName = HeaderName::from_static("If-Match");
-
-pub const IF_NONE_MATCH: HeaderName = HeaderName::from_static("If-None-Match");
-
-pub const IF_MODIFIED_SINCE: HeaderName = HeaderName::from_static("If-Modified-Since");
-
-pub const IF_UNMODIFIED_SINCE: HeaderName = HeaderName::from_static("If-Unmodified-Since");
-
-pub const RANGE: HeaderName = HeaderName::from_static("Range");
-
-pub const ACCEPT_RANGES: HeaderName = HeaderName::from_static("Accept-Ranges");
-
-pub const RETRY_AFTER: HeaderName = HeaderName::from_static("Retry-After");
-
-pub const VARY: HeaderName = HeaderName::from_static("Vary");
-
-pub const EXPECT: HeaderName = HeaderName::from_static("Expect");
-
-pub const ALLOW: HeaderName = HeaderName::from_static("Allow");
-
-pub const ACCESS_CONTROL_ALLOW_ORIGIN: HeaderName =
-    HeaderName::from_static("Access-Control-Allow-Origin");
-
-pub const ACCESS_CONTROL_ALLOW_HEADERS: HeaderName =
-    HeaderName::from_static("Access-Control-Allow-Headers");
-
-pub const ACCESS_CONTROL_ALLOW_METHODS: HeaderName =
-    HeaderName::from_static("Access-Control-Allow-Methods");
-pub const ACCESS_CONTROL_MAX_AGE: HeaderName = HeaderName::from_static("Access-Control-Max-Age");
-
-pub const ACCESS_CONTROL_EXPOSE_HEADERS: HeaderName =
-    HeaderName::from_static("Access-Control-Expose-Headers");
-
-pub const ACCESS_CONTROL_REQUEST_HEADERS: HeaderName =
-    HeaderName::from_static("Access-Control-Request-Headers");
-
-pub const ACCESS_CONTROL_REQUEST_METHOD: HeaderName =
-    HeaderName::from_static("Access-Control-Request-Method");
+define_header_names! {
+    CONTENT_LENGTH => "Content-Length",
+    CONTENT_TYPE => "Content-Type",
+    CONTENT_ENCODING => "Content-Encoding",
+    TRANSFER_ENCODING => "Transfer-Encoding",
+    CONTENT_DISPOSITION => "Content-Disposition",
+    ACCEPT => "Accept",
+    ACCEPT_ENCODING => "Accept-Encoding",
+    ACCEPT_LANGUAGE => "Accept-Language",
+    AUTHORIZATION => "Authorization",
+    CACHE_CONTROL => "Cache-Control",
+    CONNECTION => "Connection",
+    COOKIE => "Cookie",
+    SET_COOKIE => "Set-Cookie",
+    HOST => "Host",
+    USER_AGENT => "User-Agent",
+    REFERER => "Referer",
+    UPGRADE => "Upgrade",
+    LOCATION => "Location",
+    X_FORWARDED_FOR => "X-Forwarded-For",
+    X_FRAME_OPTIONS => "X-Frame-Options",
+    ORIGIN => "Origin",
+    DATE => "Date",
+    ETAG => "ETag",
+    LAST_MODIFIED => "Last-Modified",
+    IF_MATCH => "If-Match",
+    IF_NONE_MATCH => "If-None-Match",
+    IF_MODIFIED_SINCE => "If-Modified-Since",
+    IF_UNMODIFIED_SINCE => "If-Unmodified-Since",
+    RANGE => "Range",
+    ACCEPT_RANGES => "Accept-Ranges",
+    RETRY_AFTER => "Retry-After",
+    VARY => "Vary",
+    EXPECT => "Expect",
+    ALLOW => "Allow",
+    ACCESS_CONTROL_ALLOW_ORIGIN => "Access-Control-Allow-Origin",
+    ACCESS_CONTROL_ALLOW_HEADERS => "Access-Control-Allow-Headers",
+    ACCESS_CONTROL_ALLOW_METHODS => "Access-Control-Allow-Methods",
+    ACCESS_CONTROL_MAX_AGE => "Access-Control-Max-Age",
+    ACCESS_CONTROL_EXPOSE_HEADERS => "Access-Control-Expose-Headers",
+    ACCESS_CONTROL_REQUEST_HEADERS => "Access-Control-Request-Headers",
+    ACCESS_CONTROL_REQUEST_METHOD => "Access-Control-Request-Method",
+}

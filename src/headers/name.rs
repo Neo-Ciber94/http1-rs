@@ -1,15 +1,27 @@
 use std::{borrow::Cow, fmt::Display, hash::Hash};
 
+use super::get_header_name;
+
 #[derive(Debug, Clone)]
 pub struct HeaderName(Cow<'static, str>);
 
 impl HeaderName {
-    pub const fn from_static(s: &'static str) -> Self {
+    pub(crate) const fn const_static(s: &'static str) -> Self {
         HeaderName(Cow::Borrowed(s))
     }
 
-    pub const fn from_string(s: String) -> Self {
-        HeaderName(Cow::Owned(s))
+    pub fn from_static(s: &'static str) -> Self {
+        match get_header_name(s) {
+            Some(header_name) => header_name,
+            None => HeaderName(Cow::Borrowed(s)),
+        }
+    }
+
+    pub fn from_string(s: String) -> Self {
+        match get_header_name(&s) {
+            Some(header_name) => header_name,
+            None => HeaderName(Cow::Owned(s)),
+        }
     }
 
     pub fn as_str(&self) -> &str {
@@ -53,8 +65,11 @@ impl From<String> for HeaderName {
     }
 }
 
-impl From<&'static str> for HeaderName {
-    fn from(value: &'static str) -> Self {
-        HeaderName::from_static(value)
+impl<'a> From<&'a str> for HeaderName {
+    fn from(value: &'a str) -> Self {
+        match get_header_name(value) {
+            Some(header_name) => header_name,
+            None => HeaderName(Cow::Owned(value.into())),
+        }
     }
 }
