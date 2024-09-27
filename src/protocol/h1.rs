@@ -60,7 +60,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
 
         if let Some((key, values)) = read_header(line) {
             values.into_iter().for_each(|v| {
-                headers.append(HeaderName::from_string(key.clone()), v);
+                headers.append(HeaderName::from(key), v);
             })
         }
 
@@ -100,16 +100,16 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
     Ok((method, url, version))
 }
 
-fn read_header(buf: &str) -> Option<(String, Vec<String>)> {
+fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
     let str = buf.trim();
-    let (key, rest) = str.split_once(": ")?;
-    let mut values = Vec::new();
+    let (name, rest) = str.split_once(": ")?;
+    let values = rest
+        .split(",")
+        .map(|s| s.trim())
+        .map(|s| s.to_owned())
+        .collect::<Vec<_>>();
 
-    for value in rest.split(",").map(|s| s.trim()) {
-        values.push(value.to_owned())
-    }
-
-    Some((key.to_owned(), values))
+    Some((name, values))
 }
 
 fn write_response(
