@@ -18,7 +18,7 @@ impl Version {
 
 impl Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.as_str())
+        write!(f, "{}", self.as_str())
     }
 }
 
