@@ -68,4 +68,8 @@ define_header_names! {
     ACCESS_CONTROL_EXPOSE_HEADERS => "Access-Control-Expose-Headers",
     ACCESS_CONTROL_REQUEST_HEADERS => "Access-Control-Request-Headers",
     ACCESS_CONTROL_REQUEST_METHOD => "Access-Control-Request-Method",
+    CONTENT_SECURITY_POLICY => "Content-Security-Policy",
+    CONTENT_SECURITY_POLICY_REPORT_ONLY => "Content-Security-Policy-Report-Only",
+    FEATURE_POLICY => "Feature-Policy", 
+    PERMISSIONS_POLICY => "Permissions-Policy"
 }
