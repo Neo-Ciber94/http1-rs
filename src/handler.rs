@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    body::Body,
-    http::{request::Request, response::Response},
-};
+use crate::{body::Body, request::Request, response::Response};
 
 /// Handles a server request.
 pub trait RequestHandler {

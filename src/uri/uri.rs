@@ -166,7 +166,7 @@ impl<'a> TryFrom<&'a str> for Uri {
 mod tests {
     use std::str::FromStr;
 
-    use crate::http::uri::uri::Uri;
+    use crate::uri::uri::Uri;
 
     #[test]
     fn should_parse_uri_with_empty_path() {

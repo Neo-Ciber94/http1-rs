@@ -305,7 +305,7 @@ mod private {
 
 #[cfg(test)]
 mod tests {
-    use crate::http::headers::value::HeaderValue;
+    use crate::headers::value::HeaderValue;
 
     use super::Headers;
 

@@ -1,4 +1,4 @@
-use crate::http::protocol::h1::handle_incoming;
+use crate::protocol::h1::handle_incoming;
 
 use super::runtime::Runtime;
 

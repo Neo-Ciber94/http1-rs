@@ -8,15 +8,13 @@ use crate::{
     body::{http_body::HttpBody, Body},
     common::date_time::DateTime,
     handler::RequestHandler,
-    http::{
-        headers::{self, HeaderName, Headers},
-        method::Method,
-        request::Request,
-        response::Response,
-        uri::uri::Uri,
-        version::Version,
-    },
+    headers::{self, HeaderName, Headers},
+    method::Method,
+    request::Request,
+    response::Response,
     server::Config,
+    uri::uri::Uri,
+    version::Version,
 };
 
 /**

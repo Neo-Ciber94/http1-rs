@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{common::thread_pool::ThreadPool, http::protocol::h1::handle_incoming};
+use crate::{common::thread_pool::ThreadPool, protocol::h1::handle_incoming};
 
 use super::runtime::Runtime;
 

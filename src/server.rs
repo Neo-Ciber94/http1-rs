@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpListener};
 
 use crate::{
     handler::RequestHandler,
-    http::runtime::{runtime::Runtime, DefaultRuntime},
+    runtime::{runtime::Runtime, DefaultRuntime},
 };
 
 /// Server configuration.
