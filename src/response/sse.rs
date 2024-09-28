@@ -1,38 +1,73 @@
 use std::{
     fmt::Display,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
 };
 
-use crate::body::http_body::HttpBody;
+use crate::body::{http_body::HttpBody, Body};
 
 #[derive(Debug)]
 pub struct SseSendError;
 
-pub struct SseStream(Receiver<SseEvent>);
+pub struct SseStream(Option<Receiver<SseEvent>>);
 
 impl SseStream {
     pub fn new() -> (SseBroadcast, Self) {
         let (sender, receiver) = channel();
 
         let sse_broadcast = SseBroadcast(sender);
-        (sse_broadcast, SseStream(receiver))
+        (sse_broadcast, SseStream(Some(receiver)))
+    }
+}
+
+impl From<SseStream> for Body {
+    fn from(value: SseStream) -> Self {
+        Body::new(value)
     }
 }
 
 #[derive(Debug)]
 pub struct InvalidSseStreamError;
 
+impl Display for InvalidSseStreamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to send server-sent event")
+    }
+}
+
+impl std::error::Error for InvalidSseStreamError {}
+
 impl HttpBody for SseStream {
     type Err = InvalidSseStreamError;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        match self.0.recv() {
-            Ok(event) => {
-                let bytes = event.to_string().as_bytes().to_vec();
-                Ok(Some(bytes))
+        match self.0.as_mut() {
+            Some(receiver) => {
+                match receiver.try_recv() {
+                    Ok(event) => {
+                        let bytes = event.to_string().as_bytes().to_vec();
+                        Ok(Some(bytes))
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        let _ = self.0.take();
+                        Err(InvalidSseStreamError)
+                    },
+                    Err(TryRecvError::Empty) => {
+                        // Wait until the next message
+                        match receiver.recv() {
+                            Ok(event) => {
+                                let bytes = event.to_string().as_bytes().to_vec();
+                                Ok(Some(bytes))
+                            }
+                            Err(_) => {
+                                let _ = self.0.take();
+                                Err(InvalidSseStreamError)
+                            },
+                        }
+                    }
+                }
             }
-            Err(_) => Err(InvalidSseStreamError),
+            None => Ok(None),
         }
     }
 }
