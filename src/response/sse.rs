@@ -41,28 +41,26 @@ impl HttpBody for SseStream {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        fn to_bytes(event: SseEvent) -> Vec<u8> {
+            event.to_string().into_bytes()
+        }
+
         match self.0.as_mut() {
             Some(receiver) => {
                 match receiver.try_recv() {
-                    Ok(event) => {
-                        let bytes = event.to_string().as_bytes().to_vec();
-                        Ok(Some(bytes))
-                    }
+                    Ok(event) => Ok(Some(to_bytes(event))),
                     Err(TryRecvError::Disconnected) => {
-                        let _ = self.0.take();
+                        let _ = self.0.take();  // drop the receiver
                         Err(InvalidSseStreamError)
-                    },
+                    }
                     Err(TryRecvError::Empty) => {
                         // Wait until the next message
                         match receiver.recv() {
-                            Ok(event) => {
-                                let bytes = event.to_string().as_bytes().to_vec();
-                                Ok(Some(bytes))
-                            }
+                            Ok(event) => Ok(Some(to_bytes(event))),
                             Err(_) => {
-                                let _ = self.0.take();
+                                let _ = self.0.take(); // drop the receiver
                                 Err(InvalidSseStreamError)
-                            },
+                            }
                         }
                     }
                 }
