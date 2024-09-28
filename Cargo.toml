@@ -1,6 +1,10 @@
 [package]
-name = "http1"
-version = "0.1.0"
+name = "app"
 edition = "2021"
 
+[workspace]
+resolver = "1"
+members = ["packages/http1"]
+
 [dependencies]
+http1 = { path = "packages/http1" }
