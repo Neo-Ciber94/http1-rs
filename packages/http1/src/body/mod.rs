@@ -3,6 +3,7 @@ pub mod http_body;
 use std::{
     convert::Infallible,
     fmt::Debug,
+    fs::File,
     io::{BufReader, Read, Write},
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
 };
@@ -26,6 +27,10 @@ where
             .read_next()
             .map(|data| data.map(|x| x.into()))
             .map_err(|e| e.into())
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.0.size_hint()
     }
 }
 
@@ -62,6 +67,10 @@ impl HttpBody for Body {
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         self.inner.0.read_next()
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.inner.0.size_hint()
     }
 }
 
@@ -110,6 +119,8 @@ impl<'a> From<&'a str> for Body {
     }
 }
 
+const BUFFER_SIZE: usize = 4096;
+
 impl<R> HttpBody for BufReader<R>
 where
     R: Read,
@@ -118,12 +129,30 @@ where
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        let mut buf = Vec::with_capacity(512);
+        let mut buf = vec![0; BUFFER_SIZE];
         match Read::read(self, &mut buf) {
             Ok(0) => Ok(None),
             Ok(n) => Ok(Some(buf[0..n].to_vec())),
             Err(err) => Err(err.into()),
         }
+    }
+}
+
+impl HttpBody for File {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        let mut buf = vec![0; BUFFER_SIZE];
+        match Read::read(self, &mut buf) {
+            Ok(0) => Ok(None),
+            Ok(n) => Ok(Some(buf[0..n].to_vec())),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.metadata().map(|m| m.len() as usize).ok()
     }
 }
 
