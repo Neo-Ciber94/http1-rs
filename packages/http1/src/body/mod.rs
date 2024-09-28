@@ -125,16 +125,11 @@ impl<R> HttpBody for BufReader<R>
 where
     R: Read,
 {
-    type Err = BoxError;
+    type Err = std::io::Error;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        let mut buf = vec![0; BUFFER_SIZE];
-        match Read::read(self, &mut buf) {
-            Ok(0) => Ok(None),
-            Ok(n) => Ok(Some(buf[0..n].to_vec())),
-            Err(err) => Err(err.into()),
-        }
+        read_next_bytes(self)
     }
 }
 
@@ -143,16 +138,20 @@ impl HttpBody for File {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        let mut buf = vec![0; BUFFER_SIZE];
-        match Read::read(self, &mut buf) {
-            Ok(0) => Ok(None),
-            Ok(n) => Ok(Some(buf[0..n].to_vec())),
-            Err(err) => Err(err.into()),
-        }
+        read_next_bytes(self)
     }
 
     fn size_hint(&self) -> Option<usize> {
         self.metadata().map(|m| m.len() as usize).ok()
+    }
+}
+
+fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
+    let mut buf = vec![0; BUFFER_SIZE];
+    match Read::read(read, &mut buf) {
+        Ok(0) => Ok(None),
+        Ok(n) => Ok(Some(buf[0..n].to_vec())),
+        Err(err) => Err(err.into()),
     }
 }
 
