@@ -50,7 +50,7 @@ impl HttpBody for SseStream {
                 match receiver.try_recv() {
                     Ok(event) => Ok(Some(to_bytes(event))),
                     Err(TryRecvError::Disconnected) => {
-                        let _ = self.0.take();  // drop the receiver
+                        let _ = self.0.take(); // drop the receiver
                         Err(InvalidSseStreamError)
                     }
                     Err(TryRecvError::Empty) => {
