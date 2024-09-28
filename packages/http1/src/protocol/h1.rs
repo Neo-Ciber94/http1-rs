@@ -1,6 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, ErrorKind, Write},
-    net::TcpStream,
+    io::{BufRead, BufReader, ErrorKind, Read, Write},
     str::FromStr,
 };
 
@@ -20,10 +19,10 @@ use crate::{
 /**
  * Handles and send a response to a HTTP1 request.
  */
-pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static>(
+pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static, S: Read + Write>(
     handler: &H,
     config: &Config,
-    mut stream: TcpStream,
+    mut stream: S,
 ) {
     let request = read_request(&mut stream).expect("Failed to read request");
     let response = handler.handle(request);
@@ -34,7 +33,7 @@ pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static>(
     }
 }
 
-fn read_request(stream: &mut TcpStream) -> std::io::Result<Request<Body>> {
+fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
@@ -113,9 +112,9 @@ fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
     Some((name, values))
 }
 
-fn write_response(
+fn write_response<W: Write>(
     response: Response<Body>,
-    stream: &mut TcpStream,
+    stream: &mut W,
     config: &Config,
 ) -> std::io::Result<()> {
     let version = response.version();
@@ -143,10 +142,10 @@ fn write_response(
     Ok(())
 }
 
-fn write_headers(
+fn write_headers<W: Write>(
     mut headers: Headers,
     body: &Body,
-    stream: &mut TcpStream,
+    stream: &mut W,
     config: &Config,
 ) -> std::io::Result<()> {
     if config.include_date_header {
