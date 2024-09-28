@@ -23,11 +23,11 @@ fn handle_request(req: Request<Body>) -> Response<Body> {
     println!("Request: {req:#?}");
     let (chunked, sender) = ChunkedBody::new();
 
-    sender.send(b"<h1>Hello</h1>".to_vec()).ok();
+    sender.send("<h1>Hello</h1>").ok();
 
     thread::spawn(move || {
         thread::sleep(Duration::from_secs(2));
-        sender.send(b"<h2>World</h2>".to_vec()).ok();
+        sender.send("<h2>World</h2>").ok();
     });
 
     Response::builder()

@@ -127,10 +127,10 @@ where
     }
 }
 
-pub struct ChunkedBody(Option<Receiver<Vec<u8>>>);
+pub struct ChunkedBody<T>(Option<Receiver<T>>);
 
-impl ChunkedBody {
-    pub fn new() -> (Self, Sender<Vec<u8>>) {
+impl<T> ChunkedBody<T> {
+    pub fn new() -> (Self, Sender<T>) {
         let (sender, recv) = channel();
 
         let this = ChunkedBody(Some(recv));
@@ -138,22 +138,24 @@ impl ChunkedBody {
     }
 }
 
-impl HttpBody for ChunkedBody {
+impl<T> HttpBody for ChunkedBody<T>
+where
+    T: AsRef<[u8]> + 'static,
+{
     type Err = BoxError;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        fn send_chunk(chunk: Vec<u8>) -> Result<Vec<u8>, BoxError> {
-            let mut buf = Vec::new();
-
-            // Write the chunk size
+        fn send_chunk(chunk: &[u8]) -> Result<Vec<u8>, BoxError> {
             let size = chunk.len();
+            let mut buf = Vec::with_capacity(size + 10); // 10 bytes for size in hex and CRLF
+
             write!(buf, "{size:X}\r\n")?;
 
-            // Write the chunk data
-            buf.write_all(&chunk)?;
+            // Write the bytes
+            buf.extend_from_slice(chunk);
+            buf.extend_from_slice(b"\r\n");
 
-            write!(buf, "\r\n")?;
             Ok(buf)
         }
 
@@ -161,19 +163,17 @@ impl HttpBody for ChunkedBody {
             Some(rx) => {
                 // Try read the next chunk, if ready sends it
                 match rx.try_recv() {
-                    Ok(chunk) => return send_chunk(chunk).map(Some),
+                    Ok(chunk) => return send_chunk(chunk.as_ref()).map(Some),
                     Err(TryRecvError::Disconnected) => {
                         let _ = self.0.take(); // Drop the receiver if the sender was disconnected
-                        let mut buf = Vec::new();
-                        write!(buf, "0\r\n\r\n")?;
-                        return Ok(Some(buf));
+                        return Ok(Some(b"0\r\n\r\n".to_vec()));
                     }
                     Err(_) => {}
                 }
 
                 // Otherwise wait for the next chunk
                 match rx.recv() {
-                    Ok(chunk) => send_chunk(chunk).map(Some),
+                    Ok(chunk) => send_chunk(chunk.as_ref()).map(Some),
                     Err(err) => Err(err.into()),
                 }
             }
@@ -182,8 +182,8 @@ impl HttpBody for ChunkedBody {
     }
 }
 
-impl From<ChunkedBody> for Body {
-    fn from(value: ChunkedBody) -> Self {
+impl<T: AsRef<[u8]> + 'static> From<ChunkedBody<T>> for Body {
+    fn from(value: ChunkedBody<T>) -> Self {
         Body::new(value)
     }
 }
