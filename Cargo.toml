@@ -4,7 +4,7 @@ edition = "2021"
 
 [workspace]
 resolver = "1"
-members = ["packages/http1"]
+members = ["packages/http1", "packages/http1_web"]
 
 [dependencies]
 http1 = { path = "packages/http1" }

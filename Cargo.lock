@@ -12,3 +12,7 @@ dependencies = [
 [[package]]
 name = "http1"
 version = "0.1.0"
+
+[[package]]
+name = "http1_web"
+version = "0.1.0"
