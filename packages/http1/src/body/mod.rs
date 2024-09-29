@@ -53,6 +53,10 @@ pub struct Body {
 }
 
 impl Body {
+    pub fn empty() -> Self {
+        Self::new(())
+    }
+
     pub fn new<B>(body: B) -> Self
     where
         B: HttpBody + 'static,

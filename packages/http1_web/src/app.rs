@@ -1,0 +1,149 @@
+use std::{collections::HashMap, sync::Arc};
+
+use http1::{
+    body::Body,
+    handler::RequestHandler,
+    method::Method,
+    request::Request,
+    response::{into_response::IntoResponse, Response},
+    status::StatusCode,
+};
+
+use crate::router::Router;
+
+pub trait Handler<Args> {
+    type Output: IntoResponse;
+    fn call(&self, args: Args) -> Self::Output;
+}
+
+impl<F, R> Handler<()> for F
+where
+    F: Fn() -> R,
+    R: IntoResponse,
+{
+    type Output = R;
+
+    fn call(&self, _args: ()) -> Self::Output {
+        (self)()
+    }
+}
+
+impl<F, R, T1> Handler<(T1,)> for F
+where
+    F: Fn((T1,)) -> R,
+    R: IntoResponse,
+{
+    type Output = R;
+
+    fn call(&self, args: (T1,)) -> Self::Output {
+        (self)(args)
+    }
+}
+
+impl<F, R, T1, T2> Handler<(T1, T2)> for F
+where
+    F: Fn((T1, T2)) -> R,
+    R: IntoResponse,
+{
+    type Output = R;
+
+    fn call(&self, args: (T1, T2)) -> Self::Output {
+        (self)(args)
+    }
+}
+
+impl<F, R, T1, T2, T3> Handler<(T1, T2, T3)> for F
+where
+    F: Fn((T1, T2, T3)) -> R,
+    R: IntoResponse,
+{
+    type Output = R;
+
+    fn call(&self, args: (T1, T2, T3)) -> Self::Output {
+        (self)(args)
+    }
+}
+
+#[derive(Clone)]
+struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body>>);
+
+impl BoxedHandler {
+    pub fn new<H, Args, R>(handler: H) -> Self
+    where
+        Args: From<Request<Body>>,
+        H: Handler<Args, Output = R> + 'static,
+        R: IntoResponse,
+    {
+        BoxedHandler(Arc::new(move |req| {
+            let args = Args::from(req);
+            let result = handler.call(args);
+            let res = result.into_response();
+            res
+        }))
+    }
+
+    pub fn call(&self, req: Request<Body>) -> Response<Body> {
+        (self.0)(req)
+    }
+}
+
+pub struct App<'a> {
+    method_router: HashMap<Method, Router<'a, BoxedHandler>>,
+    fallback: Option<BoxedHandler>,
+}
+
+impl<'a> App<'a> {
+    pub fn new() -> Self {
+        App {
+            method_router: HashMap::new(),
+            fallback: None,
+        }
+    }
+
+    pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
+    where
+        Args: From<Request<Body>>,
+        H: Handler<Args, Output = R> + 'static,
+        R: IntoResponse,
+    {
+        match self.method_router.entry(method) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(route, BoxedHandler::new(handler));
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let mut router = Router::new();
+                router.insert(route, BoxedHandler::new(handler));
+                entry.insert(router);
+            }
+        }
+
+        self
+    }
+}
+
+impl RequestHandler for App<'_> {
+    fn handle(&self, mut req: Request<Body>) -> Response<Body> {
+        let req_path = req.uri().path_and_query().path().to_owned();
+        let route_match = self
+            .method_router
+            .get(req.method())
+            .and_then(|router| router.find(&req_path));
+
+        match route_match {
+            Some(m) => {
+                // Add the params as a extension
+                req.extensions_mut().insert(m.params.clone());
+                let res = m.value.call(req);
+                res
+            }
+            None => match &self.fallback {
+                Some(fallback) => fallback.call(req),
+                None => not_found_handler(req),
+            },
+        }
+    }
+}
+
+fn not_found_handler(_: Request<Body>) -> Response<Body> {
+    Response::new(StatusCode::NOT_FOUND, Body::empty())
+}

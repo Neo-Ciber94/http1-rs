@@ -1,4 +1,8 @@
+mod any_map;
+
 use std::fmt::Display;
+
+use any_map::AnyMap;
 
 use super::{
     headers::{HeaderName, HeaderValue, Headers},
@@ -16,6 +20,7 @@ use super::{
 /// The body is generic, allowing flexibility in request content.
 #[derive(Debug)]
 pub struct Request<T> {
+    extensions: AnyMap,
     headers: Headers,
     method: Method,
     version: Version,
@@ -41,6 +46,7 @@ impl<T> Request<T> {
             version,
             uri,
             headers: Headers::default(),
+            extensions: AnyMap::new(),
         }
     }
 
@@ -79,6 +85,16 @@ impl<T> Request<T> {
         &mut self.headers
     }
 
+    /// Returns this request extensions.
+    pub fn extensions(&self) -> &AnyMap {
+        &self.extensions
+    }
+
+    /// Returns a mutable reference to the request extensions.
+    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+        &mut self.extensions
+    }
+
     /// Returns a reference to the body of the request.
     pub fn body(&self) -> &T {
         &self.body
@@ -113,6 +129,7 @@ struct Parts {
     method: Method,
     version: Version,
     uri: Uri,
+    extensions: AnyMap,
 }
 
 #[derive(Debug)]
@@ -150,6 +167,7 @@ impl Builder {
             method: Method::GET,
             uri: Uri::new(None, None, PathAndQuery::new("/".to_owned(), None, None)),
             version: Version::Http1_1,
+            extensions: Default::default(),
         };
 
         Builder { inner: Ok(parts) }
@@ -200,6 +218,11 @@ impl Builder {
     /// Returns a mutable reference to the HTTP method.
     pub fn method_mut(&mut self) -> Option<&mut Method> {
         self.inner.as_mut().ok().map(|parts| &mut parts.method)
+    }
+
+    /// Returns a mutable reference to the extensions.
+    pub fn extensions_mut(&mut self) -> Option<&mut AnyMap> {
+        self.inner.as_mut().ok().map(|parts| &mut parts.extensions)
     }
 
     /// Sets the URL of the request.
@@ -285,6 +308,7 @@ impl Builder {
             method,
             version,
             uri,
+            extensions,
         } = inner;
 
         Ok(Request {
@@ -293,6 +317,7 @@ impl Builder {
             uri,
             headers,
             body,
+            extensions,
         })
     }
 }
