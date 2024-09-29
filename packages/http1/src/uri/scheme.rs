@@ -80,8 +80,17 @@ mod tests {
 
     #[test]
     fn should_parse_any_scheme() {
-        assert_eq!(Scheme::from("ftp"), Scheme::Other(AnyScheme("ftp".to_owned())));
-        assert_eq!(Scheme::from("POSTGRES"), Scheme::Other(AnyScheme("postgres".to_owned())));
-        assert_eq!(Scheme::from("Redis"), Scheme::Other(AnyScheme("redis".to_owned())));
+        assert_eq!(
+            Scheme::from("ftp"),
+            Scheme::Other(AnyScheme("ftp".to_owned()))
+        );
+        assert_eq!(
+            Scheme::from("POSTGRES"),
+            Scheme::Other(AnyScheme("postgres".to_owned()))
+        );
+        assert_eq!(
+            Scheme::from("Redis"),
+            Scheme::Other(AnyScheme("redis".to_owned()))
+        );
     }
 }
