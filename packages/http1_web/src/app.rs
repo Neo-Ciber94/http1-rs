@@ -1,16 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use http1::{
-    body::Body,
-    handler::RequestHandler,
-    method::Method,
-    request::Request,
-    response::{into_response::IntoResponse, Response},
+    body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
     status::StatusCode,
 };
 
 use crate::{
     from_request::{FromRequest, FromRequestRef},
+    into_response::IntoResponse,
     router::Router,
 };
 
@@ -232,8 +229,4 @@ impl RequestHandler for App<'_> {
 
 fn not_found_handler(_: Request<Body>) -> Response<Body> {
     Response::new(StatusCode::NOT_FOUND, Body::empty())
-}
-
-fn test() {
-    let app = App::new().get("/", || format!("Hello World!"));
 }

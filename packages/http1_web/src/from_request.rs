@@ -4,7 +4,7 @@ use http1::{
     headers::Headers,
     method::Method,
     request::Request,
-    uri::{path_query::PathAndQuery, uri::Uri},
+    uri::{authority::Authority, scheme::Scheme, uri::Uri},
     version::Version,
 };
 
@@ -51,6 +51,24 @@ impl FromRequestRef for Params {
 impl FromRequestRef for Uri {
     fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
         Ok(req.uri().clone())
+    }
+}
+
+impl FromRequestRef for Scheme {
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+        req.uri()
+            .scheme()
+            .cloned()
+            .ok_or_else(|| format!("Failed to get uri scheme").into())
+    }
+}
+
+impl FromRequestRef for Authority {
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+        req.uri()
+            .authority()
+            .cloned()
+            .ok_or_else(|| format!("Failed to get uri authority").into())
     }
 }
 
