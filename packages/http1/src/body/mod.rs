@@ -123,7 +123,7 @@ impl<'a> From<&'a str> for Body {
 }
 
 impl HttpBody for Empty {
-    type Err = ();
+    type Err = Infallible;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
@@ -132,7 +132,7 @@ impl HttpBody for Empty {
 }
 
 impl HttpBody for () {
-    type Err = ();
+    type Err = Infallible;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
@@ -256,7 +256,7 @@ impl<T> Bytes<T> {
 }
 
 impl<T: AsRef<[u8]>> HttpBody for Bytes<T> {
-    type Err = ();
+    type Err = Infallible;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
@@ -329,5 +329,158 @@ where
 impl<T: AsRef<[u8]> + 'static> From<ChunkedBody<T>> for Body {
     fn from(value: ChunkedBody<T>) -> Self {
         Body::new(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::{BufReader, Cursor, Empty, Write};
+    use std::path::PathBuf;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+    use std::time::UNIX_EPOCH;
+
+    use crate::body::http_body::HttpBody;
+    use crate::body::{Body, Bytes, SizedBody};
+
+    fn read_all_body_data(body: &mut Body) -> Vec<u8> {
+        let mut all_data = Vec::new();
+        while let Ok(Some(chunk)) = body.read_next() {
+            all_data.extend(chunk);
+        }
+        all_data
+    }
+
+    fn get_random_temp_file_path() -> PathBuf {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+
+        let temp_dir = std::env::temp_dir();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let file_name = format!("{timestamp}{id}");
+        temp_dir.join(file_name)
+    }
+
+    #[test]
+    fn should_read_sized_body() {
+        let data = vec![1, 2, 3, 4, 5];
+        let mut body = Body::new(SizedBody(Some(data.clone())));
+        let result = read_all_body_data(&mut body);
+
+        assert_eq!(result, data);
+        assert_eq!(body.size_hint(), Some(data.len()));
+    }
+
+    #[test]
+    fn should_read_empty_body() {
+        let mut body = Body::new(Empty::default());
+        let result = read_all_body_data(&mut body);
+
+        assert_eq!(result.len(), 0);
+        assert_eq!(body.size_hint(), None);
+    }
+
+    #[test]
+    fn should_read_cursor_body() {
+        let data = vec![1, 2, 3, 4, 5];
+        let cursor = Cursor::new(data.clone());
+        let mut body = Body::new(cursor);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, data);
+        assert_eq!(body.size_hint(), None); // Cursor does not provide size hint
+    }
+
+    #[test]
+    fn should_read_bufreader_body() {
+        let data = vec![1, 2, 3, 4, 5];
+        let reader = BufReader::new(Cursor::new(data.clone()));
+        let mut body = Body::new(reader);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, data);
+        assert_eq!(body.size_hint(), None); // BufReader does not provide size hint
+    }
+
+    #[test]
+    fn should_read_file_body() {
+        // Create a temporary file with some data
+        let path = "temp_file.txt";
+        {
+            let mut file = File::create(path).unwrap();
+            writeln!(file, "Hello, world!").unwrap();
+        }
+
+        let file = File::open(path).unwrap();
+        let mut body = Body::new(file);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"Hello, world!\n");
+        assert!(body.size_hint().is_some());
+
+        // Clean up the temporary file
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn should_read_arc_file_body() {
+        // Create a temporary file with some data
+        let file_path = get_random_temp_file_path();
+        {
+            let mut file = File::create(&file_path).unwrap();
+            writeln!(file, "Hello, world!").unwrap();
+        }
+
+        let file = Arc::new(File::open(&file_path).unwrap());
+        let mut body = Body::new(file);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"Hello, world!\n");
+        assert!(body.size_hint().is_some());
+
+        // Clean up the temporary file
+        std::fs::remove_file(&file_path).unwrap();
+    }
+
+    #[test]
+    fn should_read_bytes_body() {
+        let bytes = Bytes::new(b"hello".to_vec());
+        let mut body = Body::new(bytes);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"hello");
+        assert_eq!(body.size_hint(), Some(5));
+    }
+
+    #[test]
+    fn should_read_vec_body() {
+        let data = vec![1, 2, 3, 4, 5];
+        let mut body = Body::from(data.clone());
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, data);
+        assert_eq!(body.size_hint(), Some(5));
+    }
+
+    #[test]
+    fn should_read_string_body() {
+        let mut body = Body::from("Hello".to_string());
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"Hello");
+        assert_eq!(body.size_hint(), Some(5));
+    }
+
+    #[test]
+    fn should_read_str_body() {
+        let mut body = Body::from("Hello, world!");
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"Hello, world!");
+        assert_eq!(body.size_hint(), Some(13));
     }
 }
