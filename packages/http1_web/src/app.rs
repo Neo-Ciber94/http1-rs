@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use http1::{
     body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
@@ -6,95 +6,17 @@ use http1::{
 };
 
 use crate::{
-    from_request::{FromRequest, FromRequestRef},
+    from_request::FromRequestRef,
+    handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
+    middleware::BoxedMiddleware,
     router::Router,
 };
-
-pub trait Handler<Args> {
-    type Output: IntoResponse;
-    fn call(&self, args: Args) -> Self::Output;
-}
-
-impl<F, R> Handler<()> for F
-where
-    F: Fn() -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, _args: ()) -> Self::Output {
-        (self)()
-    }
-}
-
-impl<F, R, T1> Handler<(T1,)> for F
-where
-    F: Fn((T1,)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1,)) -> Self::Output {
-        (self)(args)
-    }
-}
-
-impl<F, R, T1, T2> Handler<(T1, T2)> for F
-where
-    F: Fn((T1, T2)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1, T2)) -> Self::Output {
-        (self)(args)
-    }
-}
-
-impl<F, R, T1, T2, T3> Handler<(T1, T2, T3)> for F
-where
-    F: Fn((T1, T2, T3)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1, T2, T3)) -> Self::Output {
-        (self)(args)
-    }
-}
-
-#[derive(Clone)]
-struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
-
-impl BoxedHandler {
-    pub fn new<H, Args, R>(handler: H) -> Self
-    where
-        Args: FromRequestRef,
-        H: Handler<Args, Output = R> + Sync + Send + 'static,
-        R: IntoResponse,
-    {
-        BoxedHandler(Arc::new(move |req| match Args::from_request(req) {
-            Ok(args) => {
-                let result = handler.call(args);
-                let res = result.into_response();
-                res
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                Response::new(StatusCode::INTERNAL_SERVER_ERROR, Body::empty())
-            }
-        }))
-    }
-
-    pub fn call(&self, req: Request<Body>) -> Response<Body> {
-        (self.0)(req)
-    }
-}
 
 pub struct App<'a> {
     method_router: HashMap<Method, Router<'a, BoxedHandler>>,
     fallback: Option<BoxedHandler>,
+    on_request: Option<BoxedMiddleware>,
 }
 
 impl<'a> App<'a> {
@@ -102,7 +24,16 @@ impl<'a> App<'a> {
         App {
             method_router: HashMap::with_capacity(4),
             fallback: None,
+            on_request: None,
         }
+    }
+
+    pub fn on_request<M>(mut self, handler: M) -> Self
+    where
+        M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
+    {
+        self.on_request = Some(BoxedMiddleware::new(handler));
+        self
     }
 
     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
@@ -200,6 +131,8 @@ impl<'a> App<'a> {
 
 impl RequestHandler for App<'_> {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
+        let middleware = self.on_request.as_ref();
+
         let method = req.method().clone();
         let req_path = req.uri().path_and_query().path().to_owned();
         let route_match = self
@@ -208,10 +141,14 @@ impl RequestHandler for App<'_> {
             .and_then(|router| router.find(&req_path));
 
         match route_match {
-            Some(m) => {
+            Some(mtch) => {
                 // Add the params as a extension
-                req.extensions_mut().insert(m.params.clone());
-                let res = m.value.call(req);
+                req.extensions_mut().insert(mtch.params.clone());
+
+                let res = match middleware {
+                    Some(middleware) => middleware.on_request(req, mtch.value),
+                    None => mtch.value.call(req),
+                };
 
                 match method {
                     // We don't need the body for HEAD requests
