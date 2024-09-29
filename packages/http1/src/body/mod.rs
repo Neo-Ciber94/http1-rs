@@ -83,24 +83,34 @@ impl Debug for Body {
     }
 }
 
-struct SizedBody(Option<Vec<u8>>);
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Bytes<T>(Option<T>);
 
-impl HttpBody for SizedBody {
+impl<T> Bytes<T> {
+    pub fn new(data: T) -> Self {
+        Bytes(Some(data))
+    }
+}
+
+impl<T: AsRef<[u8]>> HttpBody for Bytes<T> {
     type Err = Infallible;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        Ok(self.0.take())
+        match self.0.take() {
+            Some(data) => Ok(Some(data.as_ref().to_vec())),
+            None => Ok(None),
+        }
     }
 
     fn size_hint(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.len())
+        self.0.as_ref().map(|x| x.as_ref().len())
     }
 }
 
 impl From<Vec<u8>> for Body {
     fn from(value: Vec<u8>) -> Self {
-        Body::new(SizedBody(Some(value)))
+        Body::new(Bytes::new(value))
     }
 }
 
@@ -246,31 +256,6 @@ fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Bytes<T>(Option<T>);
-
-impl<T> Bytes<T> {
-    pub fn new(data: T) -> Self {
-        Bytes(Some(data))
-    }
-}
-
-impl<T: AsRef<[u8]>> HttpBody for Bytes<T> {
-    type Err = Infallible;
-    type Data = Vec<u8>;
-
-    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        match self.0.take() {
-            Some(data) => Ok(Some(data.as_ref().to_vec())),
-            None => Ok(None),
-        }
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        self.0.as_ref().map(|x| x.as_ref().len())
-    }
-}
-
 pub struct ChunkedBody<T>(Option<Receiver<T>>);
 
 impl<T> ChunkedBody<T> {
@@ -342,7 +327,7 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     use crate::body::http_body::HttpBody;
-    use crate::body::{Body, Bytes, SizedBody};
+    use crate::body::{Body, Bytes};
 
     fn read_all_body_data(body: &mut Body) -> Vec<u8> {
         let mut all_data = Vec::new();
@@ -366,13 +351,13 @@ mod tests {
     }
 
     #[test]
-    fn should_read_sized_body() {
-        let data = vec![1, 2, 3, 4, 5];
-        let mut body = Body::new(SizedBody(Some(data.clone())));
-        let result = read_all_body_data(&mut body);
+    fn should_read_bytes_body() {
+        let bytes = Bytes::new(b"hello".to_vec());
+        let mut body = Body::new(bytes);
 
-        assert_eq!(result, data);
-        assert_eq!(body.size_hint(), Some(data.len()));
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"hello");
+        assert_eq!(body.size_hint(), Some(5));
     }
 
     #[test]
@@ -444,16 +429,6 @@ mod tests {
 
         // Clean up the temporary file
         std::fs::remove_file(&file_path).unwrap();
-    }
-
-    #[test]
-    fn should_read_bytes_body() {
-        let bytes = Bytes::new(b"hello".to_vec());
-        let mut body = Body::new(bytes);
-
-        let result = read_all_body_data(&mut body);
-        assert_eq!(result, b"hello");
-        assert_eq!(body.size_hint(), Some(5));
     }
 
     #[test]
