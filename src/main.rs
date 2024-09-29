@@ -1,16 +1,19 @@
 use http1::{
-    body::Body, headers, request::Request, response::Response, runtime::SingleThreadRuntime,
+    body::Body, headers, request::Request, response::Response, runtime::ThreadPooledRuntime,
     server::Server, status::StatusCode,
 };
+use http1_web::app::App;
 use std::fs::File;
 
 fn main() {
     let addr = "127.0.0.1:5000".parse().unwrap();
     let server = Server::new(addr);
 
+    let app = App::new().get("/hello", |()| Response::new(StatusCode::OK, "Hello World!"));
+
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))
-        .start_with(SingleThreadRuntime, handle_request)
+        .start_with(ThreadPooledRuntime::new().unwrap(), app)
         .unwrap();
 }
 

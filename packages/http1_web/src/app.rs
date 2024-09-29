@@ -65,13 +65,13 @@ where
 }
 
 #[derive(Clone)]
-struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body>>);
+struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
 
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         BoxedHandler(Arc::new(move |req| {
@@ -103,7 +103,7 @@ impl<'a> App<'a> {
     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         match self.method_router.entry(method) {
@@ -123,7 +123,7 @@ impl<'a> App<'a> {
     pub fn get<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::GET, route, handler)
@@ -132,7 +132,7 @@ impl<'a> App<'a> {
     pub fn post<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::POST, route, handler)
@@ -141,7 +141,7 @@ impl<'a> App<'a> {
     pub fn put<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::PUT, route, handler)
@@ -150,7 +150,7 @@ impl<'a> App<'a> {
     pub fn delete<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::DELETE, route, handler)
@@ -159,7 +159,7 @@ impl<'a> App<'a> {
     pub fn patch<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::PATCH, route, handler)
@@ -168,7 +168,7 @@ impl<'a> App<'a> {
     pub fn options<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::OPTIONS, route, handler)
@@ -177,7 +177,7 @@ impl<'a> App<'a> {
     pub fn head<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::HEAD, route, handler)
@@ -186,7 +186,7 @@ impl<'a> App<'a> {
     pub fn trace<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
         Args: From<Request<Body>>,
-        H: Handler<Args, Output = R> + 'static,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
         self.route(Method::TRACE, route, handler)
