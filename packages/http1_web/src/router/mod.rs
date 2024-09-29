@@ -13,7 +13,7 @@ impl<'a, T> Router<'a, T> {
         Router(simple_router::SimpleRouter::new())
     }
 
-    /// Inserts a new route
+    /// Inserts a new route.
     ///
     /// # Route types
     /// - static: /home
