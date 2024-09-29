@@ -4,8 +4,11 @@ use std::{
     convert::Infallible,
     fmt::Debug,
     fs::File,
-    io::{BufReader, Read, Write},
-    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    io::{BufReader, Chain, Cursor, Empty, Read, Take, Write},
+    sync::{
+        mpsc::{channel, Receiver, Sender, TryRecvError},
+        Arc,
+    },
 };
 
 use crate::error::BoxError;
@@ -119,9 +122,39 @@ impl<'a> From<&'a str> for Body {
     }
 }
 
+impl HttpBody for Empty {
+    type Err = ();
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        Ok(None)
+    }
+}
+
+impl HttpBody for () {
+    type Err = ();
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        Ok(None)
+    }
+}
+
 const BUFFER_SIZE: usize = 4096;
 
 impl<R> HttpBody for BufReader<R>
+where
+    R: Read,
+{
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        read_next_bytes(self)
+    }
+}
+
+impl<R> HttpBody for Box<R>
 where
     R: Read,
 {
@@ -143,6 +176,46 @@ impl HttpBody for File {
 
     fn size_hint(&self) -> Option<usize> {
         self.metadata().map(|m| m.len() as usize).ok()
+    }
+}
+
+impl HttpBody for Arc<File> {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        read_next_bytes(self)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.metadata().map(|m| m.len() as usize).ok()
+    }
+}
+
+impl<R: Read> HttpBody for Take<R> {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        read_next_bytes(self)
+    }
+}
+
+impl<T: Read, U: Read> HttpBody for Chain<T, U> {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        read_next_bytes(self)
+    }
+}
+
+impl<T: AsRef<[u8]>> HttpBody for Cursor<T> {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        read_next_bytes(self)
     }
 }
 
