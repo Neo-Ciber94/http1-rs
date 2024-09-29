@@ -2,6 +2,9 @@ use std::{fmt::Display, str::FromStr};
 
 use super::uri::InvalidUri;
 
+/// The authority part of an uri.
+///
+/// `authority = [ userinfo "@" ] host [ ":" port ]`
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Authority {
     user_info: Option<String>,
@@ -10,6 +13,7 @@ pub struct Authority {
 }
 
 impl Authority {
+    /// Constructs a new authority.
     pub fn new(user_info: Option<String>, host: String, port: Option<u16>) -> Self {
         Authority {
             user_info,
@@ -18,14 +22,27 @@ impl Authority {
         }
     }
 
+    /// Constructs an authority only with the host.
+    pub fn with_host(host: String) -> Self {
+        Self::new(None, host, None)
+    }
+
+    /// Constructs an authority only with the host and port.
+    pub fn with_host_port(host: String, port: u16) -> Self {
+        Self::new(None, host, Some(port))
+    }
+
+    /// Returns the user info of this authority if any or `None`.
     pub fn user_info(&self) -> Option<&str> {
         self.user_info.as_deref()
     }
 
+    /// Returns the host of this authority.
     pub fn host(&self) -> &str {
         &self.host
     }
 
+    /// Returns the port of this authority if any or `None`
     pub fn port(&self) -> Option<u16> {
         self.port
     }
