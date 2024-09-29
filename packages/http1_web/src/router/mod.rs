@@ -36,7 +36,7 @@ impl<T> Default for Router<'_, T> {
 }
 
 /// The params for a route.
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct Params(pub(crate) HashMap<String, String>);
 
 impl Params {
@@ -57,7 +57,7 @@ impl Params {
 }
 
 /// Represents a route match.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Match<'a, T> {
     /// The params
     pub params: Params,

@@ -16,3 +16,6 @@ version = "0.1.0"
 [[package]]
 name = "http1_web"
 version = "0.1.0"
+dependencies = [
+ "http1",
+]
