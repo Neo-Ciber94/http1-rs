@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
     let server = Server::new(addr);
 
     let app = App::new()
-        .on_request(middleware)
+        .middleware(middleware)
         .get("/hello", || Response::new(StatusCode::OK, "Hello World!"))
         .get("/bocchi", || {
             let cwd = std::env::current_dir().unwrap();

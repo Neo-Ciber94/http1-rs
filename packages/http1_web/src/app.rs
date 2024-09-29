@@ -16,7 +16,7 @@ use crate::{
 pub struct App<'a> {
     method_router: HashMap<Method, Router<'a, BoxedHandler>>,
     fallback: Option<BoxedHandler>,
-    on_request: Option<BoxedMiddleware>,
+    middleware: Option<BoxedMiddleware>,
 }
 
 impl<'a> App<'a> {
@@ -24,15 +24,15 @@ impl<'a> App<'a> {
         App {
             method_router: HashMap::with_capacity(4),
             fallback: None,
-            on_request: None,
+            middleware: None,
         }
     }
 
-    pub fn on_request<M>(mut self, handler: M) -> Self
+    pub fn middleware<M>(mut self, handler: M) -> Self
     where
         M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
     {
-        self.on_request = Some(BoxedMiddleware::new(handler));
+        self.middleware = Some(BoxedMiddleware::new(handler));
         self
     }
 
@@ -131,7 +131,7 @@ impl<'a> App<'a> {
 
 impl RequestHandler for App<'_> {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
-        let middleware = self.on_request.as_ref();
+        let middleware = self.middleware.as_ref();
 
         let method = req.method().clone();
         let req_path = req.uri().path_and_query().path().to_owned();
