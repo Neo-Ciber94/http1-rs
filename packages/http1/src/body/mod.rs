@@ -252,7 +252,7 @@ fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
     match Read::read(read, &mut buf) {
         Ok(0) => Ok(None),
         Ok(n) => Ok(Some(buf[0..n].to_vec())),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(err),
     }
 }
 

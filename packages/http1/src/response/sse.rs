@@ -88,7 +88,7 @@ pub struct SseEvent {
 }
 
 impl SseEvent {
-    pub fn new() -> Builder {
+    pub fn builder() -> Builder {
         Builder::new()
     }
 
@@ -243,5 +243,5 @@ impl Default for Builder {
 }
 
 fn has_line_break(s: &str) -> bool {
-    s.bytes().find(|c| *c == b'\n').is_some()
+    s.bytes().any(|c| c == b'\n')
 }
