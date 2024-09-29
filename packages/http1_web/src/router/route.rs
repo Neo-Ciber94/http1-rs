@@ -17,15 +17,15 @@ impl Ord for RouteSegment<'_> {
         match (self, other) {
             // Static route have priority over all other
             (RouteSegment::Static(a), RouteSegment::Static(b)) => a.cmp(b),
-            (RouteSegment::Static(_), _) => std::cmp::Ordering::Greater,
-            (_, RouteSegment::Static(_)) => std::cmp::Ordering::Less,
+            (RouteSegment::Static(_), _) => std::cmp::Ordering::Less,
+            (_, RouteSegment::Static(_)) => std::cmp::Ordering::Greater,
 
             // Then dynamic
             (RouteSegment::Dynamic(a), RouteSegment::Dynamic(b)) => a.cmp(b),
-            (RouteSegment::Dynamic(_), RouteSegment::CatchAll(_)) => std::cmp::Ordering::Greater,
+            (RouteSegment::Dynamic(_), RouteSegment::CatchAll(_)) => std::cmp::Ordering::Less,
+            (RouteSegment::CatchAll(_), RouteSegment::Dynamic(_)) => std::cmp::Ordering::Greater,
 
             // And lastly catch-all
-            (RouteSegment::CatchAll(_), RouteSegment::Dynamic(_)) => std::cmp::Ordering::Less,
             (RouteSegment::CatchAll(a), RouteSegment::CatchAll(b)) => a.cmp(b),
         }
     }
@@ -124,4 +124,41 @@ pub fn get_segments(mut route: &str) -> std::str::Split<'_, &str> {
 
 fn route_segments(route: &str) -> RouteSegmentsIter {
     RouteSegmentsIter(get_segments(route))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Route;
+
+    #[test]
+    fn should_sort_routes() {
+        let mut routes = vec![
+            Route::from("/static"),
+            Route::from("/static/:dynamic"),
+            Route::from("/:dynamic"),
+            Route::from("/static/:dynamic/static"),
+            Route::from("/:dynamic/static"),
+            Route::from("/:catch_all*"),
+            Route::from("/static/:catch_all*"),
+            Route::from("/static/:dynamic/:catch_all*"),
+            Route::from("/static/:dynamic/:dynamic/:catch_all*"),
+        ];
+
+        routes.sort();
+
+        assert_eq!(
+            routes,
+            vec![
+                Route::from("/static"),
+                Route::from("/static/:dynamic"),
+                Route::from("/static/:dynamic/static"),
+                Route::from("/static/:dynamic/:dynamic/:catch_all*"),
+                Route::from("/static/:dynamic/:catch_all*"),
+                Route::from("/static/:catch_all*"),
+                Route::from("/:dynamic"),
+                Route::from("/:dynamic/static"),
+                Route::from("/:catch_all*"),
+            ]
+        )
+    }
 }
