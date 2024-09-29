@@ -1,5 +1,6 @@
 [package]
 name = "http1"
+description = "A zero dependency implementation of the HTTP 1.1 protocol"
 version = "0.1.0"
 edition = "2021"
 
