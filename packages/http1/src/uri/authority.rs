@@ -80,7 +80,7 @@ fn parse_host_port(s: &str) -> Result<(String, Option<u16>), InvalidUri> {
             return Ok((host, None));
         }
 
-        let port = parse_port(port_str)?;
+        let port = parse_port(&port_str[1..])?;
         Ok((host, Some(port)))
     } else {
         match s.split_once(":") {
@@ -90,5 +90,57 @@ fn parse_host_port(s: &str) -> Result<(String, Option<u16>), InvalidUri> {
             }
             None => Ok((s.to_owned(), None)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::Authority;
+
+    #[test]
+    fn should_parse_full_authority() {
+        let authority = Authority::from_str("user:pass@10.0.2.2:8080").unwrap();
+
+        assert_eq!(authority.user_info(), Some("user:pass"));
+        assert_eq!(authority.host(), "10.0.2.2");
+        assert_eq!(authority.port(), Some(8080));
+    }
+
+    #[test]
+    fn should_parse_host_name_and_port() {
+        let authority = Authority::from_str("localhost:4321").unwrap();
+
+        assert_eq!(authority.host(), "localhost");
+        assert_eq!(authority.port(), Some(4321));
+    }
+
+    #[test]
+    fn should_parse_ipv4_and_port() {
+        let authority = Authority::from_str("127.0.0.1:9000").unwrap();
+
+        assert_eq!(authority.host(), "127.0.0.1");
+        assert_eq!(authority.port(), Some(9000));
+    }
+
+    #[test]
+    fn should_parse_ipv6_and_port() {
+        let authority = Authority::from_str("[2001:db8:85a3:0:0:8a2e:370:7334]:22300").unwrap();
+        assert_eq!(authority.host(), "2001:db8:85a3:0:0:8a2e:370:7334");
+        assert_eq!(authority.port(), Some(22300));
+    }
+
+    #[test]
+    fn should_parse_only_host() {
+        let authority = Authority::from_str("127.0.0.1").unwrap();
+
+        assert_eq!(authority.host(), "127.0.0.1");
+        assert_eq!(authority.port(), None);
+    }
+
+    #[test]
+    fn should_fail_on_missing_port() {
+        assert!(Authority::from_str("127.0.0.1:").is_err());
     }
 }
