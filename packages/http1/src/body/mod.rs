@@ -219,12 +219,55 @@ impl<T: AsRef<[u8]>> HttpBody for Cursor<T> {
     }
 }
 
+impl HttpBody for &mut Vec<u8> {
+    type Err = ();
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        if self.is_empty() {
+            Ok(None)
+        } else {
+            let bytes = std::mem::take(*self);
+            Ok(Some(bytes))
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
 fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
     let mut buf = vec![0; BUFFER_SIZE];
     match Read::read(read, &mut buf) {
         Ok(0) => Ok(None),
         Ok(n) => Ok(Some(buf[0..n].to_vec())),
         Err(err) => Err(err.into()),
+    }
+}
+
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Bytes<T>(Option<T>);
+
+impl<T> Bytes<T> {
+    pub fn new(data: T) -> Self {
+        Bytes(Some(data))
+    }
+}
+
+impl<T: AsRef<[u8]>> HttpBody for Bytes<T> {
+    type Err = ();
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        match self.0.take() {
+            Some(data) => Ok(Some(data.as_ref().to_vec())),
+            None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        self.0.as_ref().map(|x| x.as_ref().len())
     }
 }
 
