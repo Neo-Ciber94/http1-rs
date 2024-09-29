@@ -370,6 +370,15 @@ mod tests {
     }
 
     #[test]
+    fn should_read_unit_body() {
+        let mut body = Body::new(());
+        let result = read_all_body_data(&mut body);
+
+        assert_eq!(result.len(), 0);
+        assert_eq!(body.size_hint(), None);
+    }
+
+    #[test]
     fn should_read_cursor_body() {
         let data = vec![1, 2, 3, 4, 5];
         let cursor = Cursor::new(data.clone());
