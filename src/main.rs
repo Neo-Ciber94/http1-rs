@@ -5,7 +5,7 @@ use http1::{
 use http1_web::{app::App, handler::BoxedHandler};
 use std::fs::File;
 
-fn main() {
+fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:5000".parse().unwrap();
     let server = Server::new(addr);
 
@@ -26,12 +26,10 @@ fn main() {
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))
-        .start_with(ThreadPooledRuntime::new().unwrap(), app)
-        .unwrap();
+        .start_with(ThreadPooledRuntime::new()?, app)
 }
 
 fn middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
     println!("Request: {req:#?}");
-
     next.call(req)
 }
