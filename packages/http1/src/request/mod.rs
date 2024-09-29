@@ -95,7 +95,7 @@ impl Request<()> {
     ///
     /// # Example
     /// ```
-    /// use http1::http::{method::Method,request::Request};
+    /// use http1::{method::Method,request::Request};
     ///
     /// let request = Request::builder()
     ///     .method(Method::POST)

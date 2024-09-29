@@ -329,6 +329,8 @@ mod tests {
     use crate::body::http_body::HttpBody;
     use crate::body::{Body, Bytes};
 
+    use super::ChunkedBody;
+
     fn read_all_body_data(body: &mut Body) -> Vec<u8> {
         let mut all_data = Vec::new();
         while let Ok(Some(chunk)) = body.read_next() {
@@ -355,27 +357,44 @@ mod tests {
         let bytes = Bytes::new(b"hello".to_vec());
         let mut body = Body::new(bytes);
 
+        assert_eq!(body.size_hint(), Some(5));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, b"hello");
-        assert_eq!(body.size_hint(), Some(5));
     }
 
     #[test]
     fn should_read_empty_body() {
         let mut body = Body::new(Empty::default());
-        let result = read_all_body_data(&mut body);
 
-        assert_eq!(result.len(), 0);
         assert_eq!(body.size_hint(), None);
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn should_read_unit_body() {
         let mut body = Body::new(());
-        let result = read_all_body_data(&mut body);
 
-        assert_eq!(result.len(), 0);
         assert_eq!(body.size_hint(), None);
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn should_read_chunked_body() {
+        let (stream, sender) = ChunkedBody::new();
+
+        std::thread::spawn(move || {
+            sender.send("Hello World!").unwrap();
+        })
+        .join()
+        .unwrap();
+
+        let mut body = Body::new(stream);
+        assert_eq!(body.size_hint(), None);
+
+        let result = read_all_body_data(&mut body);
+        assert_eq!(result, b"C\r\nHello World!\r\n0\r\n\r\n");
     }
 
     #[test]
@@ -384,9 +403,9 @@ mod tests {
         let cursor = Cursor::new(data.clone());
         let mut body = Body::new(cursor);
 
+        assert_eq!(body.size_hint(), None);
         let result = read_all_body_data(&mut body);
         assert_eq!(result, data);
-        assert_eq!(body.size_hint(), None); // Cursor does not provide size hint
     }
 
     #[test]
@@ -395,9 +414,9 @@ mod tests {
         let reader = BufReader::new(Cursor::new(data.clone()));
         let mut body = Body::new(reader);
 
+        assert_eq!(body.size_hint(), None);
         let result = read_all_body_data(&mut body);
         assert_eq!(result, data);
-        assert_eq!(body.size_hint(), None); // BufReader does not provide size hint
     }
 
     #[test]
@@ -412,9 +431,9 @@ mod tests {
         let file = File::open(path).unwrap();
         let mut body = Body::new(file);
 
+        assert_eq!(body.size_hint(), Some(14));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, b"Hello, world!\n");
-        assert!(body.size_hint().is_some());
 
         // Clean up the temporary file
         std::fs::remove_file(path).unwrap();
@@ -432,9 +451,9 @@ mod tests {
         let file = Arc::new(File::open(&file_path).unwrap());
         let mut body = Body::new(file);
 
+        assert_eq!(body.size_hint(), Some(14));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, b"Hello, world!\n");
-        assert!(body.size_hint().is_some());
 
         // Clean up the temporary file
         std::fs::remove_file(&file_path).unwrap();
@@ -445,26 +464,26 @@ mod tests {
         let data = vec![1, 2, 3, 4, 5];
         let mut body = Body::from(data.clone());
 
+        assert_eq!(body.size_hint(), Some(5));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, data);
-        assert_eq!(body.size_hint(), Some(5));
     }
 
     #[test]
     fn should_read_string_body() {
         let mut body = Body::from("Hello".to_string());
 
+        assert_eq!(body.size_hint(), Some(5));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, b"Hello");
-        assert_eq!(body.size_hint(), Some(5));
     }
 
     #[test]
     fn should_read_str_body() {
         let mut body = Body::from("Hello, world!");
 
+        assert_eq!(body.size_hint(), Some(13));
         let result = read_all_body_data(&mut body);
         assert_eq!(result, b"Hello, world!");
-        assert_eq!(body.size_hint(), Some(13));
     }
 }
