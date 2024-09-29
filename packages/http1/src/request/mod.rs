@@ -104,6 +104,11 @@ impl<T> Request<T> {
     pub fn body_mut(&mut self) -> &mut T {
         &mut self.body
     }
+
+    /// Returns the body
+    pub fn into_body(self) -> T {
+        self.body
+    }
 }
 
 impl Request<()> {

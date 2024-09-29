@@ -9,7 +9,10 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::router::Router;
+use crate::{
+    from_request::{FromRequest, FromRequestRef},
+    router::Router,
+};
 
 pub trait Handler<Args> {
     type Output: IntoResponse;
@@ -70,15 +73,20 @@ struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        BoxedHandler(Arc::new(move |req| {
-            let args = Args::from(req);
-            let result = handler.call(args);
-            let res = result.into_response();
-            res
+        BoxedHandler(Arc::new(move |req| match Args::from_request(req) {
+            Ok(args) => {
+                let result = handler.call(args);
+                let res = result.into_response();
+                res
+            }
+            Err(err) => {
+                eprintln!("{err}");
+                Response::new(StatusCode::INTERNAL_SERVER_ERROR, Body::empty())
+            }
         }))
     }
 
@@ -102,7 +110,7 @@ impl<'a> App<'a> {
 
     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -122,7 +130,7 @@ impl<'a> App<'a> {
 
     pub fn get<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -131,7 +139,7 @@ impl<'a> App<'a> {
 
     pub fn post<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -140,7 +148,7 @@ impl<'a> App<'a> {
 
     pub fn put<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -149,7 +157,7 @@ impl<'a> App<'a> {
 
     pub fn delete<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -158,7 +166,7 @@ impl<'a> App<'a> {
 
     pub fn patch<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -167,7 +175,7 @@ impl<'a> App<'a> {
 
     pub fn options<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -176,7 +184,7 @@ impl<'a> App<'a> {
 
     pub fn head<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -185,7 +193,7 @@ impl<'a> App<'a> {
 
     pub fn trace<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: From<Request<Body>>,
+        Args: FromRequestRef,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -224,4 +232,8 @@ impl RequestHandler for App<'_> {
 
 fn not_found_handler(_: Request<Body>) -> Response<Body> {
     Response::new(StatusCode::NOT_FOUND, Body::empty())
+}
+
+fn test() {
+    let app = App::new().get("/", || format!("Hello World!"));
 }

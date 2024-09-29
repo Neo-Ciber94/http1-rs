@@ -9,7 +9,7 @@ fn main() {
     let addr = "127.0.0.1:5000".parse().unwrap();
     let server = Server::new(addr);
 
-    let app = App::new().get("/hello", |()| Response::new(StatusCode::OK, "Hello World!"));
+    let app = App::new().get("/hello", || format!("hello"));
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))
