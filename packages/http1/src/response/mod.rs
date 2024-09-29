@@ -72,6 +72,16 @@ impl<T> Response<T> {
         &mut self.body
     }
 
+    /// Maps this response body
+    pub fn map_body<F: FnOnce(T) -> R, R>(self, f: F) -> Response<R> {
+        let new_body = f(self.body);
+        Response {
+            body: new_body,
+            headers: self.headers,
+            status: self.status,
+        }
+    }
+
     /// Consumes the response and splits it into its components:
     /// the status code, headers, and body.
     ///
