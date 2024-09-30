@@ -6,28 +6,37 @@ use http1::{
 };
 
 use crate::{
-    from_request::{FromRequest, FromRequestRef},
+    from_request::FromRequest,
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
     middleware::BoxedMiddleware,
     router::Router,
+    state::State,
 };
 
-pub struct App<'a> {
+pub struct App<'a, T> {
     method_router: HashMap<Method, Router<'a, BoxedHandler>>,
     fallback: Option<BoxedHandler>,
     middleware: Option<BoxedMiddleware>,
+    state: State<T>,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> Self {
+impl<'a> App<'a, ()> {
+    pub fn new() -> App<'a, ()> {
+        Self::with_state(())
+    }
+
+    pub fn with_state<T>(state: T) -> App<'a, T> {
         App {
             method_router: HashMap::with_capacity(4),
             fallback: None,
             middleware: None,
+            state: State::new(state),
         }
     }
+}
 
+impl<'a, T> App<'a, T> {
     pub fn middleware<M>(mut self, handler: M) -> Self
     where
         M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
@@ -129,7 +138,10 @@ impl<'a> App<'a> {
     }
 }
 
-impl RequestHandler for App<'_> {
+impl<T> RequestHandler for App<'_, T>
+where
+    T: 'static,
+{
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middleware = self.middleware.as_ref();
 
@@ -142,9 +154,11 @@ impl RequestHandler for App<'_> {
 
         match route_match {
             Some(mtch) => {
-                // Add the params as a extension
+                // Add any additional extensions
                 req.extensions_mut().insert(mtch.params.clone());
+                req.extensions_mut().insert(self.state.clone());
 
+                // Handle the request
                 let res = match middleware {
                     Some(middleware) => middleware.on_request(req, mtch.value),
                     None => mtch.value.call(req),
