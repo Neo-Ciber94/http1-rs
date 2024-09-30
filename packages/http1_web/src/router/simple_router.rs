@@ -108,6 +108,15 @@ mod tests {
     }
 
     #[test]
+    fn ignore_trailing_slash() {
+        let mut router = SimpleRouter::new();
+        router.insert("/hello/", 1);
+
+        assert!(router.find("/hello").is_some());
+        assert!(router.find("/hello/").is_some());
+    }
+
+    #[test]
     fn should_find_static_route() {
         let mut router = SimpleRouter::new();
         router.insert("/", 1);
