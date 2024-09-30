@@ -1,8 +1,9 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, convert::Infallible};
 
 use http1::{
     body::Body,
     common::any_map::AnyMap,
+    error::BoxError,
     headers::{self, Headers},
     response::Response,
     status::StatusCode,
@@ -139,21 +140,27 @@ impl ResponseParts {
 
 /// Provide an interface to update the existing response.
 pub trait IntoResponseParts {
+    type Err: Into<BoxError>;
+
     /// Returns the new parts of the response.
-    fn into_response_parts(self, res: ResponseParts) -> ResponseParts;
+    fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err>;
 }
 
 impl IntoResponseParts for Headers {
-    fn into_response_parts(self, mut res: ResponseParts) -> ResponseParts {
+    type Err = Infallible;
+
+    fn into_response_parts(self, mut res: ResponseParts) -> Result<ResponseParts, Self::Err> {
         res.headers_mut().extend(self);
-        res
+        Ok(res)
     }
 }
 
 impl IntoResponseParts for AnyMap {
-    fn into_response_parts(self, mut res: ResponseParts) -> ResponseParts {
+    type Err = Infallible;
+
+    fn into_response_parts(self, mut res: ResponseParts) -> Result<ResponseParts, Self::Err> {
         res.extensions_mut().extend(self);
-        res
+        Ok(res)
     }
 }
 
@@ -161,10 +168,32 @@ impl<T> IntoResponseParts for Option<T>
 where
     T: IntoResponseParts,
 {
-    fn into_response_parts(self, res: ResponseParts) -> ResponseParts {
+    type Err = T::Err;
+
+    fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err> {
         match self {
-            Some(x) => x.into_response_parts(res),
-            None => res,
+            Some(x) => {
+                let res = x.into_response_parts(res)?;
+                Ok(res)
+            }
+            None => Ok(res),
         }
+    }
+}
+
+impl<T1, T2> IntoResponseParts for (T1, T2)
+where
+    T1: IntoResponseParts,
+    T2: IntoResponseParts,
+    T1::Err: std::error::Error + Send + Sync + 'static,
+    T2::Err: std::error::Error + Send + Sync + 'static,
+{
+    type Err = BoxError;
+
+    fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err> {
+        let (t1, t2) = self;
+        let res = t1.into_response_parts(res)?;
+        let res = t2.into_response_parts(res)?;
+        Ok(res)
     }
 }
