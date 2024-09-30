@@ -181,43 +181,83 @@ where
     }
 }
 
-impl<T1, T2> IntoResponseParts for (T1, T2)
-where
-    T1: IntoResponseParts,
-    T2: IntoResponseParts,
-    T1::Err: std::error::Error + Send + Sync + 'static,
-    T2::Err: std::error::Error + Send + Sync + 'static,
-{
-    type Err = BoxError;
+macro_rules! impl_into_response_parts_tuple {
+    ($($T:ident),*) => {
+        #[allow(non_snake_case)]
+        impl<$($T),*> IntoResponseParts for ($($T),*,)
+        where
+            $(
+                $T: IntoResponseParts,
+                $T::Err : std::error::Error + Send + Sync + 'static,
+            )*
+        {
+            type Err = BoxError;
+        
+            fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err> {
+                let ($($T),*,) = self;
+                $(
+                    let res = $T.into_response_parts(res)?;
+                )*
 
-    fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err> {
-        let (t1, t2) = self;
-        let res = t1.into_response_parts(res)?;
-        let res = t2.into_response_parts(res)?;
-        Ok(res)
-    }
+                Ok(res)
+            }
+        }   
+    };
 }
 
-impl<R, T1> IntoResponse for (R, T1)
-where
-    R: IntoResponse,
-    T1: IntoResponseParts,
-    T1::Err: std::error::Error + Send + Sync + 'static,
-{
-    fn into_response(self) -> Response<Body> {
-        let (t1, t2) = self;
-        let response = t1.into_response();
-        let res = ResponseParts { response };
+impl_into_response_parts_tuple!{ T1 }
+impl_into_response_parts_tuple!{ T1, T2 }
+impl_into_response_parts_tuple!{ T1, T2, T3 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8, T9 }
+impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
 
-        match t2.into_response_parts(res) {
-            Ok(res) => res.response,
-            Err(err) => {
-                eprintln!(
-                    "Failed to convert {} into response parts: {err}",
-                    std::any::type_name::<T1>()
-                );
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+macro_rules! impl_into_response_for_tuple {
+    ($($T:ident),*) => {
+        #[allow(non_snake_case)]
+        impl<R, $($T),*> IntoResponse for (R, $($T),*)
+        where
+            R: IntoResponse,
+            $(
+                $T: IntoResponseParts,
+                $T::Err : std::error::Error + Send + Sync + 'static,
+            )*
+        {
+            fn into_response(self) -> Response<Body> {
+                let (first, $($T),*,) = self;
+                let response = first.into_response();
+                let res = ResponseParts { response };
+
+                $(
+                    let res = match $T.into_response_parts(res) {
+                        Ok(res) => res,
+                        Err(err) => {
+                            eprintln!(
+                                "Failed to convert '{}' into response parts: {err}",
+                                std::any::type_name::<$T>()
+                            );
+                            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                        }
+                    };
+                )*
+
+                res.response
             }
         }
-    }
+    };
 }
+
+impl_into_response_for_tuple! { T1 }
+impl_into_response_for_tuple! { T1, T2 }
+impl_into_response_for_tuple! { T1, T2, T3 }
+impl_into_response_for_tuple! { T1, T2, T3, T4 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
+impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
