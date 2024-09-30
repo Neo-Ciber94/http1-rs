@@ -1,6 +1,7 @@
 pub mod sse;
 
 use super::{
+    common::any_map::AnyMap,
     headers::{HeaderName, HeaderValue, Headers},
     status::StatusCode,
     version::Version,
@@ -14,6 +15,7 @@ use super::{
 pub struct Response<T> {
     status: StatusCode,
     headers: Headers,
+    extensions: AnyMap,
     body: T,
 }
 
@@ -31,6 +33,7 @@ impl<T> Response<T> {
             status,
             body,
             headers: Headers::new(),
+            extensions: Default::default()
         }
     }
 
@@ -71,6 +74,16 @@ impl<T> Response<T> {
         &mut self.body
     }
 
+    /// Returns a reference to the response body.
+    pub fn extensions(&self) -> &AnyMap {
+        &self.extensions
+    }
+
+    /// Returns a mutable reference to the response extensions.
+    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+        &mut self.extensions
+    }
+
     /// Maps this response body
     pub fn map_body<F: FnOnce(T) -> R, R>(self, f: F) -> Response<R> {
         let new_body = f(self.body);
@@ -78,6 +91,7 @@ impl<T> Response<T> {
             body: new_body,
             headers: self.headers,
             status: self.status,
+            extensions: self.extensions,
         }
     }
 
@@ -91,6 +105,7 @@ impl<T> Response<T> {
             status,
             headers,
             body,
+            extensions: _,
         } = self;
 
         (status, headers, body)
@@ -121,6 +136,7 @@ impl Response<()> {
 pub struct Builder {
     status: StatusCode,
     headers: Headers,
+    extensions: AnyMap,
 }
 
 impl Builder {
@@ -129,6 +145,7 @@ impl Builder {
         Builder {
             status: StatusCode::OK,
             headers: Headers::new(),
+            extensions: Default::default()
         }
     }
 
@@ -152,6 +169,16 @@ impl Builder {
     /// Returns a mutable reference to the headers being set in the `Builder`.
     pub fn headers_mut(&mut self) -> &mut Headers {
         &mut self.headers
+    }
+
+    /// Returns a reference to the extensions being set in the `Builder`.
+    pub fn extensions(&self) -> &AnyMap {
+        &self.extensions
+    }
+
+    /// Returns a mutable reference to the extensions being set in the `Builder`.
+    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+        &mut self.extensions
     }
 
     /// Inserts a new header into the response.
@@ -200,11 +227,16 @@ impl Builder {
     /// # Returns
     /// A `Response` containing the status, headers, and body.
     pub fn build<T>(self, body: T) -> Response<T> {
-        let Self { status, headers } = self;
+        let Self {
+            status,
+            headers,
+            extensions,
+        } = self;
 
         Response {
             status,
             headers,
+            extensions,
             body,
         }
     }

@@ -1,10 +1,7 @@
-mod any_map;
-
 use std::fmt::Display;
 
-use any_map::AnyMap;
-
 use super::{
+    common::any_map::AnyMap,
     headers::{HeaderName, HeaderValue, Headers},
     method::Method,
     uri::{
