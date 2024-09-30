@@ -1,6 +1,6 @@
 use http1::{
     body::Body, headers, request::Request, response::Response, runtime::ThreadPooledRuntime,
-    server::Server, status::StatusCode,
+    server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{app::App, handler::BoxedHandler};
 use std::fs::File;
@@ -12,7 +12,7 @@ fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(middleware)
         .get("/hello", || Response::new(StatusCode::OK, "Hello World!"))
-        .get("/bocchi", || {
+        .get("/bocchi", |uri: Uri| {
             let cwd = std::env::current_dir().unwrap();
             let file_dir = cwd.join("assets/bocchi.jpg");
             let file = File::open(file_dir).unwrap();

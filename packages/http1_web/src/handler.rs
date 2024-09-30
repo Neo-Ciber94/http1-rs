@@ -33,6 +33,24 @@ impl BoxedHandler {
     }
 }
 
+
+macro_rules! impl_handler_for_tuple {
+    ($($T:ident),*) => {
+        impl<Func, R, $($T),*> Handler<($($T),*,)> for Func
+        where
+            Func: Fn($($T),*) -> R,
+            R: IntoResponse,
+        {
+            type Output = R;
+
+            #[allow(non_snake_case)]
+            fn call(&self, ($($T),*,): ($($T,)*)) -> Self::Output {
+                (self)($($T),*)
+            }
+        }
+    };
+}
+
 impl<F, R> Handler<()> for F
 where
     F: Fn() -> R,
@@ -45,38 +63,13 @@ where
     }
 }
 
-impl<F, R, T1> Handler<(T1,)> for F
-where
-    F: Fn((T1,)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1,)) -> Self::Output {
-        (self)(args)
-    }
-}
-
-impl<F, R, T1, T2> Handler<(T1, T2)> for F
-where
-    F: Fn((T1, T2)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1, T2)) -> Self::Output {
-        (self)(args)
-    }
-}
-
-impl<F, R, T1, T2, T3> Handler<(T1, T2, T3)> for F
-where
-    F: Fn((T1, T2, T3)) -> R,
-    R: IntoResponse,
-{
-    type Output = R;
-
-    fn call(&self, args: (T1, T2, T3)) -> Self::Output {
-        (self)(args)
-    }
-}
+impl_handler_for_tuple! { T1 }
+impl_handler_for_tuple! { T1, T2 }
+impl_handler_for_tuple! { T1, T2, T3 }
+impl_handler_for_tuple! { T1, T2, T3, T4 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5, T6 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5, T6, T7 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
+impl_handler_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
