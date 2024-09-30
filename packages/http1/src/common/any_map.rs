@@ -63,6 +63,10 @@ impl AnyMap {
             .and_then(|x| x.downcast().ok())
             .map(|x| *x)
     }
+
+    pub fn extend(&mut self, other: AnyMap) {
+        self.0.extend(other.0);
+    }
 }
 
 impl Default for AnyMap {
