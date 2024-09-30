@@ -1,6 +1,6 @@
 use http1::{body::Body, request::Request, response::Response, status::StatusCode};
 
-use crate::{from_request::FromRequestRef, into_response::IntoResponse};
+use crate::{from_request::FromRequest, into_response::IntoResponse};
 
 pub trait Handler<Args> {
     type Output: IntoResponse;
@@ -11,11 +11,11 @@ pub struct BoxedHandler(Box<dyn Fn(Request<Body>) -> Response<Body> + Sync + Sen
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        BoxedHandler(Box::new(move |req| match Args::from_request_ref(&req) {
+        BoxedHandler(Box::new(move |req| match Args::from_request(req) {
             Ok(args) => {
                 let result = handler.call(args);
                 let res = result.into_response();
@@ -32,7 +32,6 @@ impl BoxedHandler {
         (self.0)(req)
     }
 }
-
 
 macro_rules! impl_handler_for_tuple {
     ($($T:ident),*) => {

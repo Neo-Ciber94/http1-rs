@@ -12,7 +12,7 @@ fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(middleware)
         .get("/hello", || Response::new(StatusCode::OK, "Hello World!"))
-        .get("/bocchi", |uri: Uri| {
+        .get("/bocchi", |_uri: Uri, body: Body| {
             let cwd = std::env::current_dir().unwrap();
             let file_dir = cwd.join("assets/bocchi.jpg");
             let file = File::open(file_dir).unwrap();

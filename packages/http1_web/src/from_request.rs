@@ -39,6 +39,12 @@ where
     }
 }
 
+impl FromRequestRef for () {
+    fn from_request_ref(_: &Request<Body>) -> Result<Self, BoxError> {
+        Ok(())
+    }
+}
+
 impl FromRequestRef for Params {
     fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
         req.extensions()
@@ -90,29 +96,32 @@ impl FromRequestRef for Method {
     }
 }
 
-macro_rules! impl_from_request_ref_tuple {
-    ($($T:ident),*) => {
-        impl<$($T),*> crate::from_request::FromRequestRef for ($($T,)*) where $($T: crate::from_request::FromRequestRef),* {
-            #[allow(non_snake_case, unused_variables)]
-            fn from_request_ref(req: &http1::request::Request<Body>) -> Result<Self, BoxError> {
+macro_rules! impl_from_request_tuple {
+    ([$($T:ident),*], $last:ident) => {
+        #[allow(non_snake_case, unused_variables)]
+        impl<$($T,)* $last> crate::from_request::FromRequest for ($($T,)* $last,)
+            where
+                $($T: crate::from_request::FromRequestRef,)*
+                $last: crate::from_request::FromRequest {
+            fn from_request(req: http1::request::Request<Body>) -> Result<Self, BoxError> {
                 $(
                     let $T = <$T as crate::from_request::FromRequestRef>::from_request_ref(&req)?;
                 )*
 
-                Ok(($($T,)*))
+                let last = <$last as crate::from_request::FromRequest>::from_request(req)?;
+                Ok(($($T,)* last,))
             }
         }
     };
 }
 
-impl_from_request_ref_tuple! {}
-impl_from_request_ref_tuple! { T1 }
-impl_from_request_ref_tuple! { T1, T2 }
-impl_from_request_ref_tuple! { T1, T2, T3 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5, T6 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5, T6, T7 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
-impl_from_request_ref_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
+impl_from_request_tuple! { [], T1 }
+impl_from_request_tuple! { [T1], T2 }
+impl_from_request_tuple! { [T1, T2], T3 }
+impl_from_request_tuple! { [T1, T2, T3], T4 }
+impl_from_request_tuple! { [T1, T2, T3, T4], T5 }
+impl_from_request_tuple! { [T1, T2, T3, T4, T5], T6 }
+impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6], T7 }
+impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7], T8 }
+impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7, T8], T9 }
+impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7, T8, T9], T10 }

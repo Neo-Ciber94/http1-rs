@@ -6,7 +6,7 @@ use http1::{
 };
 
 use crate::{
-    from_request::FromRequestRef,
+    from_request::{FromRequest, FromRequestRef},
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
     middleware::BoxedMiddleware,
@@ -38,7 +38,7 @@ impl<'a> App<'a> {
 
     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -58,7 +58,7 @@ impl<'a> App<'a> {
 
     pub fn get<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -67,7 +67,7 @@ impl<'a> App<'a> {
 
     pub fn post<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -76,7 +76,7 @@ impl<'a> App<'a> {
 
     pub fn put<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -85,7 +85,7 @@ impl<'a> App<'a> {
 
     pub fn delete<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -94,7 +94,7 @@ impl<'a> App<'a> {
 
     pub fn patch<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -103,7 +103,7 @@ impl<'a> App<'a> {
 
     pub fn options<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -112,7 +112,7 @@ impl<'a> App<'a> {
 
     pub fn head<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
@@ -121,7 +121,7 @@ impl<'a> App<'a> {
 
     pub fn trace<H, Args, R>(self, route: &'a str, handler: H) -> Self
     where
-        Args: FromRequestRef,
+        Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
