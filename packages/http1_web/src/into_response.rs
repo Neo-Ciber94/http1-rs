@@ -197,3 +197,27 @@ where
         Ok(res)
     }
 }
+
+impl<R, T1> IntoResponse for (R, T1)
+where
+    R: IntoResponse,
+    T1: IntoResponseParts,
+    T1::Err: std::error::Error + Send + Sync + 'static,
+{
+    fn into_response(self) -> Response<Body> {
+        let (t1, t2) = self;
+        let response = t1.into_response();
+        let res = ResponseParts { response };
+
+        match t2.into_response_parts(res) {
+            Ok(res) => res.response,
+            Err(err) => {
+                eprintln!(
+                    "Failed to convert {} into response parts: {err}",
+                    std::any::type_name::<T1>()
+                );
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    }
+}
