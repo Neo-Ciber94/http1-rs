@@ -310,6 +310,13 @@ impl Cookies {
         self.cookies.push(cookie);
     }
 
+    pub fn replace(&mut self, cookie: impl Into<Cookie>) {
+        let cookie = cookie.into();
+
+        self.cookies.retain(|c| c.name() != cookie.name());
+        self.set(cookie)
+    }
+
     pub fn del(&mut self, name: impl AsRef<str>) -> Option<&Cookie> {
         match self.cookies.iter().position(|c| c.name() == name.as_ref()) {
             Some(pos) => {
@@ -475,5 +482,123 @@ mod tests {
     fn should_encode_special_characters_in_cookie_name_and_value() {
         let cookie = Builder::new("special_cookie", "value with spaces").build();
         assert_eq!(cookie.to_string(), "special_cookie=value%20with%20spaces");
+    }
+}
+
+#[cfg(test)]
+mod cookies_tests {
+    use super::*;
+
+    #[test]
+    fn should_create_empty_cookies() {
+        let cookies = Cookies::new();
+        assert!(cookies.is_empty());
+        assert_eq!(cookies.len(), 0);
+    }
+
+    #[test]
+    fn should_add_cookie() {
+        let mut cookies = Cookies::new();
+        let cookie = Builder::new("session_id", "abc123").build();
+
+        cookies.set(cookie.clone());
+
+        assert_eq!(cookies.len(), 1);
+        assert_eq!(cookies.get("session_id").unwrap(), &cookie);
+    }
+
+    #[test]
+    fn should_replace_cookie_with_same_name() {
+        let mut cookies = Cookies::new();
+        let cookie1 = Builder::new("session_id", "abc123").build();
+        let cookie2 = Builder::new("session_id", "xyz789").build();
+
+        cookies.set(cookie1.clone());
+        cookies.replace(cookie2.clone());
+
+        assert_eq!(cookies.len(), 1);
+        assert_eq!(cookies.get("session_id").unwrap(), &cookie2); // Cookie should be replaced with `cookie2`
+    }
+
+    #[test]
+    fn should_delete_cookie() {
+        let mut cookies = Cookies::new();
+        let cookie = Builder::new("session_id", "abc123").build();
+
+        cookies.set(cookie.clone());
+
+        let deleted_cookie = cookies.del("session_id").unwrap();
+
+        assert_eq!(deleted_cookie.name(), "session_id");
+        assert!(cookies.is_empty());
+        assert_eq!(cookies.len(), 0);
+    }
+
+    #[test]
+    fn should_return_none_when_deleting_non_existent_cookie() {
+        let mut cookies = Cookies::new();
+        assert!(cookies.del("non_existent").is_none());
+    }
+
+    #[test]
+    fn should_clear_all_cookies() {
+        let mut cookies = Cookies::new();
+        cookies.set(Builder::new("cookie1", "value1").build());
+        cookies.set(Builder::new("cookie2", "value2").build());
+
+        assert_eq!(cookies.len(), 2);
+        cookies.clear();
+
+        assert!(cookies.is_empty());
+        assert_eq!(cookies.len(), 0);
+    }
+
+    #[test]
+    fn should_retrieve_cookie_by_name() {
+        let mut cookies = Cookies::new();
+        let cookie = Builder::new("session_id", "abc123").build();
+
+        cookies.set(cookie.clone());
+
+        let retrieved_cookie = cookies.get("session_id").unwrap();
+
+        assert_eq!(retrieved_cookie, &cookie);
+    }
+
+    #[test]
+    fn should_return_none_for_non_existent_cookie() {
+        let cookies = Cookies::new();
+        assert!(cookies.get("non_existent").is_none());
+    }
+
+    #[test]
+    fn should_get_all_cookies_with_same_name() {
+        let mut cookies = Cookies::new();
+        let cookie1 = Builder::new("session_id", "abc123").build();
+        let cookie2 = Builder::new("session_id", "xyz789").build();
+
+        cookies.set(cookie1.clone());
+        cookies.set(cookie2.clone());
+
+        let all_cookies: Vec<&Cookie> = cookies.get_all("session_id").collect();
+
+        assert_eq!(all_cookies.len(), 2);
+        assert!(all_cookies.contains(&&cookie1));
+        assert!(all_cookies.contains(&&cookie2));
+    }
+
+    #[test]
+    fn should_iterate_over_all_cookies() {
+        let mut cookies = Cookies::new();
+        let cookie1 = Builder::new("cookie1", "value1").build();
+        let cookie2 = Builder::new("cookie2", "value2").build();
+
+        cookies.set(cookie1.clone());
+        cookies.set(cookie2.clone());
+
+        let mut iter = cookies.iter();
+        assert_eq!(iter.next().unwrap(), &cookie1);
+        assert_eq!(iter.next().unwrap(), &cookie2);
+        assert!(iter.next().is_none());
     }
 }
