@@ -1,4 +1,8 @@
-use std::{fmt::Display, time::SystemTime};
+use std::{
+    fmt::Display,
+    ops::Add,
+    time::{Duration, SystemTime},
+};
 
 const SECONDS_IN_MILLIS: u128 = 1000;
 const MINUTES_IN_MILLIS: u128 = SECONDS_IN_MILLIS * 60;
@@ -239,8 +243,8 @@ impl DateTime {
         let year = self.year();
         let month = self.month() as u64 + 1;
 
-        // Note: In this algorithm January and February are counted as months 13 and 14 of the previous year. 
-        // E.g. if it is 2 February 2010 (02/02/2010 in DD/MM/YYYY), 
+        // Note: In this algorithm January and February are counted as months 13 and 14 of the previous year.
+        // E.g. if it is 2 February 2010 (02/02/2010 in DD/MM/YYYY),
         // the algorithm counts the date as the second day of the fourteenth month of 2009 (02/14/2009 in DD/MM/YYYY format)
         let (m, y) = if month < 3 {
             (month + 12, year - 1)
@@ -376,6 +380,38 @@ impl DateTime {
 impl Display for DateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.fmt_to_iso_8601_string(f)
+    }
+}
+
+impl Add<Duration> for DateTime {
+    type Output = DateTime;
+
+    fn add(self, rhs: Duration) -> Self::Output {
+        DateTime::with_millis(self.as_millis() + rhs.as_millis())
+    }
+}
+
+impl Add<Duration> for &'_ DateTime {
+    type Output = DateTime;
+
+    fn add(self, rhs: Duration) -> Self::Output {
+        DateTime::with_millis(self.as_millis() + rhs.as_millis())
+    }
+}
+
+impl Add<DateTime> for Duration {
+    type Output = DateTime;
+
+    fn add(self, rhs: DateTime) -> Self::Output {
+        DateTime::with_millis(self.as_millis() + rhs.as_millis())
+    }
+}
+
+impl Add<DateTime> for &'_ Duration {
+    type Output = DateTime;
+
+    fn add(self, rhs: DateTime) -> Self::Output {
+        DateTime::with_millis(self.as_millis() + rhs.as_millis())
     }
 }
 
@@ -516,6 +552,8 @@ impl Default for Builder {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use crate::common::date_time::{DayOfWeek, Month};
 
     use super::DateTime;
@@ -564,5 +602,20 @@ mod tests {
         assert_eq!(dt.month(), Month::September);
         assert_eq!(dt.day_of_month(), 30);
         assert_eq!(dt.day_of_week(), DayOfWeek::Monday);
+    }
+
+    #[test]
+    fn should_add_duration_to_datetime() {
+        let dt = DateTime::builder()
+            .year(2020)
+            .month(Month::January)
+            .day(20)
+            .hours(18)
+            .minutes(30)
+            .secs(15)
+            .build();
+
+        let result = dt + Duration::from_secs(30);
+        assert_eq!(result.secs(), 45);
     }
 }
