@@ -1,9 +1,30 @@
+/// Alphabet used for percent encoding.
+pub trait Alphabet {
+    /// Whether if this alphabet contains the given value.
+    fn contains(&self, value: u8) -> bool;
+}
+
+/// Percent encode alphabet.
+pub struct PercentEncode;
+impl Alphabet for PercentEncode {
+    fn contains(&self, value: u8) -> bool {
+        match value {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => true,
+            _ => false,
+        }
+    }
+}
+
 pub fn encode_uri_component<S: AsRef<str>>(input: S) -> String {
+    encode_uri_component_with(input, PercentEncode)
+}
+
+pub fn encode_uri_component_with<S: AsRef<str>>(input: S, alphabet: impl Alphabet) -> String {
     let mut encoded = String::new();
 
     for byte in input.as_ref().bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+            _ if alphabet.contains(byte) => {
                 encoded.push(byte as char);
             }
             _ => {
