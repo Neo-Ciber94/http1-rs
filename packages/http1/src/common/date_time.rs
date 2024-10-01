@@ -62,6 +62,52 @@ impl Display for Month {
     }
 }
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DayOfWeek {
+    Sunday = 0,
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+}
+
+impl DayOfWeek {
+    // Method to display the day in long format.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DayOfWeek::Sunday => "Sunday",
+            DayOfWeek::Monday => "Monday",
+            DayOfWeek::Tuesday => "Tuesday",
+            DayOfWeek::Wednesday => "Wednesday",
+            DayOfWeek::Thursday => "Thursday",
+            DayOfWeek::Friday => "Friday",
+            DayOfWeek::Saturday => "Saturday",
+        }
+    }
+
+    // Method to display the day in short format.
+    pub fn as_short_str(self) -> &'static str {
+        match self {
+            DayOfWeek::Sunday => "Sun",
+            DayOfWeek::Monday => "Mon",
+            DayOfWeek::Tuesday => "Tue",
+            DayOfWeek::Wednesday => "Wed",
+            DayOfWeek::Thursday => "Thu",
+            DayOfWeek::Friday => "Fri",
+            DayOfWeek::Saturday => "Sat",
+        }
+    }
+}
+
+impl Display for DayOfWeek {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug)]
 pub struct InvalidMonthIndex;
 
@@ -188,6 +234,38 @@ impl DateTime {
         (day + 1) as u8
     }
 
+    pub fn day_of_week(&self) -> DayOfWeek {
+        // https://en.wikipedia.org/wiki/Zeller%27s_congruence#Implementations_in_software
+        let year = self.year();
+        let month = self.month() as u64 + 1;
+
+        // Note: In this algorithm January and February are counted as months 13 and 14 of the previous year. 
+        // E.g. if it is 2 February 2010 (02/02/2010 in DD/MM/YYYY), 
+        // the algorithm counts the date as the second day of the fourteenth month of 2009 (02/14/2009 in DD/MM/YYYY format)
+        let (m, y) = if month < 3 {
+            (month + 12, year - 1)
+        } else {
+            (month, year)
+        };
+
+        let q = self.day_of_month() as u64;
+        let k = (y % 100) as u64;
+        let j = (y / 100) as u64;
+
+        let day = ((q + (13 * (m + 1) / 5)) + k + (k / 4) + (j / 4) + (5 * j)) % 7;
+
+        match day {
+            0 => DayOfWeek::Saturday,
+            1 => DayOfWeek::Sunday,
+            2 => DayOfWeek::Monday,
+            3 => DayOfWeek::Tuesday,
+            4 => DayOfWeek::Wednesday,
+            5 => DayOfWeek::Thursday,
+            6 => DayOfWeek::Friday,
+            _ => unreachable!(),
+        }
+    }
+
     pub fn hours(&self) -> u8 {
         let remaining_ms_in_day = self.remaining_ms_in_day();
         (remaining_ms_in_day / HOURS_IN_MILLIS) as u8
@@ -249,22 +327,29 @@ impl DateTime {
         )
     }
 
+    pub fn to_rfc_1123_string(&self) -> String {
+        let day_of_week = self.day_of_week().as_short_str(); // e.g. "Wed"
+        let day = self.day_of_month(); // e.g. "09"
+        let month = self.month().as_str(); // e.g. "Jun"
+        let year = self.year(); // e.g. 2021
+        let hours = self.hours(); // e.g. 10
+        let minutes = self.minutes(); // e.g. 18
+        let seconds = self.secs(); // e.g. 14
+
+        // Format: "Wed, 09 Jun 2021 10:18:14 GMT"
+        format!("{day_of_week}, {day:02} {month} {year} {hours:02}:{minutes:02}:{seconds:02} GMT",)
+    }
+
     pub fn to_iso_8601_string(&self) -> String {
-        self.map(
-            |DateTimeInfo {
-                 year,
-                 month,
-                 day,
-                 hours,
-                 minutes,
-                 secs,
-                 millis,
-             }| {
-                format!(
-                    "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}.{millis:03}Z"
-                )
-            },
-        )
+        let day = self.day_of_month();
+        let month = self.month() as u8 + 1;
+        let year = self.year();
+        let hours = self.hours();
+        let minutes = self.minutes();
+        let secs = self.secs();
+        let millis = self.millis();
+
+        format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}.{millis:03}Z")
     }
 
     pub fn map<F: FnOnce(&DateTimeInfo) -> String>(&self, f: F) -> String {
@@ -431,7 +516,7 @@ impl Default for Builder {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::date_time::Month;
+    use crate::common::date_time::{DayOfWeek, Month};
 
     use super::DateTime;
 
@@ -469,5 +554,15 @@ mod tests {
             .build();
 
         assert_eq!(dt.to_iso_8601_string(), "2025-01-03T16:15:42.555Z")
+    }
+
+    #[test]
+    fn should_get_day_of_week() {
+        let dt = DateTime::with_yymmdd(2024, Month::September, 30);
+
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), Month::September);
+        assert_eq!(dt.day_of_month(), 30);
+        assert_eq!(dt.day_of_week(), DayOfWeek::Monday);
     }
 }
