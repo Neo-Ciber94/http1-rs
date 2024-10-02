@@ -1,6 +1,9 @@
 use std::{fmt::Display, io::Write};
 
-use crate::common::serde::serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer};
+use crate::common::serde::{
+    impossible::Impossible,
+    serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+};
 
 #[derive(Debug)]
 pub enum JsonSerializationError {
@@ -226,43 +229,10 @@ struct MapKeySerializer<W> {
     writer: W,
 }
 
-fn map_key_error() -> JsonSerializationError {
-    JsonSerializationError::Other(format!("Keys can only be serialized to string"))
-}
-
-struct Impossible;
-impl MapSerializer for Impossible {
-    type Err = JsonSerializationError;
-
-    fn serialize_entry<K: Serialize, V: Serialize>(
-        &mut self,
-        _key: &K,
-        _value: &V,
-    ) -> Result<(), Self::Err> {
-        Err(map_key_error())
-    }
-
-    fn end(self) -> Result<(), Self::Err> {
-        Err(map_key_error())
-    }
-}
-
-impl SequenceSerializer for Impossible {
-    type Err = JsonSerializationError;
-
-    fn serialize_next<T: Serialize>(&mut self, _value: &T) -> Result<(), Self::Err> {
-        Err(map_key_error())
-    }
-
-    fn end(self) -> Result<(), Self::Err> {
-        Err(map_key_error())
-    }
-}
-
 impl<W: Write> Serializer for MapKeySerializer<W> {
     type Err = JsonSerializationError;
-    type Seq = Impossible;
-    type Map = Impossible;
+    type Seq = Impossible<Self::Err>;
+    type Map = Impossible<Self::Err>;
 
     fn serialize_i128(self, _value: i128) -> Result<(), Self::Err> {
         Err(map_key_error())
@@ -296,4 +266,8 @@ impl<W: Write> Serializer for MapKeySerializer<W> {
         self.writer.write(value.as_bytes())?;
         Ok(())
     }
+}
+
+fn map_key_error() -> JsonSerializationError {
+    JsonSerializationError::Other(format!("Keys can only be serialized to string"))
 }
