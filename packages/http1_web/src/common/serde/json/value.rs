@@ -71,7 +71,7 @@ pub enum JsonValue {
     String(String),
     Bool(bool),
     Array(Vec<JsonValue>),
-    Map(HashMap<String, JsonValue>),
+    Object(HashMap<String, JsonValue>),
     Null,
 }
 
@@ -114,7 +114,7 @@ impl JsonValue {
 
     pub fn as_map(&self) -> Option<&HashMap<String, JsonValue>> {
         match self {
-            JsonValue::Map(map) => Some(map),
+            JsonValue::Object(map) => Some(map),
             _ => None,
         }
     }
