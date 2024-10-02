@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 pub trait SequenceSerializer {
     type Err: std::error::Error;
     fn serialize_next<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
@@ -111,4 +109,3 @@ pub trait MapIterator {
 pub trait Serialize {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err>;
 }
-
