@@ -74,7 +74,8 @@ pub trait Serializer: Sized {
     }
 
     fn serialize_char(self, value: char) -> Result<(), Self::Err> {
-        self.serialize_string(value.to_string())
+        let mut buf = [0; 4];
+        self.serialize_str(value.encode_utf8(&mut buf))
     }
 
     fn serialize_option<T: Serialize>(self, value: Option<T>) -> Result<(), Self::Err>;
