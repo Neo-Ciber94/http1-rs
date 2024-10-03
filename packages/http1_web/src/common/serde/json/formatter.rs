@@ -21,6 +21,88 @@ pub trait Formatter<W: Write> {
     fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
 }
 
+pub struct CompactFormatter;
+impl<W: Write> Formatter<W> for CompactFormatter {
+    fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()> {
+        match value.into() {
+            Number::Float(f) => {
+                let s = f.to_string();
+                writer.write_all(s.as_bytes())
+            }
+            Number::Integer(i) => {
+                let s = i.to_string();
+                writer.write_all(s.as_bytes())
+            }
+            Number::UInteger(u) => {
+                let s = u.to_string();
+                writer.write_all(s.as_bytes())
+            }
+        }
+    }
+
+    fn write_bool(&mut self, writer: &mut W, value: bool) -> std::io::Result<()> {
+        if value {
+            writer.write_all(b"true")
+        } else {
+            writer.write_all(b"false")
+        }
+    }
+
+    fn write_null(&mut self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(b"null")
+    }
+
+    fn write_str(&mut self, writer: &mut W, value: &str) -> std::io::Result<()> {
+        let s = format!("\"{value}\"");
+        writer.write_all(s.as_bytes())
+    }
+
+    fn write_object_start(&mut self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(b"{")?;
+        Ok(())
+    }
+
+    fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(b"}")
+    }
+
+    fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(b"[")
+    }
+
+    fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(b"]")
+    }
+
+    fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            writer.write_all(b",")
+        }
+    }
+
+    fn write_array_element_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn write_object_key_begin(&mut self, _writer: &mut W) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn write_object_key_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn write_object_value_begin(&mut self, writer: &mut W, _first: bool) -> std::io::Result<()> {
+        writer.write_all(b":")
+    }
+
+    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        writer.write_all(if first { b"" } else { b"," })
+    }
+}
+
 pub struct PrettyFormatter {
     level: usize,
     indent: &'static [u8],
@@ -157,7 +239,7 @@ where
         if self.level > 0 {
             self.level -= 1;
         }
-        self.write_indented(writer,  b"}")
+        self.write_indented(writer, b"}")
     }
 
     fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
@@ -165,7 +247,7 @@ where
     }
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer,  b"]" )
+        self.write_indented(writer, b"]")
     }
 
     fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {

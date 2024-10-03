@@ -1,4 +1,4 @@
-use formatter::PrettyFormatter;
+use formatter::{CompactFormatter, PrettyFormatter};
 use ser::{JsonSerializationError, JsonSerializer};
 
 use super::serialize::Serialize;
@@ -22,6 +22,8 @@ pub fn to_pretty_string<T: Serialize>(value: &T) -> Result<String, JsonSerializa
 }
 
 pub fn to_string<T: Serialize>(value: &T) -> Result<String, JsonSerializationError> {
-    let bytes = to_bytes(value)?;
-    String::from_utf8(bytes).map_err(|err| JsonSerializationError::Other(err.to_string()))
+    let mut buf = Vec::<u8>::new();
+    let mut serializer = JsonSerializer::new(&mut buf, CompactFormatter);
+    value.serialize(&mut serializer)?;
+    String::from_utf8(buf).map_err(|err| JsonSerializationError::Other(err.to_string()))
 }
