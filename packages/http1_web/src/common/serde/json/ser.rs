@@ -104,7 +104,7 @@ where
         let mut seq = self.serialize_sequence()?;
 
         for x in value {
-            seq.serialize_next(x)?;
+            seq.serialize_element(x)?;
         }
 
         Ok(())
@@ -131,7 +131,7 @@ where
 {
     type Err = JsonSerializationError;
 
-    fn serialize_next<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
+    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
         if self.count > 0 {
             self.ser.writer.write(b",")?;
         }

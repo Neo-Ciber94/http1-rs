@@ -1,6 +1,6 @@
 pub trait SequenceSerializer {
     type Err: std::error::Error;
-    fn serialize_next<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
+    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
     fn end(self) -> Result<(), Self::Err>;
 }
 
@@ -84,7 +84,7 @@ pub trait Serializer: Sized {
         let mut seq = self.serialize_sequence()?;
 
         for x in value {
-            seq.serialize_next(x)?;
+            seq.serialize_element(x)?;
         }
 
         Ok(())

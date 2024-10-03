@@ -75,7 +75,7 @@ where
 {
     type Err = E;
 
-    fn serialize_next<T: Serialize>(&mut self, _value: &T) -> Result<(), Self::Err> {
+    fn serialize_element<T: Serialize>(&mut self, _value: &T) -> Result<(), Self::Err> {
         match self.void {}
     }
 
