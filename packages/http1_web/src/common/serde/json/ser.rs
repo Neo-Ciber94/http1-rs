@@ -86,14 +86,9 @@ where
         })
     }
 
-    fn serialize_option<T: Serialize>(self, value: Option<T>) -> Result<(), Self::Err> {
-        match value {
-            Some(x) => x.serialize(self),
-            None => {
-                self.formatter.write_null(&mut self.writer)?;
-                Ok(())
-            }
-        }
+    fn serialize_none(self) -> Result<(), Self::Err> {
+        self.formatter.write_null(&mut self.writer)?;
+        Ok(())
     }
 
     fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<(), Self::Err> {
@@ -222,7 +217,7 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
         Err(map_key_error())
     }
 
-    fn serialize_option<T: Serialize>(self, _value: Option<T>) -> Result<(), Self::Err> {
+    fn serialize_none(self) -> Result<(), Self::Err> {
         Err(map_key_error())
     }
 

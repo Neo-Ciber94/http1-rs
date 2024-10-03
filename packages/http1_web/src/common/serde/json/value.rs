@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
+use crate::common::serde::serialize::{MapSerializer, Serialize};
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum Number {
     Float(f64),
@@ -116,6 +118,43 @@ impl JsonValue {
         match self {
             JsonValue::Object(map) => Some(map),
             _ => None,
+        }
+    }
+}
+
+impl Serialize for Number {
+    fn serialize<S: crate::common::serde::serialize::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<(), S::Err> {
+        match self {
+            Number::Float(f) => serializer.serialize_f64(*f),
+            Number::UInteger(u) =>  serializer.serialize_u128(*u),
+            Number::Integer(i) =>  serializer.serialize_i128(*i),
+        }
+    }
+}
+
+impl Serialize for JsonValue {
+    fn serialize<S: crate::common::serde::serialize::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<(), S::Err> {
+        match self {
+            JsonValue::Number(number) => number.serialize(serializer),
+            JsonValue::String(s) => serializer.serialize_str(s),
+            JsonValue::Bool(b) => serializer.serialize_bool(*b),
+            JsonValue::Array(vec) => serializer.serialize_vec(vec),
+            JsonValue::Object(hash_map) => {
+                let mut map = serializer.serialize_map()?;
+
+                for (key, value) in hash_map {
+                    map.serialize_entry(key, value)?;
+                }
+
+                Ok(())
+            },
+            JsonValue::Null => serializer.serialize_none(),
         }
     }
 }
