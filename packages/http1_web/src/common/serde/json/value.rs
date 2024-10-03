@@ -2,6 +2,8 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::common::serde::serialize::{MapSerializer, Serialize};
 
+use super::map::OrderedMap;
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum Number {
     Float(f64),
@@ -67,13 +69,13 @@ impl_from_number!(
     float = [f32, f64]
 );
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum JsonValue {
     Number(Number),
     String(String),
     Bool(bool),
     Array(Vec<JsonValue>),
-    Object(HashMap<String, JsonValue>),
+    Object(OrderedMap<String, JsonValue>),
     Null,
 }
 
@@ -114,7 +116,7 @@ impl JsonValue {
         }
     }
 
-    pub fn as_map(&self) -> Option<&HashMap<String, JsonValue>> {
+    pub fn as_map(&self) -> Option<&OrderedMap<String, JsonValue>> {
         match self {
             JsonValue::Object(map) => Some(map),
             _ => None,
@@ -145,10 +147,10 @@ impl Serialize for JsonValue {
             JsonValue::String(s) => serializer.serialize_str(s),
             JsonValue::Bool(b) => serializer.serialize_bool(*b),
             JsonValue::Array(vec) => serializer.serialize_vec(vec),
-            JsonValue::Object(hash_map) => {
+            JsonValue::Object(obj) => {
                 let mut map = serializer.serialize_map()?;
 
-                for (key, value) in hash_map {
+                for (key, value) in obj.iter() {
                     map.serialize_entry(key, value)?;
                 }
 
@@ -163,7 +165,7 @@ impl Serialize for JsonValue {
 #[cfg(test)]
 mod tests {
     use super::{JsonValue, Number};
-    use crate::common::serde::json::{to_pretty_string, to_string};
+    use crate::common::serde::json::{map::OrderedMap, to_pretty_string, to_string};
     use std::collections::HashMap;
 
     #[test]
@@ -203,7 +205,7 @@ mod tests {
 
     #[test]
     fn should_serialize_object() {
-        let mut map = HashMap::new();
+        let mut map = OrderedMap::new();
         map.insert(
             String::from("number"),
             JsonValue::Number(Number::UInteger(123)),

@@ -6,6 +6,7 @@ use super::serialize::Serialize;
 pub mod formatter;
 pub mod ser;
 pub mod value;
+pub mod map;
 
 pub fn to_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, JsonSerializationError> {
     let mut buf = Vec::<u8>::new();
