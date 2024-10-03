@@ -18,35 +18,35 @@ where
     type Map = Impossible<E>;
 
     fn serialize_i128(self, _value: i128) -> Result<(), Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_u128(self, _value: u128) -> Result<(), Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_f64(self, _value: f64) -> Result<(), Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_bool(self, _value: bool) -> Result<(), Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_str(self, _value: &str) -> Result<(), Self::Err> {
-         match self.void {}
-    }
-
-    fn serialize_option<T: Serialize>(self, _value: Option<T>) -> Result<(), Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
-         match self.void {}
+        match self.void {}
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
-         match self.void {}
+        match self.void {}
+    }
+
+    fn serialize_none(self) -> Result<(), Self::Err> {
+        match self.void {}
     }
 }
 

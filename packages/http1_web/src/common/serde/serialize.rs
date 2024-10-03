@@ -96,6 +96,7 @@ pub trait Serializer: Sized {
             seq.serialize_element(x)?;
         }
 
+        seq.end()?;
         Ok(())
     }
 

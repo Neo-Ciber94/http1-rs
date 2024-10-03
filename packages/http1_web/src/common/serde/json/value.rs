@@ -129,8 +129,8 @@ impl Serialize for Number {
     ) -> Result<(), S::Err> {
         match self {
             Number::Float(f) => serializer.serialize_f64(*f),
-            Number::UInteger(u) =>  serializer.serialize_u128(*u),
-            Number::Integer(i) =>  serializer.serialize_i128(*i),
+            Number::UInteger(u) => serializer.serialize_u128(*u),
+            Number::Integer(i) => serializer.serialize_i128(*i),
         }
     }
 }
@@ -152,9 +152,77 @@ impl Serialize for JsonValue {
                     map.serialize_entry(key, value)?;
                 }
 
+                map.end()?;
                 Ok(())
-            },
+            }
             JsonValue::Null => serializer.serialize_none(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{JsonValue, Number};
+    use crate::common::serde::json::to_pretty_string;
+    use std::collections::HashMap;
+
+    #[test]
+    fn should_serialize_number() {
+        let f = JsonValue::Number(Number::Float(0.5));
+        let u = JsonValue::Number(Number::UInteger(102398));
+        let i = JsonValue::Number(Number::Integer(-1328));
+
+        assert_eq!(to_pretty_string(&f).unwrap(), "0.5");
+        assert_eq!(to_pretty_string(&u).unwrap(), "102398");
+        assert_eq!(to_pretty_string(&i).unwrap(), "-1328");
+    }
+
+    #[test]
+    fn should_serialize_string() {
+        let s = JsonValue::String(String::from("Hello, world!"));
+        assert_eq!(to_pretty_string(&s).unwrap(), "\"Hello, world!\"");
+    }
+
+    #[test]
+    fn should_serialize_bool() {
+        assert_eq!(to_pretty_string(&JsonValue::Bool(true)).unwrap(), "true");
+        assert_eq!(to_pretty_string(&JsonValue::Bool(false)).unwrap(), "false");
+    }
+
+    #[test]
+    fn should_serialize_array() {
+        let array = JsonValue::Array(vec![
+            JsonValue::Number(Number::Float(1.23)),
+            JsonValue::Bool(true),
+            JsonValue::String(String::from("Test")),
+        ]);
+
+        assert_eq!(
+            to_pretty_string(&array).unwrap(),"[\n1.23, true, \"Test\"]");
+    }
+
+    #[test]
+    fn should_serialize_object() {
+        let mut map = HashMap::new();
+        map.insert(
+            String::from("number"),
+            JsonValue::Number(Number::UInteger(123)),
+        );
+        map.insert(
+            String::from("string"),
+            JsonValue::String(String::from("Hello")),
+        );
+        map.insert(String::from("boolean"), JsonValue::Bool(false));
+
+        let object = JsonValue::Object(map);
+
+        let expected = "{\"number\": 123, \"string\": \"Hello\", \"boolean\": false}";
+        assert_eq!(to_pretty_string(&object).unwrap(), expected);
+    }
+
+    #[test]
+    fn should_serialize_null() {
+        let null = JsonValue::Null;
+        assert_eq!(to_pretty_string(&null).unwrap(), "null");
     }
 }

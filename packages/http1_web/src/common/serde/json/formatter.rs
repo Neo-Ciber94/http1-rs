@@ -18,7 +18,7 @@ pub trait Formatter<W: Write> {
     fn write_object_key_begin(&mut self, writer: &mut W) -> std::io::Result<()>;
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()>;
     fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
-    fn write_object_value_end(&mut self, writer: &mut W) -> std::io::Result<()>;
+    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
 }
 
 pub struct PrettyFormatter {
@@ -104,8 +104,8 @@ where
         (**self).write_object_value_begin(writer, first)
     }
 
-    fn write_object_value_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        (**self).write_object_value_end(writer)
+    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        (**self).write_object_value_end(writer, first)
     }
 }
 
@@ -154,8 +154,10 @@ where
     }
 
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.level -= 1;
-        self.write_indented(writer, b"}\n")
+        if self.level > 0 {
+            self.level -= 1;
+        }
+        self.write_indented(writer,  b"}")
     }
 
     fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
@@ -163,14 +165,14 @@ where
     }
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"]\n")
+        self.write_indented(writer,  b"]" )
     }
 
     fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
         if first {
             Ok(())
         } else {
-            self.write_indented(writer, b" ,")
+            self.write_indented(writer, b", ")
         }
     }
 
@@ -183,18 +185,14 @@ where
     }
 
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b" ,")
+        Ok(())
     }
 
     fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        if first {
-            Ok(())
-        } else {
-            self.write_indented(writer, b" : ")
-        }
+        self.write_indented(writer, b": ")
     }
 
-    fn write_object_value_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"\n")
+    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        self.write_indented(writer, if first { b"\n" } else { b",\n" })
     }
 }

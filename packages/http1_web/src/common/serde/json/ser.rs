@@ -36,6 +36,16 @@ pub struct JsonSerializer<W, F> {
     formatter: F,
 }
 
+impl JsonSerializer<(), ()> {
+    pub fn new<W, F>(writer: W, formatter: F) -> JsonSerializer<W, F>
+    where
+        W: Write,
+        F: Formatter<W>,
+    {
+        JsonSerializer { writer, formatter }
+    }
+}
+
 impl<'a, W, F> Serializer for &'a mut JsonSerializer<W, F>
 where
     W: Write,
@@ -80,6 +90,8 @@ where
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        self.formatter.write_object_start(&mut self.writer)?;
+
         Ok(JsonMapSerializer {
             serializer: self,
             count: 0,
@@ -97,6 +109,8 @@ where
         for x in value {
             seq.serialize_element(x)?;
         }
+
+        seq.end()?;
 
         Ok(())
     }
@@ -177,7 +191,7 @@ where
 
         self.serializer
             .formatter
-            .write_object_value_end(&mut self.serializer.writer)?;
+            .write_object_value_end(&mut self.serializer.writer, self.count == 0)?;
 
         self.count += 1;
 
@@ -187,7 +201,7 @@ where
     fn end(self) -> Result<(), Self::Err> {
         self.serializer
             .formatter
-            .write_object_key_end(&mut self.serializer.writer)?;
+            .write_object_end(&mut self.serializer.writer)?;
         Ok(())
     }
 }
@@ -230,7 +244,7 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
     }
 
     fn serialize_str(self, value: &str) -> Result<(), Self::Err> {
-        self.serializer.writer.write(value.as_bytes())?;
+        self.serializer.formatter.write_str(&mut self.serializer.writer, value)?;
         Ok(())
     }
 }
