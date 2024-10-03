@@ -137,7 +137,7 @@ where
         }
 
         self.count += 1;
-        value.serialize(self.ser)?;
+        value.serialize(&mut (*self.ser))?;
 
         Ok(())
     }
@@ -170,10 +170,8 @@ where
         };
 
         key.serialize(MapKeySerializer { ser: self.ser })?;
-
         self.ser.writer.write(b":")?;
-
-        value.serialize(self.ser)?;
+        value.serialize(&mut (*self.ser))?;
 
         self.count += 1;
         Ok(())
