@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::Write, marker::PhantomData};
+use std::{fmt::Display, io::Write};
 
 use crate::common::serde::{
     impossible::Impossible,

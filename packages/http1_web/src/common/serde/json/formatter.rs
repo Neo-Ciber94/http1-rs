@@ -22,13 +22,24 @@ pub trait Formatter<W: Write> {
 }
 
 pub struct PrettyFormatter {
-    indent: usize,
+    level: usize,
+    indent: &'static [u8],
+}
+
+impl PrettyFormatter {
+    pub fn new() -> Self {
+        Self::with_indent(b" ")
+    }
+
+    pub fn with_indent(indent: &'static [u8]) -> Self {
+        PrettyFormatter { level: 0, indent }
+    }
 }
 
 impl PrettyFormatter {
     fn write_indented<W: Write>(&mut self, w: &mut W, value: &[u8]) -> std::io::Result<()> {
-        if self.indent > 0 {
-            write!(w, "{:indent$}", " ", indent = self.indent)?;
+        for _ in 0..self.level {
+            w.write(&self.indent)?;
         }
 
         w.write(value)?;
@@ -138,12 +149,12 @@ where
 
     fn write_object_start(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.write_indented(writer, b"{\n")?;
-        self.indent += 1;
+        self.level += 1;
         Ok(())
     }
 
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.indent -= 1;
+        self.level -= 1;
         self.write_indented(writer, b"}\n")
     }
 
@@ -167,7 +178,7 @@ where
         self.write_indented(writer, b"\n")
     }
 
-    fn write_object_key_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
+    fn write_object_key_begin(&mut self, _writer: &mut W) -> std::io::Result<()> {
         Ok(())
     }
 
