@@ -86,10 +86,6 @@ where
         })
     }
 
-    fn serialize_unit(self) -> Result<(), Self::Err> {
-        Ok(())
-    }
-
     fn serialize_option<T: Serialize>(self, value: Option<T>) -> Result<(), Self::Err> {
         match value {
             Some(x) => x.serialize(self),
@@ -109,14 +105,6 @@ where
 
         Ok(())
     }
-
-    fn serialize_array<T: Serialize, const N: usize>(self, value: [T; N]) -> Result<(), Self::Err> {
-        self.serialize_slice(&value)
-    }
-
-    fn serialize_vec<T: Serialize>(self, value: Vec<T>) -> Result<(), Self::Err> {
-        self.serialize_slice(&value)
-    }
 }
 
 pub struct JsonSequenceSerializer<'a, W, F> {
@@ -132,18 +120,25 @@ where
     type Err = JsonSerializationError;
 
     fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
-        if self.count > 0 {
-            self.serializer.writer.write(b",")?;
-        }
+        self.serializer
+            .formatter
+            .write_array_element_begin(&mut self.serializer.writer, self.count == 0)?;
+
+        value.serialize(&mut (*self.serializer))?;
+
+        self.serializer
+            .formatter
+            .write_array_element_end(&mut self.serializer.writer)?;
 
         self.count += 1;
-        value.serialize(&mut (*self.serializer))?;
 
         Ok(())
     }
 
     fn end(self) -> Result<(), Self::Err> {
-        self.serializer.writer.write(b"]")?;
+        self.serializer
+            .formatter
+            .write_array_end(&mut self.serializer.writer)?;
         Ok(())
     }
 }
@@ -165,20 +160,39 @@ where
         key: &K,
         value: &V,
     ) -> Result<(), Self::Err> {
-        if self.count > 0 {
-            self.serializer.writer.write(b",")?;
-        };
+        // Key
+        self.serializer
+            .formatter
+            .write_object_key_begin(&mut self.serializer.writer)?;
 
-        key.serialize(MapKeySerializer { serializer: self.serializer })?;
-        self.serializer.writer.write(b":")?;
+        key.serialize(MapKeySerializer {
+            serializer: self.serializer,
+        })?;
+
+        self.serializer
+            .formatter
+            .write_object_key_end(&mut self.serializer.writer)?;
+
+        // Value
+        self.serializer
+            .formatter
+            .write_object_value_begin(&mut self.serializer.writer, self.count == 0)?;
+
         value.serialize(&mut (*self.serializer))?;
 
+        self.serializer
+            .formatter
+            .write_object_value_end(&mut self.serializer.writer)?;
+
         self.count += 1;
+
         Ok(())
     }
 
     fn end(self) -> Result<(), Self::Err> {
-        self.serializer.writer.write(b"}")?;
+        self.serializer
+            .formatter
+            .write_object_key_end(&mut self.serializer.writer)?;
         Ok(())
     }
 }
