@@ -81,7 +81,7 @@ where
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
         Ok(JsonMapSerializer {
-            ser: self,
+            serializer: self,
             count: 0,
         })
     }
@@ -149,7 +149,7 @@ where
 }
 
 pub struct JsonMapSerializer<'a, W, F> {
-    ser: &'a mut JsonSerializer<W, F>,
+    serializer: &'a mut JsonSerializer<W, F>,
     count: usize,
 }
 
@@ -166,25 +166,25 @@ where
         value: &V,
     ) -> Result<(), Self::Err> {
         if self.count > 0 {
-            self.ser.writer.write(b",")?;
+            self.serializer.writer.write(b",")?;
         };
 
-        key.serialize(MapKeySerializer { ser: self.ser })?;
-        self.ser.writer.write(b":")?;
-        value.serialize(&mut (*self.ser))?;
+        key.serialize(MapKeySerializer { serializer: self.serializer })?;
+        self.serializer.writer.write(b":")?;
+        value.serialize(&mut (*self.serializer))?;
 
         self.count += 1;
         Ok(())
     }
 
     fn end(self) -> Result<(), Self::Err> {
-        self.ser.writer.write(b"}")?;
+        self.serializer.writer.write(b"}")?;
         Ok(())
     }
 }
 
 struct MapKeySerializer<'a, W, F> {
-    ser: &'a mut JsonSerializer<W, F>,
+    serializer: &'a mut JsonSerializer<W, F>,
 }
 
 impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
@@ -221,7 +221,7 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
     }
 
     fn serialize_str(self, value: &str) -> Result<(), Self::Err> {
-        self.ser.writer.write(value.as_bytes())?;
+        self.serializer.writer.write(value.as_bytes())?;
         Ok(())
     }
 }
