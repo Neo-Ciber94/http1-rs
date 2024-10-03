@@ -240,18 +240,19 @@ where
     }
 
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        if self.level > 0 {
-            self.level -= 1;
-        }
+        self.level -= 1;
         self.write_indented(writer, b"}")
     }
 
     fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"[\n")
+        self.write_indented(writer, b"[\n")?;
+        self.level += 1;
+        Ok(())
     }
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"]")
+        self.level += 1;
+        self.write_indented(writer, b"]")        
     }
 
     fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {

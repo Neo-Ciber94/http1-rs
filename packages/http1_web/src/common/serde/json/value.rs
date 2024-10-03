@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use crate::common::serde::serialize::{MapSerializer, Serialize};
 
@@ -166,7 +166,6 @@ impl Serialize for JsonValue {
 mod tests {
     use super::{JsonValue, Number};
     use crate::common::serde::json::{map::OrderedMap, to_pretty_string, to_string};
-    use std::collections::HashMap;
 
     #[test]
     fn should_serialize_number() {
@@ -199,8 +198,14 @@ mod tests {
             JsonValue::String(String::from("Test")),
         ]);
 
+        // Compact format
+        assert_eq!(to_string(&array).unwrap(), "[1.23,true,\"Test\"]");
+
+        // Pretty-printed format
         assert_eq!(
-            to_string(&array).unwrap(),"[1.23,true,\"Test\"]");
+            to_pretty_string(&array).unwrap(),
+            "[\n 1.23,\n true,\n \"Test\"\n]"
+        );
     }
 
     #[test]
@@ -218,8 +223,14 @@ mod tests {
 
         let object = JsonValue::Object(map);
 
-        let expected = "{\"number\":123,\"string\":\"Hello\",\"boolean\":false}";
-        assert_eq!(to_string(&object).unwrap(), expected);
+        // Compact format
+        let expected_compact = "{\"number\":123,\"string\":\"Hello\",\"boolean\":false}";
+        assert_eq!(to_string(&object).unwrap(), expected_compact);
+
+        // Pretty-printed format
+        let expected_pretty =
+            "{\n \"number\": 123,\n \"string\": \"Hello\",\n \"boolean\": false\n}";
+        assert_eq!(to_pretty_string(&object).unwrap(), expected_pretty);
     }
 
     #[test]
