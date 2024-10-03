@@ -74,7 +74,7 @@ where
         self.formatter.write_array_start(&mut self.writer)?;
 
         Ok(JsonSequenceSerializer {
-            ser: self,
+            serializer: self,
             count: 0,
         })
     }
@@ -120,7 +120,7 @@ where
 }
 
 pub struct JsonSequenceSerializer<'a, W, F> {
-    ser: &'a mut JsonSerializer<W, F>,
+    serializer: &'a mut JsonSerializer<W, F>,
     count: usize,
 }
 
@@ -133,17 +133,17 @@ where
 
     fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
         if self.count > 0 {
-            self.ser.writer.write(b",")?;
+            self.serializer.writer.write(b",")?;
         }
 
         self.count += 1;
-        value.serialize(&mut (*self.ser))?;
+        value.serialize(&mut (*self.serializer))?;
 
         Ok(())
     }
 
     fn end(self) -> Result<(), Self::Err> {
-        self.ser.writer.write(b"]")?;
+        self.serializer.writer.write(b"]")?;
         Ok(())
     }
 }
