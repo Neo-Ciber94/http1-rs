@@ -1,3 +1,5 @@
+use std::{borrow::Cow, rc::Rc, sync::Arc};
+
 pub trait SequenceSerializer {
     type Err: std::error::Error;
     fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
@@ -78,7 +80,14 @@ pub trait Serializer: Sized {
         self.serialize_str(value.encode_utf8(&mut buf))
     }
 
-    fn serialize_option<T: Serialize>(self, value: Option<T>) -> Result<(), Self::Err>;
+    fn serialize_none(self) -> Result<(), Self::Err>;
+
+    fn serialize_option<T: Serialize>(self, value: &Option<T>) -> Result<(), Self::Err> {
+        match value {
+            Some(x) => x.serialize(self),
+            None => self.serialize_none(),
+        }
+    }
 
     fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<(), Self::Err> {
         let mut seq = self.serialize_sequence()?;
@@ -94,7 +103,7 @@ pub trait Serializer: Sized {
         self.serialize_slice(&value)
     }
 
-    fn serialize_vec<T: Serialize>(self, value: Vec<T>) -> Result<(), Self::Err> {
+    fn serialize_vec<T: Serialize>(self, value: &Vec<T>) -> Result<(), Self::Err> {
         self.serialize_slice(&value)
     }
 
@@ -109,4 +118,95 @@ pub trait MapIterator {
 
 pub trait Serialize {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err>;
+}
+
+// Implementations
+
+macro_rules! impl_serialize_primitive {
+    ($($name:ident => $method:ident),*) => {
+        $(
+            impl Serialize for $name {
+                fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+                    serializer.$method(*self)
+                }
+            }
+        )*
+    };
+}
+
+impl_serialize_primitive!(
+    u8 => serialize_u8,
+    u16 => serialize_u16,
+    u32 => serialize_u32,
+    u64 => serialize_u64,
+    u128 => serialize_u128,
+    i8 => serialize_i8,
+    i16 => serialize_i16,
+    i32 => serialize_i32,
+    i64 => serialize_i64,
+    i128 => serialize_i128,
+    f32 => serialize_f32,
+    f64 => serialize_f64,
+    char => serialize_char,
+    bool => serialize_bool
+);
+
+impl<'a> Serialize for &'a str {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_str(self)
+    }
+}
+
+impl Serialize for String {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_str(self)
+    }
+}
+
+impl<'a> Serialize for Cow<'a, str> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_str(self)
+    }
+}
+
+impl<'a, T: Serialize> Serialize for &'a T {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        (*self).serialize(serializer)
+    }
+}
+
+impl<T: Serialize> Serialize for Option<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_option(self)
+    }
+}
+
+impl<T: Serialize> Serialize for Vec<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_vec(self)
+    }
+}
+
+impl<T: Serialize, const N: usize> Serialize for [T; N] {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_slice(self)
+    }
+}
+
+impl<'a, T: Serialize> Serialize for &'a [T] {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        serializer.serialize_slice(self)
+    }
+}
+
+impl<T: Serialize> Serialize for Rc<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        (**self).serialize(serializer)
+    }
+}
+
+impl<T: Serialize> Serialize for Arc<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<(), S::Err> {
+        (**self).serialize(serializer)
+    }
 }
