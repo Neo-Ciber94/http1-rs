@@ -172,7 +172,7 @@ where
         // Key
         self.serializer
             .formatter
-            .write_object_key_begin(&mut self.serializer.writer)?;
+            .write_object_key_begin(&mut self.serializer.writer, self.count == 0)?;
 
         key.serialize(MapKeySerializer {
             serializer: self.serializer,

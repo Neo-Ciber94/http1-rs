@@ -15,7 +15,7 @@ pub trait Formatter<W: Write> {
 
     fn write_object_start(&mut self, writer: &mut W) -> std::io::Result<()>;
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()>;
-    fn write_object_key_begin(&mut self, writer: &mut W) -> std::io::Result<()>;
+    fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()>;
     fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
     fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
@@ -86,8 +86,12 @@ impl<W: Write> Formatter<W> for CompactFormatter {
         Ok(())
     }
 
-    fn write_object_key_begin(&mut self, _writer: &mut W) -> std::io::Result<()> {
-        Ok(())
+    fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            writer.write_all(b",")
+        }
     }
 
     fn write_object_key_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
@@ -99,7 +103,7 @@ impl<W: Write> Formatter<W> for CompactFormatter {
     }
 
     fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        writer.write_all(if first { b"" } else { b"," })
+        Ok(())
     }
 }
 
@@ -174,8 +178,8 @@ where
         (**self).write_array_element_end(writer)
     }
 
-    fn write_object_key_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
-        (**self).write_object_key_begin(writer)
+    fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        (**self).write_object_key_begin(writer, first)
     }
 
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()> {
@@ -262,8 +266,12 @@ where
         self.write_indented(writer, b"\n")
     }
 
-    fn write_object_key_begin(&mut self, _writer: &mut W) -> std::io::Result<()> {
-        Ok(())
+    fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            self.write_indented(writer, b",")
+        }
     }
 
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()> {
@@ -275,6 +283,6 @@ where
     }
 
     fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        self.write_indented(writer, if first { b"\n" } else { b",\n" })
+        Ok(())
     }
 }
