@@ -1,8 +1,11 @@
 use std::fmt::Display;
 
-use crate::common::serde::serialize::{MapSerializer, Serialize};
+use crate::common::serde::{
+    impossible::Impossible,
+    serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+};
 
-use super::map::OrderedMap;
+use super::{map::OrderedMap, ser::JsonSerializationError};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum Number {
@@ -128,7 +131,7 @@ impl Serialize for Number {
     fn serialize<S: crate::common::serde::serialize::Serializer>(
         &self,
         serializer: S,
-    ) -> Result<(), S::Err> {
+    ) -> Result<S::Ok, S::Err> {
         match self {
             Number::Float(f) => serializer.serialize_f64(*f),
             Number::UInteger(u) => serializer.serialize_u128(*u),
@@ -141,7 +144,7 @@ impl Serialize for JsonValue {
     fn serialize<S: crate::common::serde::serialize::Serializer>(
         &self,
         serializer: S,
-    ) -> Result<(), S::Err> {
+    ) -> Result<S::Ok, S::Err> {
         match self {
             JsonValue::Number(number) => number.serialize(serializer),
             JsonValue::String(s) => serializer.serialize_str(s),
@@ -154,11 +157,72 @@ impl Serialize for JsonValue {
                     map.serialize_entry(key, value)?;
                 }
 
-                map.end()?;
-                Ok(())
+                map.end()
             }
             JsonValue::Null => serializer.serialize_none(),
         }
+    }
+}
+
+pub struct JsonValueSerializer;
+impl Serializer for JsonValueSerializer {
+    type Ok = JsonValue;
+    type Err = JsonSerializationError;
+    type Seq = Impossible<JsonValue, JsonSerializationError>;
+    type Map = Impossible<JsonValue, JsonSerializationError>;
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Null)
+    }
+
+    fn serialize_i128(self, value: i128) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Number(Number::from(value)))
+    }
+
+    fn serialize_u128(self, value: u128) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Number(Number::from(value)))
+    }
+
+    fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Number(Number::from(value)))
+    }
+
+    fn serialize_bool(self, value: bool) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Bool(value))
+    }
+
+    fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::String(value.to_string()))
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Null)
+    }
+
+    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<Self::Ok, Self::Err> {
+        todo!()
+    }
+
+    fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
+        todo!()
+    }
+
+    fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        todo!()
+    }
+}
+
+pub struct JsonValueArraySerializer;
+impl SequenceSerializer for JsonValueArraySerializer {
+    type Ok = JsonValue;
+    type Err = JsonSerializationError;
+
+    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<Self::Ok, Self::Err> {
+        todo!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        todo!()
     }
 }
 

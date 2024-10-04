@@ -51,31 +51,32 @@ where
     W: Write,
     F: Formatter<W>,
 {
+    type Ok = ();
     type Err = JsonSerializationError;
     type Seq = JsonSequenceSerializer<'a, W, F>;
     type Map = JsonMapSerializer<'a, W, F>;
 
-    fn serialize_i128(self, value: i128) -> Result<(), Self::Err> {
+    fn serialize_i128(self, value: i128) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_number(&mut self.writer, value)?;
         Ok(())
     }
 
-    fn serialize_u128(self, value: u128) -> Result<(), Self::Err> {
+    fn serialize_u128(self, value: u128) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_number(&mut self.writer, value)?;
         Ok(())
     }
 
-    fn serialize_f64(self, value: f64) -> Result<(), Self::Err> {
+    fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_number(&mut self.writer, value)?;
         Ok(())
     }
 
-    fn serialize_bool(self, value: bool) -> Result<(), Self::Err> {
+    fn serialize_bool(self, value: bool) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_bool(&mut self.writer, value)?;
         Ok(())
     }
 
-    fn serialize_str(self, value: &str) -> Result<(), Self::Err> {
+    fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_str(&mut self.writer, value)?;
         Ok(())
     }
@@ -98,12 +99,12 @@ where
         })
     }
 
-    fn serialize_none(self) -> Result<(), Self::Err> {
+    fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_null(&mut self.writer)?;
         Ok(())
     }
 
-    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<(), Self::Err> {
+    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<Self::Ok, Self::Err> {
         let mut seq = self.serialize_sequence()?;
 
         for x in value {
@@ -113,6 +114,10 @@ where
         seq.end()?;
 
         Ok(())
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
+        todo!()
     }
 }
 
@@ -126,6 +131,7 @@ where
     W: Write,
     F: Formatter<W>,
 {
+    type Ok = ();
     type Err = JsonSerializationError;
 
     fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
@@ -162,6 +168,7 @@ where
     W: Write,
     F: Formatter<W>,
 {
+    type Ok = ();
     type Err = JsonSerializationError;
 
     fn serialize_entry<K: Serialize, V: Serialize>(
@@ -211,27 +218,28 @@ struct MapKeySerializer<'a, W, F> {
 }
 
 impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
+    type Ok = ();
     type Err = JsonSerializationError;
-    type Seq = Impossible<Self::Err>;
-    type Map = Impossible<Self::Err>;
+    type Seq = Impossible<Self::Ok, Self::Err>;
+    type Map = Impossible<Self::Ok, Self::Err>;
 
-    fn serialize_i128(self, _value: i128) -> Result<(), Self::Err> {
+    fn serialize_i128(self, _value: i128) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
 
-    fn serialize_u128(self, _value: u128) -> Result<(), Self::Err> {
+    fn serialize_u128(self, _value: u128) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
 
-    fn serialize_f64(self, _value: f64) -> Result<(), Self::Err> {
+    fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
 
-    fn serialize_bool(self, _value: bool) -> Result<(), Self::Err> {
+    fn serialize_bool(self, _value: bool) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
 
-    fn serialize_none(self) -> Result<(), Self::Err> {
+    fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
 
@@ -244,8 +252,18 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
     }
 
     fn serialize_str(self, value: &str) -> Result<(), Self::Err> {
-        self.serializer.formatter.write_str(&mut self.serializer.writer, value)?;
+        self.serializer
+            .formatter
+            .write_str(&mut self.serializer.writer, value)?;
         Ok(())
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
+        Err(map_key_error())
+    }
+
+    fn serialize_slice<T: Serialize>(self, _value: &[T]) -> Result<Self::Ok, Self::Err> {
+        Err(map_key_error())
     }
 }
 
