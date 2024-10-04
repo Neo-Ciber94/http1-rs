@@ -6,7 +6,7 @@ use value::{JsonValue, JsonValueSerializer};
 
 use super::serialize::Serialize;
 
-pub(crate) mod formatter;
+pub mod formatter;
 pub mod map;
 pub mod ser;
 pub mod value;
