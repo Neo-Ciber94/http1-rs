@@ -199,10 +199,6 @@ impl Serializer for JsonValueSerializer {
         Ok(JsonValue::Null)
     }
 
-    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<Self::Ok, Self::Err> {
-        todo!()
-    }
-
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
         todo!()
     }
@@ -212,17 +208,48 @@ impl Serializer for JsonValueSerializer {
     }
 }
 
-pub struct JsonValueArraySerializer;
-impl SequenceSerializer for JsonValueArraySerializer {
+pub struct JsonArraySerializer(Vec<JsonValue>);
+impl SequenceSerializer for JsonArraySerializer {
     type Ok = JsonValue;
     type Err = JsonSerializationError;
 
-    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<Self::Ok, Self::Err> {
-        todo!()
+    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err> {
+        let mut arr = vec![];
+        let json_value = value.serialize(JsonValueSerializer)?;
+        arr.push(json_value);
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Err> {
-        todo!()
+        Ok(JsonValue::Array(self.0))
+    }
+}
+
+pub struct JsonObjectSerializer(OrderedMap<String, JsonValue>);
+impl MapSerializer for JsonObjectSerializer {
+    type Ok = JsonValue;
+    type Err = JsonSerializationError;
+
+    fn serialize_entry<K: Serialize, V: Serialize>(
+        &mut self,
+        key: &K,
+        value: &V,
+    ) -> Result<(), Self::Err> {
+        let k = key.serialize(JsonValueSerializer)?;
+        let v = value.serialize(JsonValueSerializer)?;
+
+        let JsonValue::String(s) = k else {
+            return Err(JsonSerializationError::Other(format!(
+                "json object keys should be strings"
+            )));
+        };
+
+        self.0.insert(s, v);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Object(self.0))
     }
 }
 

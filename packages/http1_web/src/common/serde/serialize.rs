@@ -4,7 +4,7 @@ pub trait SequenceSerializer {
     type Ok;
     type Err: std::error::Error;
 
-    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<Self::Ok, Self::Err>;
+    fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
@@ -16,7 +16,7 @@ pub trait MapSerializer {
         &mut self,
         key: &K,
         value: &V,
-    ) -> Result<Self::Ok, Self::Err>;
+    ) -> Result<(), Self::Err>;
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
@@ -92,7 +92,15 @@ pub trait Serializer: Sized {
         }
     }
 
-    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<Self::Ok, Self::Err>;
+    fn serialize_slice<T: Serialize>(self, value: &[T]) -> Result<Self::Ok, Self::Err> {
+        let mut seq_serializer = self.serialize_sequence()?;
+
+        for x in value {
+            seq_serializer.serialize_element(x)?;
+        }
+
+        seq_serializer.end()
+    }
 
     fn serialize_array<T: Serialize, const N: usize>(
         self,
