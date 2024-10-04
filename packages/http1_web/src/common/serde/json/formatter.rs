@@ -17,8 +17,8 @@ pub trait Formatter<W: Write> {
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()>;
     fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
     fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()>;
-    fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
-    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()>;
+    fn write_object_value_begin(&mut self, writer: &mut W) -> std::io::Result<()>;
+    fn write_object_value_end(&mut self, writer: &mut W) -> std::io::Result<()>;
 }
 
 pub struct CompactFormatter;
@@ -98,11 +98,11 @@ impl<W: Write> Formatter<W> for CompactFormatter {
         Ok(())
     }
 
-    fn write_object_value_begin(&mut self, writer: &mut W, _first: bool) -> std::io::Result<()> {
+    fn write_object_value_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
         writer.write_all(b":")
     }
 
-    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+    fn write_object_value_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
         Ok(())
     }
 }
@@ -186,12 +186,12 @@ where
         (**self).write_object_key_end(writer)
     }
 
-    fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        (**self).write_object_value_begin(writer, first)
+    fn write_object_value_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
+        (**self).write_object_value_begin(writer)
     }
 
-    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        (**self).write_object_value_end(writer, first)
+    fn write_object_value_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        (**self).write_object_value_end(writer)
     }
 }
 
@@ -229,7 +229,17 @@ where
     }
 
     fn write_str(&mut self, writer: &mut W, value: &str) -> std::io::Result<()> {
-        let s = format!("\"{value}\"");
+        let escaped = value
+            .to_string()
+            .replace("\"", "\\\"")
+            .replace("\\", "\\\\")
+            .replace("\n", "\\\n")
+            .replace("\r", "\\\r")
+            .replace("\t", "\\\t")
+            .replace("\x08", "\\b")
+            .replace("\x0c", "\\f");
+
+        let s = format!("\"{escaped}\"");
         self.write_indented(writer, s.as_bytes())
     }
 
@@ -252,7 +262,7 @@ where
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.level += 1;
-        self.write_indented(writer, b"]")        
+        self.write_indented(writer, b"]")
     }
 
     fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
@@ -275,15 +285,15 @@ where
         }
     }
 
-    fn write_object_key_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+    fn write_object_key_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
         Ok(())
     }
 
-    fn write_object_value_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+    fn write_object_value_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.write_indented(writer, b": ")
     }
 
-    fn write_object_value_end(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+    fn write_object_value_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
         Ok(())
     }
 }
