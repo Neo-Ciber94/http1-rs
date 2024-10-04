@@ -251,7 +251,7 @@ where
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.level -= 1;
-        self.write_indented(writer, b"]")?;
+        self.write_indented(writer, b"\n]")?;
         Ok(())
     }
 
