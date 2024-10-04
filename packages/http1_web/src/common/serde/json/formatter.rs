@@ -250,8 +250,8 @@ where
     }
 
     fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        self.level -= 1;
         self.write_indented(writer, b"]")?;
-        self.level += 1;
         Ok(())
     }
 
@@ -259,12 +259,13 @@ where
         if first {
             Ok(())
         } else {
-            self.write_indented(writer, b",")
+            writer.write_all(b",\n")?;
+            Ok(())
         }
     }
 
     fn write_array_element_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"\n")
+        Ok(())
     }
 
     fn write_object_start(&mut self, writer: &mut W) -> std::io::Result<()> {
