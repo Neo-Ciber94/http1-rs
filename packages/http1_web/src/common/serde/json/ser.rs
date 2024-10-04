@@ -192,13 +192,13 @@ where
         // Value
         self.serializer
             .formatter
-            .write_object_value_begin(&mut self.serializer.writer, self.count == 0)?;
+            .write_object_value_begin(&mut self.serializer.writer)?;
 
         value.serialize(&mut (*self.serializer))?;
 
         self.serializer
             .formatter
-            .write_object_value_end(&mut self.serializer.writer, self.count == 0)?;
+            .write_object_value_end(&mut self.serializer.writer)?;
 
         self.count += 1;
 

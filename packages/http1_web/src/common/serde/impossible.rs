@@ -70,7 +70,7 @@ where
         &mut self,
         _key: &K,
         _value: &V,
-    ) -> Result<Self::Ok, Self::Err> {
+    ) -> Result<(), Self::Err> {
         match self.void {}
     }
 
@@ -86,7 +86,7 @@ where
     type Ok = R;
     type Err = E;
 
-    fn serialize_element<T: Serialize>(&mut self, _value: &T) -> Result<Self::Ok, Self::Err> {
+    fn serialize_element<T: Serialize>(&mut self, _value: &T) -> Result<(), Self::Err> {
         match self.void {}
     }
 

@@ -243,6 +243,30 @@ where
         self.write_indented(writer, s.as_bytes())
     }
 
+    fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
+        self.write_indented(writer, b"[\n")?;
+        self.level += 1;
+        Ok(())
+    }
+
+    fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        self.write_indented(writer, b"]")?;
+        self.level += 1;
+        Ok(())
+    }
+
+    fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            self.write_indented(writer, b",")
+        }
+    }
+
+    fn write_array_element_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+        self.write_indented(writer, b"\n")
+    }
+
     fn write_object_start(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.write_indented(writer, b"{\n")?;
         self.level += 1;
@@ -252,29 +276,6 @@ where
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.level -= 1;
         self.write_indented(writer, b"}")
-    }
-
-    fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"[\n")?;
-        self.level += 1;
-        Ok(())
-    }
-
-    fn write_array_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.level += 1;
-        self.write_indented(writer, b"]")
-    }
-
-    fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        if first {
-            Ok(())
-        } else {
-            self.write_indented(writer, b", ")
-        }
-    }
-
-    fn write_array_element_end(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"\n")
     }
 
     fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
