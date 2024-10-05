@@ -16,6 +16,18 @@ pub struct JsonDeserializer<R> {
     next: Option<u8>,
 }
 
+impl JsonDeserializer<()> {
+    pub fn new<R>(reader: R) -> JsonDeserializer<R>
+    where
+        R: Read,
+    {
+        JsonDeserializer {
+            reader: BufReader::new(reader),
+            next: None,
+        }
+    }
+}
+
 impl<R: Read> JsonDeserializer<R> {
     fn peek(&mut self) -> Option<u8> {
         match self.next {
