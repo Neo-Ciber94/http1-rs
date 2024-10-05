@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer};
+use super::ser::{MapSerializer, SequenceSerializer, Serialize, Serializer};
 
 enum Void {}
 

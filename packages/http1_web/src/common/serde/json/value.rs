@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::common::serde::{
     impossible::Impossible,
-    serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+    ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
 };
 
 use super::{map::OrderedMap, ser::JsonSerializationError};
@@ -128,7 +128,7 @@ impl JsonValue {
 }
 
 impl Serialize for Number {
-    fn serialize<S: crate::common::serde::serialize::Serializer>(
+    fn serialize<S: crate::common::serde::ser::Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Err> {
@@ -141,7 +141,7 @@ impl Serialize for Number {
 }
 
 impl Serialize for JsonValue {
-    fn serialize<S: crate::common::serde::serialize::Serializer>(
+    fn serialize<S: crate::common::serde::ser::Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Err> {

@@ -4,11 +4,12 @@ use formatter::{CompactFormatter, PrettyFormatter};
 use ser::{JsonSerializationError, JsonSerializer};
 use value::{JsonValue, JsonValueSerializer};
 
-use super::serialize::Serialize;
+use super::ser::Serialize;
 
 pub mod formatter;
 pub mod map;
 pub mod ser;
+pub mod de;
 pub mod value;
 
 pub fn to_writer<W: Write, T: Serialize>(

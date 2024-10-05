@@ -2,7 +2,7 @@ use std::{fmt::Display, io::Write};
 
 use crate::common::serde::{
     impossible::Impossible,
-    serialize::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+    ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
 };
 
 use super::formatter::Formatter;
