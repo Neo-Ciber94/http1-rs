@@ -87,6 +87,25 @@ impl<R: Read> JsonDeserializer<R> {
         }
     }
 
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        match self.next.take() {
+            None => self.reader.read(buf),
+            Some(b) => {
+                // We set the value we already have saved
+                buf[0] = b;
+
+                // And then fill the rest of the buffer
+                let chunk = &mut buf[1..];
+                let size = self.reader.read(chunk)?;
+                Ok(size + 1)
+            }
+        }
+    }
+
     fn parse_json(&mut self) -> Result<JsonValue, Error> {
         match self.read_until_next_non_whitespace() {
             Some(b) => match b {
@@ -107,20 +126,20 @@ impl<R: Read> JsonDeserializer<R> {
 
     fn parse_null(&mut self) -> Result<(), Error> {
         let buf = &mut [0; 4];
-        match self.reader.read(buf) {
+        match self.read(buf) {
             Ok(4) if buf == b"null" => Ok(()),
-            Ok(n) =>{
+            Ok(n) => {
                 let s = String::from_utf8_lossy(buf);
                 dbg!(n, s);
                 Err(Error::custom("expected 'null'"))
-            },
+            }
             Err(err) => Err(Error::error(err)),
         }
     }
 
     fn parse_bool(&mut self) -> Result<bool, Error> {
         let buf = &mut [0; 5];
-        match self.reader.read(buf) {
+        match self.read(buf) {
             Ok(4) if &buf[..4] == b"true" => Ok(true),
             Ok(5) if &buf[..5] == b"false" => Ok(false),
             Ok(_) => Err(Error::custom("expected 'boolean'")),
