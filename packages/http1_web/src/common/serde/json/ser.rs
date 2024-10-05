@@ -117,7 +117,8 @@ where
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
-        todo!()
+        self.formatter.write_null(&mut self.writer)?;
+        Ok(())
     }
 }
 
