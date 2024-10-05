@@ -1,6 +1,9 @@
 use std::io::{BufReader, Read};
 
-use crate::common::serde::de::{Deserializer, Error};
+use crate::common::serde::{
+    de::{Deserializer, Error},
+    expected::Expected,
+};
 
 use super::{
     map::OrderedMap,
@@ -287,7 +290,8 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_u8()
-            .ok_or_else(|| Error::custom("u8 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<u8>(number))?;
+
         visitor.visit_u8(value)
     }
 
@@ -298,7 +302,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_u16()
-            .ok_or_else(|| Error::custom("u16 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<u16>(number))?;
         visitor.visit_u16(value)
     }
 
@@ -309,7 +313,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_u32()
-            .ok_or_else(|| Error::custom("u32 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<u32>(number))?;
         visitor.visit_u32(value)
     }
 
@@ -320,7 +324,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_u64()
-            .ok_or_else(|| Error::custom("u64 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<u64>(number))?;
         visitor.visit_u64(value)
     }
 
@@ -334,7 +338,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_u128()
-            .ok_or_else(|| Error::custom("u128 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<u128>(number))?;
         visitor.visit_u128(value)
     }
 
@@ -345,7 +349,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_i8()
-            .ok_or_else(|| Error::custom("i8 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<i8>(number))?;
         visitor.visit_i8(value)
     }
 
@@ -356,7 +360,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_i16()
-            .ok_or_else(|| Error::custom("i16 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<i16>(number))?;
         visitor.visit_i16(value)
     }
 
@@ -367,7 +371,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_i32()
-            .ok_or_else(|| Error::custom("i32 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<i32>(number))?;
         visitor.visit_i32(value)
     }
 
@@ -378,7 +382,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_i64()
-            .ok_or_else(|| Error::custom("i64 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<i64>(number))?;
         visitor.visit_i64(value)
     }
 
@@ -392,7 +396,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_i128()
-            .ok_or_else(|| Error::custom("i128 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<i128>(number))?;
         visitor.visit_i128(value)
     }
 
@@ -403,7 +407,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_f32()
-            .ok_or_else(|| Error::custom("f32 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<f32>(number))?;
         visitor.visit_f32(value)
     }
 
@@ -414,7 +418,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let number = self.parse_number()?;
         let value = number
             .as_f64()
-            .ok_or_else(|| Error::custom("f64 was expected"))?;
+            .ok_or_else(|| type_mismatch_error::<f64>(number))?;
         visitor.visit_f64(value)
     }
 
@@ -465,4 +469,11 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let map = self.parse_object()?;
         visitor.visit_map(JsonObjectAccess(map.into_iter()))
     }
+}
+
+fn type_mismatch_error<T>(this: impl Expected + 'static) -> Error
+where
+    T: 'static,
+{
+    Error::mismatch(this, std::any::type_name::<T>())
 }

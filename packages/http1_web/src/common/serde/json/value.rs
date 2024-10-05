@@ -1,5 +1,6 @@
 use crate::common::serde::{
     de::{Deserializer, Error},
+    expected::Expected,
     impossible::Impossible,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
     visitor::{MapAccess, SeqAccess},
@@ -468,6 +469,19 @@ impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> 
                 Ok(Some((key, value)))
             }
             None => Ok(None),
+        }
+    }
+}
+
+impl Expected for JsonValue {
+    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
+        match self {
+            JsonValue::Number(number) => number.expected(f, expected),
+            JsonValue::String(value) => value.expected(f, expected),
+            JsonValue::Bool(value) => value.expected(f, expected),
+            JsonValue::Array(vec) => vec.expected(f, expected),
+            JsonValue::Object(_) => write!(f, "expected `{expected}` but was object"),
+            JsonValue::Null => write!(f, "expected `{expected}` but was null"),
         }
     }
 }

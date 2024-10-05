@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::common::serde::expected::Expected;
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum Number {
     Float(f64),
@@ -163,3 +165,17 @@ impl_from_number!(
     signed = [i8, i16, i32, i64, i128],
     float = [f32, f64]
 );
+
+impl Expected for Number {
+    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
+        match self {
+            Number::Float(n) => write!(f, "expected `{expected}` but was float: {n}"),
+            Number::UInteger(n) => {
+                write!(f, "expected `{expected}` but was unsigned integer: {n}")
+            }
+            Number::Integer(n) => {
+                write!(f, "expected `{expected}` but was signed integer: {n}")
+            }
+        }
+    }
+}

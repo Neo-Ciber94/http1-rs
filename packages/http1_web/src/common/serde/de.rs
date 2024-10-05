@@ -1,11 +1,15 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
-use super::visitor::Visitor;
+use super::{
+    expected::{Expected, TypeMismatchError},
+    visitor::Visitor,
+};
 
 #[derive(Debug)]
 pub enum Error {
     Custom(String),
     Unexpected(Unexpected),
+    Mismatch(TypeMismatchError),
     Other(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
@@ -17,6 +21,13 @@ impl Error {
     pub fn error<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(error: E) -> Self {
         Error::Other(error.into())
     }
+
+    pub fn mismatch<T>(this: T, expected: impl Into<String>) -> Self
+    where
+        T: Expected + 'static,
+    {
+        Error::Mismatch(TypeMismatchError::new(this, expected))
+    }
 }
 
 impl Display for Error {
@@ -25,6 +36,7 @@ impl Display for Error {
             Error::Custom(msg) => write!(f, "{msg}"),
             Error::Unexpected(unexpected) => write!(f, "unexpected {unexpected}"),
             Error::Other(err) => write!(f, "{err}"),
+            Error::Mismatch(mismatch) => write!(f, "{mismatch}"),
         }
     }
 }
