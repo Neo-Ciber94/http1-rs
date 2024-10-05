@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use super::value::Number;
+use super::number::Number;
 
 pub trait Formatter<W: Write> {
     fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>;
