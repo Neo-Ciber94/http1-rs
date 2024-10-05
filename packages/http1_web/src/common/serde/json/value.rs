@@ -1,7 +1,8 @@
 use crate::common::serde::{
-    de::{Deserialize, Deserializer},
+    de::{Deserializer, Error},
     impossible::Impossible,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+    visitor::{MapAccess, SeqAccess},
 };
 
 use super::{map::OrderedMap, number::Number, ser::JsonSerializationError};
@@ -193,125 +194,280 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Null => visitor.visit_unit(),
+            _ => Err(Error::custom("expected unit")),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Bool(value) => visitor.visit_bool(value),
+            _ => Err(Error::custom("expected boolean")),
+        }
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value.as_u8().ok_or_else(|| Error::custom("expected u8"))?;
+                visitor.visit_u8(n)
+            }
+            _ => Err(Error::custom("expected u8")),
+        }
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_u16()
+                    .ok_or_else(|| Error::custom("expected u16"))?;
+                visitor.visit_u16(n)
+            }
+            _ => Err(Error::custom("expected u16")),
+        }
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_u32()
+                    .ok_or_else(|| Error::custom("expected u32"))?;
+                visitor.visit_u32(n)
+            }
+            _ => Err(Error::custom("expected u32")),
+        }
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_u64()
+                    .ok_or_else(|| Error::custom("expected u64"))?;
+                visitor.visit_u64(n)
+            }
+            _ => Err(Error::custom("expected u64")),
+        }
     }
 
     fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_u128()
+                    .ok_or_else(|| Error::custom("expected u128"))?;
+                visitor.visit_u128(n)
+            }
+            _ => Err(Error::custom("expected u128")),
+        }
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value.as_i8().ok_or_else(|| Error::custom("expected i8"))?;
+                visitor.visit_i8(n)
+            }
+            _ => Err(Error::custom("expected i8")),
+        }
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_i16()
+                    .ok_or_else(|| Error::custom("expected i16"))?;
+                visitor.visit_i16(n)
+            }
+            _ => Err(Error::custom("expected i16")),
+        }
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_i32()
+                    .ok_or_else(|| Error::custom("expected i32"))?;
+                visitor.visit_i32(n)
+            }
+            _ => Err(Error::custom("expected i32")),
+        }
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_i64()
+                    .ok_or_else(|| Error::custom("expected i64"))?;
+                visitor.visit_i64(n)
+            }
+            _ => Err(Error::custom("expected i64")),
+        }
     }
 
     fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_i128()
+                    .ok_or_else(|| Error::custom("expected i128"))?;
+                visitor.visit_i128(n)
+            }
+            _ => Err(Error::custom("expected i128")),
+        }
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_f32()
+                    .ok_or_else(|| Error::custom("expected f32"))?;
+                visitor.visit_f32(n)
+            }
+            _ => Err(Error::custom("expected f32")),
+        }
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Number(value) => {
+                let n = value
+                    .as_f64()
+                    .ok_or_else(|| Error::custom("expected f64"))?;
+                visitor.visit_f64(n)
+            }
+            _ => Err(Error::custom("expected f64")),
+        }
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::String(mut value) => {
+                if value.is_empty() {
+                    return Err(Error::custom("expected char but was empty string"));
+                }
+
+                if value.len() > 1 {
+                    return Err(Error::custom("expected char but was string"));
+                }
+
+                let c = value.pop().unwrap();
+                visitor.visit_char(c)
+            }
+            _ => Err(Error::custom("expected char")),
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::String(value) => visitor.visit_string(value),
+            _ => Err(Error::custom("expected string")),
+        }
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Array(value) => visitor.visit_seq(JsonSeqAccess(value.into_iter())),
+            _ => Err(Error::custom("expected array")),
+        }
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        match self.0 {
+            JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess(value.into_iter())),
+            _ => Err(Error::custom("expected object")),
+        }
+    }
+}
+
+pub struct JsonSeqAccess(pub std::vec::IntoIter<JsonValue>);
+impl SeqAccess for JsonSeqAccess {
+    fn next_element<T: crate::common::serde::de::Deserialize>(
+        &mut self,
+    ) -> Result<Option<T>, Error> {
+        match self.0.next() {
+            Some(x) => {
+                let value = T::deserialize(JsonValueDeserializer(x))?;
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+pub struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(pub I);
+impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
+    fn next_entry<
+        K: crate::common::serde::de::Deserialize,
+        V: crate::common::serde::de::Deserialize,
+    >(
+        &mut self,
+    ) -> Result<Option<(K, V)>, Error> {
+        match self.0.next() {
+            Some((k, v)) => {
+                let key = K::deserialize(JsonValueDeserializer(JsonValue::String(k)))?;
+                let value = V::deserialize(JsonValueDeserializer(v))?;
+                Ok(Some((key, value)))
+            }
+            None => Ok(None),
+        }
     }
 }

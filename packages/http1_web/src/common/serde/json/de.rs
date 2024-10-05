@@ -1,14 +1,11 @@
 use std::io::{BufReader, Read};
 
-use crate::common::serde::{
-    de::{Deserializer, Error},
-    visitor::{MapAccess, SeqAccess},
-};
+use crate::common::serde::de::{Deserializer, Error};
 
 use super::{
     map::OrderedMap,
     number::Number,
-    value::{JsonValue, JsonValueDeserializer},
+    value::{JsonObjectAccess, JsonSeqAccess, JsonValue},
 };
 
 pub struct JsonDeserializer<R> {
@@ -430,6 +427,10 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
     {
         let mut string = self.parse_string()?;
 
+        if string.is_empty() {
+            return Err(Error::custom(format!("expected char but was empty string")));
+        }
+
         if string.len() > 1 {
             return Err(Error::custom(format!("expected char but was `{string}`")));
         }
@@ -463,39 +464,5 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
     {
         let map = self.parse_object()?;
         visitor.visit_map(JsonObjectAccess(map.into_iter()))
-    }
-}
-
-struct JsonSeqAccess(std::vec::IntoIter<JsonValue>);
-impl SeqAccess for JsonSeqAccess {
-    fn next_element<T: crate::common::serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<T>, Error> {
-        match self.0.next() {
-            Some(x) => {
-                let value = T::deserialize(JsonValueDeserializer(x))?;
-                Ok(Some(value))
-            }
-            None => Ok(None),
-        }
-    }
-}
-
-struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(I);
-impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
-    fn next_entry<
-        K: crate::common::serde::de::Deserialize,
-        V: crate::common::serde::de::Deserialize,
-    >(
-        &mut self,
-    ) -> Result<Option<(K, V)>, Error> {
-        match self.0.next() {
-            Some((k, v)) => {
-                let key = K::deserialize(JsonValueDeserializer(JsonValue::String(k)))?;
-                let value = V::deserialize(JsonValueDeserializer(v))?;
-                Ok(Some((key, value)))
-            }
-            None => Ok(None),
-        }
     }
 }
