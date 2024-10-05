@@ -1,6 +1,5 @@
-
-
 use crate::common::serde::{
+    de::{Deserialize, Deserializer},
     impossible::Impossible,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
 };
@@ -185,5 +184,134 @@ impl MapSerializer for JsonObjectSerializer {
 
     fn end(self) -> Result<Self::Ok, Self::Err> {
         Ok(JsonValue::Object(self.0))
+    }
+}
+
+pub struct JsonValueDeserializer(pub JsonValue);
+impl Deserializer for JsonValueDeserializer {
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        todo!()
     }
 }

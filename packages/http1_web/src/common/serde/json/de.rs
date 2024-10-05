@@ -1,8 +1,15 @@
 use std::io::{BufReader, Read};
 
-use crate::common::serde::de::{Deserializer, Error};
+use crate::common::serde::{
+    de::{Deserializer, Error},
+    visitor::{MapAccess, SeqAccess},
+};
 
-use super::number::Number;
+use super::{
+    map::OrderedMap,
+    number::Number,
+    value::{JsonValue, JsonValueDeserializer},
+};
 
 pub struct JsonDeserializer<R> {
     reader: BufReader<R>,
@@ -14,14 +21,14 @@ impl<R: Read> JsonDeserializer<R> {
         match self.next {
             Some(b) => Some(b),
             None => {
-                let next = self.next_byte();
+                let next = self.read_byte();
                 self.next = next;
                 next
             }
         }
     }
 
-    fn next_byte(&mut self) -> Option<u8> {
+    fn read_byte(&mut self) -> Option<u8> {
         if let Some(b) = self.next.take() {
             return Some(b);
         }
@@ -34,8 +41,56 @@ impl<R: Read> JsonDeserializer<R> {
         }
     }
 
-    fn parse_unit(&mut self) -> Result<(), Error> {
-        self.parse_null()
+    fn read_until_next_non_whitespace(&mut self) -> Option<u8> {
+        loop {
+            match self.peek() {
+                Some(b) => {
+                    if !b.is_ascii_whitespace() {
+                        return Some(b);
+                    }
+
+                    let _ = self.read_byte();
+                }
+                None => return None,
+            }
+        }
+    }
+
+    fn read_until_byte(&mut self, expected: u8) -> Result<u8, Error> {
+        match self.read_until_next_non_whitespace() {
+            Some(b) => {
+                if b == expected {
+                    return Ok(b);
+                }
+
+                Err(Error::custom(format!(
+                    "expected `{}` but was `{}`",
+                    expected as char, b as char
+                )))
+            }
+            None => Err(Error::custom(format!(
+                "expected `{}` but was empty",
+                expected as char
+            ))),
+        }
+    }
+
+    fn parse_json(&mut self) -> Result<JsonValue, Error> {
+        match self.read_until_next_non_whitespace() {
+            Some(b) => match b {
+                b't' | b'f' => self.parse_bool().map(JsonValue::Bool),
+                b'n' => self.parse_null().map(|_| JsonValue::Null),
+                b'-' | b'0'..b'9' => self.parse_number().map(JsonValue::Number),
+                b'"' => self.parse_string().map(JsonValue::String),
+                b'[' => self.parse_array().map(JsonValue::Array),
+                b'{' => self.parse_object().map(JsonValue::Object),
+                _ => Err(Error::custom(format!(
+                    "unexpected json token {}",
+                    b as char,
+                ))),
+            },
+            None => Err(Error::custom("empty value")),
+        }
     }
 
     fn parse_null(&mut self) -> Result<(), Error> {
@@ -65,7 +120,7 @@ impl<R: Read> JsonDeserializer<R> {
                 break;
             }
 
-            match self.next_byte() {
+            match self.read_byte() {
                 None => return Err(Error::custom("expected number")),
                 Some(byte) => {
                     match byte {
@@ -106,14 +161,16 @@ impl<R: Read> JsonDeserializer<R> {
         let mut s = String::with_capacity(2);
 
         if self.peek() == Some(b'"') {
-            let _ = self.next_byte();
+            let _ = self.read_byte();
+        } else {
+            return Err(Error::custom("expected start of string"));
         }
 
         loop {
-            match self.next_byte() {
+            match self.read_byte() {
                 None => return Err(Error::custom("expected next string char")),
                 Some(byte) => match byte {
-                    b'\\' => match self.next_byte() {
+                    b'\\' => match self.read_byte() {
                         Some(b'"') => s.push('"'),
                         Some(b'\\') => s.push('\\'),
                         Some(b'n') => s.push('\n'),
@@ -136,6 +193,71 @@ impl<R: Read> JsonDeserializer<R> {
 
         Ok(s)
     }
+
+    fn parse_array(&mut self) -> Result<Vec<JsonValue>, Error> {
+        self.read_until_byte(b'[')?;
+        self.read_byte(); // discard the `[`
+
+        let mut vec = vec![];
+
+        loop {
+            let item = self.parse_json()?;
+            vec.push(item);
+
+            match self.read_until_next_non_whitespace() {
+                Some(b',') => {
+                    self.read_byte(); // read next
+                }
+                Some(b']') => {
+                    self.read_byte(); // end
+                    break;
+                }
+                Some(b) => {
+                    return Err(Error::custom(format!(
+                        "invalid array element token {}",
+                        b as char
+                    )))
+                }
+                None => return Err(Error::custom("expected array element but was empty")),
+            }
+        }
+
+        Ok(vec)
+    }
+
+    fn parse_object(&mut self) -> Result<OrderedMap<String, JsonValue>, Error> {
+        self.read_until_byte(b'{')?;
+        self.read_byte(); // discard the `{`
+
+        let mut map = OrderedMap::new();
+
+        loop {
+            let key = self.parse_string()?;
+            self.read_until_byte(b':')?;
+            let value = self.parse_json()?;
+
+            map.insert(key, value);
+
+            match self.read_until_next_non_whitespace() {
+                Some(b',') => {
+                    self.read_byte(); // read next
+                }
+                Some(b'}') => {
+                    self.read_byte(); // end
+                    break;
+                }
+                Some(b) => {
+                    return Err(Error::custom(format!(
+                        "invalid object element token {}",
+                        b as char
+                    )))
+                }
+                None => return Err(Error::custom("expected object element but was empty")),
+            }
+        }
+
+        Ok(map)
+    }
 }
 
 impl<R: Read> Deserializer for JsonDeserializer<R> {
@@ -146,7 +268,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        self.parse_unit()?;
+        self.parse_null()?;
         visitor.visit_unit()
     }
 
@@ -299,7 +421,10 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_f64(value)
     }
 
-    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_char<V>(
+        mut self,
+        visitor: V,
+    ) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
@@ -313,7 +438,10 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_char(c)
     }
 
-    fn deserialize_string<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_string<V>(
+        mut self,
+        visitor: V,
+    ) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
@@ -321,17 +449,53 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_string(string)
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        let seq = self.parse_array()?;
+        visitor.visit_seq(JsonSeqAccess(seq.into_iter()))
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        let map = self.parse_object()?;
+        visitor.visit_map(JsonObjectAccess(map.into_iter()))
+    }
+}
+
+struct JsonSeqAccess(std::vec::IntoIter<JsonValue>);
+impl SeqAccess for JsonSeqAccess {
+    fn next_element<T: crate::common::serde::de::Deserialize>(
+        &mut self,
+    ) -> Result<Option<T>, Error> {
+        match self.0.next() {
+            Some(x) => {
+                let value = T::deserialize(JsonValueDeserializer(x))?;
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(I);
+impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
+    fn next_entry<
+        K: crate::common::serde::de::Deserialize,
+        V: crate::common::serde::de::Deserialize,
+    >(
+        &mut self,
+    ) -> Result<Option<(K, V)>, Error> {
+        match self.0.next() {
+            Some((k, v)) => {
+                let key = K::deserialize(JsonValueDeserializer(JsonValue::String(k)))?;
+                let value = V::deserialize(JsonValueDeserializer(v))?;
+                Ok(Some((key, value)))
+            }
+            None => Ok(None),
+        }
     }
 }

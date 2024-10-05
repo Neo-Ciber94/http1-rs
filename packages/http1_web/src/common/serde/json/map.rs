@@ -35,20 +35,13 @@ where
         self.map.get(key)
     }
 
-    /// Returns an iterator over the key-value pairs in insertion order.
-    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.keys
-            .iter()
-            .filter_map(move |k| self.map.get(k).map(|v| (k, v)))
-    }
-
     /// Removes a key from the map, returning its value if it was present.
     pub fn remove(&mut self, key: &K) -> Option<V> {
         match self.map.remove_entry(&key) {
             Some((k, v)) => {
                 self.keys.retain(|x| x != &k);
                 Some(v)
-            },
+            }
             None => None,
         }
     }
@@ -61,5 +54,20 @@ where
     /// Checks if the map is empty.
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
+    }
+
+    /// Returns an iterator over the key-value pairs in insertion order.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.keys
+            .iter()
+            .filter_map(move |k| self.map.get(k).map(|v| (k, v)))
+    }
+
+    /// Returns an iterator over the key-value pairs in insertion order.
+    pub fn into_iter(mut self) -> impl Iterator<Item = (K, V)> {
+        self.keys.into_iter().filter_map(move |k| {
+            let v = self.map.remove(&k).expect("missing value for key");
+            Some((k, v))
+        })
     }
 }
