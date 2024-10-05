@@ -315,6 +315,12 @@ impl Visitor for F32Visitor {
     }
 }
 
+impl Deserialize for f32 {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        deserializer.deserialize_f32(F32Visitor)
+    }
+}
+
 struct F64Visitor;
 impl Visitor for F64Visitor {
     type Value = f64;
@@ -325,6 +331,12 @@ impl Visitor for F64Visitor {
 
     fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
         Ok(value)
+    }
+}
+
+impl Deserialize for f64 {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        deserializer.deserialize_f64(F64Visitor)
     }
 }
 

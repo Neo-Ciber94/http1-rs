@@ -159,10 +159,6 @@ impl<R: Read> JsonDeserializer<R> {
                 None => return Err(Error::custom("expected number")),
                 Some(byte) => match byte {
                     b'-' | b'.' | b'e' => {
-                        if s.len() > 1 {
-                            return Err(Error::custom("expected number sign"));
-                        }
-
                         if byte == b'.' && s.contains(".") {
                             return Err(Error::custom("invalid decimal number"));
                         }
@@ -611,5 +607,49 @@ mod tests {
             from_str::<i128>("-239000000000000000").unwrap(),
             -239000000000000000
         );
+    }
+
+    #[test]
+    fn should_deserialize_f32() {
+        // Positive decimal numbers
+        assert_eq!(from_str::<f32>("3.14").unwrap(), 3.14);
+        assert_eq!(from_str::<f32>("0.001").unwrap(), 0.001);
+
+        // Negative decimal numbers
+        assert_eq!(from_str::<f32>("-2.718").unwrap(), -2.718);
+        assert_eq!(from_str::<f32>("-0.001").unwrap(), -0.001);
+
+        // Numbers using exponents (positive)
+        assert_eq!(from_str::<f32>("1e3").unwrap(), 1e3); // 1000
+        assert_eq!(from_str::<f32>("5.67e-2").unwrap(), 5.67e-2); // 0.0567
+
+        // Numbers using exponents (negative)
+        assert_eq!(from_str::<f32>("-1e3").unwrap(), -1e3); // -1000
+        assert_eq!(from_str::<f32>("-3.21e-4").unwrap(), -3.21e-4); // -0.000321
+    }
+
+    #[test]
+    fn should_deserialize_f64() {
+        // Positive decimal numbers
+        assert_eq!(
+            from_str::<f64>("123456789.987654321").unwrap(),
+            123456789.987654321
+        );
+        assert_eq!(from_str::<f64>("0.0000001").unwrap(), 0.0000001);
+
+        // Negative decimal numbers
+        assert_eq!(
+            from_str::<f64>("-987654321.123456789").unwrap(),
+            -987654321.123456789
+        );
+        assert_eq!(from_str::<f64>("-0.0000001").unwrap(), -0.0000001);
+
+        // Numbers using exponents (positive)
+        assert_eq!(from_str::<f64>("1.23e10").unwrap(), 1.23e10); // 12,300,000,000
+        assert_eq!(from_str::<f64>("7.89e-3").unwrap(), 7.89e-3); // 0.00789
+
+        // Numbers using exponents (negative)
+        assert_eq!(from_str::<f64>("-4.56e9").unwrap(), -4.56e9); // -4,560,000,000
+        assert_eq!(from_str::<f64>("-9.87e-6").unwrap(), -9.87e-6); // -0.00000987
     }
 }
