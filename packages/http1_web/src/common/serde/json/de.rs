@@ -112,17 +112,25 @@ impl<R: Read> JsonDeserializer<R> {
         loop {
             match self.next_byte() {
                 None => return Err(Error::custom("expected next string char")),
-                Some(byte) => {
-                    match byte {
-                        b'\\' => {
-                            // handle escaping
+                Some(byte) => match byte {
+                    b'\\' => match self.next_byte() {
+                        Some(b'"') => s.push('"'),
+                        Some(b'\\') => s.push('\\'),
+                        Some(b'n') => s.push('\n'),
+                        Some(b't') => s.push('\t'),
+                        Some(other) => {
+                            return Err(Error::custom(format!(
+                                "unexpected escape sequence: \\{}",
+                                other as char
+                            )));
                         }
-                        b'"' => break,
-                        _ => {}
+                        None => return Err(Error::custom("expected character after escape")),
+                    },
+                    b'"' => break,
+                    _ => {
+                        s.push(byte as char);
                     }
-
-                    s.push(byte as char);
-                }
+                },
             }
         }
 
@@ -291,18 +299,26 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_f64(value)
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        let mut string = self.parse_string()?;
+
+        if string.len() > 1 {
+            return Err(Error::custom(format!("expected char but was `{string}`")));
+        }
+
+        let c = string.pop().unwrap();
+        visitor.visit_char(c)
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_string<V>(mut self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        todo!()
+        let string = self.parse_string()?;
+        visitor.visit_string(string)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
