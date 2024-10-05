@@ -514,4 +514,9 @@ mod tests {
     fn should_deserialize_null() {
         assert_eq!(from_str::<JsonValue>("null").unwrap(), JsonValue::Null);
     }
+
+    // #[test]
+    // fn should_deserialize_unit() {
+    //     assert_eq!(from_str::<()>("null").unwrap(), JsonValue::Null);
+    // }
 }

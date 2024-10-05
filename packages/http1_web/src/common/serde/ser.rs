@@ -1,4 +1,4 @@
-use std::{borrow::Cow, rc::Rc, sync::Arc};
+use std::{borrow::Cow, collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque}, rc::Rc, sync::Arc};
 
 pub trait SequenceSerializer {
     type Ok;
@@ -157,6 +157,12 @@ impl_serialize_primitive!(
     bool => serialize_bool
 );
 
+impl Serialize for () {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        serializer.serialize_none()
+    }
+}
+
 impl<'a> Serialize for &'a str {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         serializer.serialize_str(self)
@@ -190,6 +196,99 @@ impl<T: Serialize> Serialize for Option<T> {
 impl<T: Serialize> Serialize for Vec<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         serializer.serialize_vec(self)
+    }
+}
+
+impl<T: Serialize> Serialize for HashSet<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut seq = serializer.serialize_sequence()?;
+
+        for item in self.iter() {
+            seq.serialize_element(item)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<T: Serialize> Serialize for VecDeque<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut seq = serializer.serialize_sequence()?;
+
+        for item in self.iter() {
+            seq.serialize_element(item)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<T: Serialize> Serialize for LinkedList<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut seq = serializer.serialize_sequence()?;
+
+        for item in self.iter() {
+            seq.serialize_element(item)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<T: Serialize> Serialize for BinaryHeap<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut seq = serializer.serialize_sequence()?;
+
+        for item in self.iter() {
+            seq.serialize_element(item)?;
+        }
+
+        seq.end()
+    }
+}
+
+impl<T: Serialize> Serialize for BTreeSet<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut seq = serializer.serialize_sequence()?;
+
+        for item in self.iter() {
+            seq.serialize_element(item)?;
+        }
+
+        seq.end()
+    }
+}
+
+
+impl<K, V> Serialize for HashMap<K, V>
+where
+    K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut map = serializer.serialize_map()?;
+
+        for (key, value) in self.iter() {
+            map.serialize_entry(key, value)?;
+        }
+
+        map.end()
+    }
+}
+
+impl<K, V> Serialize for BTreeMap<K, V>
+where
+    K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut map = serializer.serialize_map()?;
+
+        for (key, value) in self.iter() {
+            map.serialize_entry(key, value)?;
+        }
+
+        map.end()
     }
 }
 
