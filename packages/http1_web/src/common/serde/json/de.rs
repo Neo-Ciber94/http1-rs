@@ -183,7 +183,6 @@ impl<R: Read> JsonDeserializer<R> {
         }
 
         let is_negative = s.starts_with("-");
-        dbg!(&s);
 
         if is_negative {
             let i: u128 = s.parse().map_err(Error::error)?;
