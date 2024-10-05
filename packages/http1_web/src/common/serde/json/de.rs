@@ -185,10 +185,10 @@ impl<R: Read> JsonDeserializer<R> {
         let is_negative = s.starts_with("-");
 
         if is_negative {
-            let i: u128 = s.parse().map_err(Error::error)?;
+            let i: i128 = s.parse().map_err(Error::error)?;
             Ok(Number::from(i))
         } else {
-            let u: i128 = s.parse().map_err(Error::error)?;
+            let u: u128 = s.parse().map_err(Error::error)?;
             Ok(Number::from(u))
         }
     }
@@ -548,13 +548,33 @@ mod tests {
 
     #[test]
     fn should_deserialize_integer() {
+        // u8 range: 0 to 255
         assert_eq!(from_str::<u8>("23").unwrap(), 23);
+        assert_eq!(from_str::<u8>("255").unwrap(), 255);
+
+        // u16 range: 0 to 65535
         assert_eq!(from_str::<u16>("5090").unwrap(), 5090);
+        assert_eq!(from_str::<u16>("65535").unwrap(), 65535);
+
+        // u32 range: 0 to 4,294,967,295
         assert_eq!(from_str::<u32>("239000000").unwrap(), 239000000);
-        assert_eq!(from_str::<u64>("239000000000").unwrap(), 239000000000);
+        assert_eq!(from_str::<u32>("4294967295").unwrap(), 4294967295);
+
+        // u64 range: 0 to 18,446,744,073,709,551,615
+        assert_eq!(from_str::<u64>("239000000000000000").unwrap(), 239000000000000000);
         assert_eq!(
-            from_str::<u128>("239000000000000000").unwrap(),
-            239000000000000000
+            from_str::<u64>("18446744073709551615").unwrap(),
+            18446744073709551615
+        );
+
+        // u128 range: 0 to 340,282,366,920,938,463,463,374,607,431,768,211,455
+        assert_eq!(
+            from_str::<u128>("239000000000000000000000000").unwrap(),
+            239000000000000000000000000
+        );
+        assert_eq!(
+            from_str::<u128>("340282366920938463463374607431768211455").unwrap(),
+            340282366920938463463374607431768211455
         );
     }
 }
