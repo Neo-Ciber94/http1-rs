@@ -114,7 +114,7 @@ pub struct PrettyFormatter {
 
 impl PrettyFormatter {
     pub fn new() -> Self {
-        Self::with_indent(b" ")
+        Self::with_indent(b"  ")
     }
 
     pub fn with_indent(indent: &'static [u8]) -> Self {
@@ -203,29 +203,29 @@ where
         match value.into() {
             Number::Float(f) => {
                 let s = f.to_string();
-                self.write_indented(writer, s.as_bytes())
+                writer.write_all(s.as_bytes())
             }
             Number::Integer(i) => {
                 let s = i.to_string();
-                self.write_indented(writer, s.as_bytes())
+                writer.write_all(s.as_bytes())
             }
             Number::UInteger(u) => {
                 let s = u.to_string();
-                self.write_indented(writer, s.as_bytes())
+                writer.write_all(s.as_bytes())
             }
         }
     }
 
     fn write_bool(&mut self, writer: &mut W, value: bool) -> std::io::Result<()> {
         if value {
-            self.write_indented(writer, b"true")
+            writer.write_all(b"true")
         } else {
-            self.write_indented(writer, b"false")
+            writer.write_all(b"false")
         }
     }
 
     fn write_null(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b"null")
+        writer.write_all(b"null")
     }
 
     fn write_str(&mut self, writer: &mut W, value: &str) -> std::io::Result<()> {
@@ -240,7 +240,7 @@ where
             .replace("\x0c", "\\f");
 
         let s = format!("\"{escaped}\"");
-        self.write_indented(writer, s.as_bytes())
+        writer.write_all(s.as_bytes())
     }
 
     fn write_array_start(&mut self, writer: &mut W) -> std::io::Result<()> {
@@ -256,15 +256,14 @@ where
     }
 
     fn write_array_element_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        if first {
-            Ok(())
-        } else {
+        if !first {
             writer.write_all(b",\n")?;
-            Ok(())
         }
+        self.write_indented(writer, b"")?;
+        Ok(())
     }
 
-    fn write_array_element_end(&mut self, writer: &mut W) -> std::io::Result<()> {
+    fn write_array_element_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
         Ok(())
     }
 
@@ -276,15 +275,15 @@ where
 
     fn write_object_end(&mut self, writer: &mut W) -> std::io::Result<()> {
         self.level -= 1;
-        self.write_indented(writer, b"}")
+        self.write_indented(writer, b"\n}")
     }
 
     fn write_object_key_begin(&mut self, writer: &mut W, first: bool) -> std::io::Result<()> {
-        if first {
-            Ok(())
-        } else {
-            self.write_indented(writer, b",")
+        if !first {
+            writer.write_all(b",\n")?;
         }
+        self.write_indented(writer, b"")?;
+        Ok(())
     }
 
     fn write_object_key_end(&mut self, _writer: &mut W) -> std::io::Result<()> {
@@ -292,7 +291,8 @@ where
     }
 
     fn write_object_value_begin(&mut self, writer: &mut W) -> std::io::Result<()> {
-        self.write_indented(writer, b": ")
+        // self.write_indented(writer, b": ")
+        writer.write_all(b": ")
     }
 
     fn write_object_value_end(&mut self, _writer: &mut W) -> std::io::Result<()> {

@@ -295,7 +295,7 @@ mod tests {
         // Pretty-printed format
         assert_eq!(
             to_pretty_string(&array).unwrap(),
-            "[\n 1.23,\n true,\n \"Test\"\n]"
+            "[\n  1.23,\n  true,\n  \"Test\"\n]"
         );
     }
 
@@ -320,7 +320,7 @@ mod tests {
 
         // Pretty-printed format
         let expected_pretty =
-            "{\n \"number\": 123,\n \"string\": \"Hello\",\n \"boolean\": false\n}";
+            "{\n  \"number\": 123,\n  \"string\": \"Hello\",\n  \"boolean\": false\n}";
         assert_eq!(to_pretty_string(&object).unwrap(), expected_pretty);
     }
 
