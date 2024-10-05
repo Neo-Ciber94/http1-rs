@@ -1,10 +1,14 @@
-use super::de::{Deserialize, Error};
+use super::de::{Deserialize, Deserializer, Error};
 
 pub trait Visitor: Sized {
     type Value;
 
     fn visit_unit(self) -> Result<Self::Value, Error> {
         Err(Error::Unexpected(super::de::Unexpected::Unit))
+    }
+
+    fn visit_none(self) -> Result<Self::Value, Error> {
+        Err(Error::Unexpected(super::de::Unexpected::Option))
     }
 
     fn visit_bool(self, value: bool) -> Result<Self::Value, Error> {
@@ -67,15 +71,18 @@ pub trait Visitor: Sized {
         Err(Error::Unexpected(super::de::Unexpected::Str(value)))
     }
 
-    fn visit_option<T>(self, _value: Option<T>) -> Result<Self::Value, Error> {
+    fn visit_option<T: Deserializer>(self, value: Option<T>) -> Result<Self::Value, Error> {
+        let _ = value;
         Err(Error::Unexpected(super::de::Unexpected::Option))
     }
 
-    fn visit_seq<Seq: SeqAccess>(self, _seq: Seq) -> Result<Self::Value, Error> {
+    fn visit_seq<Seq: SeqAccess>(self, seq: Seq) -> Result<Self::Value, Error> {
+        let _ = seq;
         Err(Error::Unexpected(super::de::Unexpected::Seq))
     }
 
-    fn visit_map<Map: MapAccess>(self, _map: Map) -> Result<Self::Value, Error> {
+    fn visit_map<Map: MapAccess>(self, map: Map) -> Result<Self::Value, Error> {
+        let _ = map;
         Err(Error::Unexpected(super::de::Unexpected::Map))
     }
 }

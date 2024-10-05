@@ -73,6 +73,10 @@ impl Display for Unexpected {
 }
 
 pub trait Deserializer {
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor;
+
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor;
@@ -142,6 +146,10 @@ pub trait Deserializer {
         V: Visitor;
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor;
+
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor;
 }

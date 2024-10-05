@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use de::JsonDeserializer;
 use formatter::{CompactFormatter, PrettyFormatter};
 use ser::{JsonSerializationError, JsonSerializer};
-use value::{JsonValue, JsonValueDeserializer, JsonValueSerializer};
+use value::{JsonValue, JsonValueSerializer};
 
 use super::{
     de::{Deserialize, Error},
@@ -76,18 +76,16 @@ where
     T::deserialize(JsonDeserializer::new(reader))
 }
 
-pub fn from_bytes<T, S>(bytes: S) -> Result<T, Error>
+pub fn from_bytes<T>(bytes: impl AsRef<[u8]>) -> Result<T, Error>
 where
     T: Deserialize,
-    S: AsRef<[u8]>,
 {
     from_reader(bytes.as_ref())
 }
 
-pub fn from_str<T, S>(str: S) -> Result<T, Error>
+pub fn from_str<T>(str: impl AsRef<str>) -> Result<T, Error>
 where
     T: Deserialize,
-    S: AsRef<str>,
 {
     from_reader(str.as_ref().as_bytes())
 }
@@ -96,5 +94,5 @@ pub fn from_value<T>(value: JsonValue) -> Result<T, Error>
 where
     T: Deserialize,
 {
-    T::deserialize(JsonValueDeserializer(value))
+    T::deserialize(value)
 }

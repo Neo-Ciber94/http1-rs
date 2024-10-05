@@ -1,9 +1,9 @@
 use crate::common::serde::{
-    de::{Deserializer, Error},
+    de::{Deserialize, Deserializer, Error},
     expected::Expected,
     impossible::Impossible,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
-    visitor::{MapAccess, SeqAccess},
+    visitor::{MapAccess, SeqAccess, Visitor},
 };
 
 use super::{map::OrderedMap, number::Number, ser::JsonSerializationError};
@@ -16,6 +16,19 @@ pub enum JsonValue {
     Array(Vec<JsonValue>),
     Object(OrderedMap<String, JsonValue>),
     Null,
+}
+
+impl PartialEq for JsonValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (JsonValue::Number(a), JsonValue::Number(b)) => a == b,
+            (JsonValue::String(a), JsonValue::String(b)) => a == b,
+            (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
+            (JsonValue::Array(a), JsonValue::Array(b)) => a == b,
+            (JsonValue::Object(a), JsonValue::Object(b)) => a.iter().eq(b.iter()),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl JsonValue {
@@ -189,13 +202,12 @@ impl MapSerializer for JsonObjectSerializer {
     }
 }
 
-pub struct JsonValueDeserializer(pub JsonValue);
-impl Deserializer for JsonValueDeserializer {
+impl Deserializer for JsonValue {
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Null => visitor.visit_unit(),
             _ => Err(Error::custom("expected unit")),
         }
@@ -205,7 +217,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Bool(value) => visitor.visit_bool(value),
             _ => Err(Error::custom("expected boolean")),
         }
@@ -215,7 +227,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value.as_u8().ok_or_else(|| Error::custom("expected u8"))?;
                 visitor.visit_u8(n)
@@ -228,7 +240,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u16()
@@ -243,7 +255,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u32()
@@ -258,7 +270,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u64()
@@ -273,7 +285,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u128()
@@ -288,7 +300,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value.as_i8().ok_or_else(|| Error::custom("expected i8"))?;
                 visitor.visit_i8(n)
@@ -301,7 +313,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i16()
@@ -316,7 +328,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i32()
@@ -331,7 +343,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i64()
@@ -346,7 +358,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i128()
@@ -361,7 +373,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_f32()
@@ -376,7 +388,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Number(value) => {
                 let n = value
                     .as_f64()
@@ -391,7 +403,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::String(mut value) => {
                 if value.is_empty() {
                     return Err(Error::custom("expected char but was empty string"));
@@ -412,7 +424,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::String(value) => visitor.visit_string(value),
             _ => Err(Error::custom("expected string")),
         }
@@ -422,7 +434,7 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Array(value) => visitor.visit_seq(JsonSeqAccess(value.into_iter())),
             _ => Err(Error::custom("expected array")),
         }
@@ -432,9 +444,38 @@ impl Deserializer for JsonValueDeserializer {
     where
         V: crate::common::serde::visitor::Visitor,
     {
-        match self.0 {
+        match self {
             JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess(value.into_iter())),
             _ => Err(Error::custom("expected object")),
+        }
+    }
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        match self {
+            JsonValue::Number(number) => match number {
+                Number::Float(f) => visitor.visit_f64(f),
+                Number::UInteger(u) => visitor.visit_u128(u),
+                Number::Integer(i) => visitor.visit_i128(i),
+            },
+            JsonValue::String(s) => visitor.visit_string(s),
+            JsonValue::Bool(value) => visitor.visit_bool(value),
+            JsonValue::Array(vec) => visitor.visit_seq(JsonSeqAccess(vec.into_iter())),
+            JsonValue::Object(ordered_map) => {
+                visitor.visit_map(JsonObjectAccess(ordered_map.into_iter()))
+            }
+            JsonValue::Null => visitor.visit_none(),
+        }
+    }
+    
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor {
+        match self {
+            JsonValue::Null => visitor.visit_none(),
+            s => s.deserialize_any(visitor)
         }
     }
 }
@@ -446,7 +487,7 @@ impl SeqAccess for JsonSeqAccess {
     ) -> Result<Option<T>, Error> {
         match self.0.next() {
             Some(x) => {
-                let value = T::deserialize(JsonValueDeserializer(x))?;
+                let value = T::deserialize(x)?;
                 Ok(Some(value))
             }
             None => Ok(None),
@@ -464,12 +505,58 @@ impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> 
     ) -> Result<Option<(K, V)>, Error> {
         match self.0.next() {
             Some((k, v)) => {
-                let key = K::deserialize(JsonValueDeserializer(JsonValue::String(k)))?;
-                let value = V::deserialize(JsonValueDeserializer(v))?;
+                let key = K::deserialize(JsonValue::String(k))?;
+                let value = V::deserialize(v)?;
                 Ok(Some((key, value)))
             }
             None => Ok(None),
         }
+    }
+}
+
+impl Deserialize for JsonValue {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        struct ValueVisitor;
+        impl Visitor for ValueVisitor {
+            type Value = JsonValue;
+
+            fn visit_unit(self) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Null)
+            }
+
+            fn visit_bool(self, value: bool) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Bool(value))
+            }
+
+            fn visit_u128(self, value: u128) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Number(value.into()))
+            }
+
+            fn visit_i128(self, value: i128) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Number(value.into()))
+            }
+
+            fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Number(value.into()))
+            }
+
+            fn visit_none(self) -> Result<Self::Value, Error> {
+                Ok(JsonValue::Null)
+            }
+
+            fn visit_option<T: Deserializer>(self, value: Option<T>) -> Result<Self::Value, Error> {
+                match value {
+                    Some(x) => x.deserialize_any(ValueVisitor),
+                    None => self.visit_none(),
+                }
+            }
+
+            fn visit_string(self, value: String) -> Result<Self::Value, Error> {
+                Ok(JsonValue::String(value))
+            }
+        }
+
+        deserializer.deserialize_any(ValueVisitor)
     }
 }
 

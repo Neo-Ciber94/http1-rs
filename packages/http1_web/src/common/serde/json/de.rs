@@ -481,6 +481,22 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let map = self.parse_object()?;
         visitor.visit_map(JsonObjectAccess(map.into_iter()))
     }
+
+    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        let json_value = self.parse_json()?;
+        json_value.deserialize_any(visitor)
+    }
+
+    fn deserialize_option<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: crate::common::serde::visitor::Visitor,
+    {
+        let json_value = self.parse_json()?;
+        json_value.deserialize_option(visitor)
+    }
 }
 
 fn type_mismatch_error<T>(this: impl Expected + 'static) -> Error
@@ -488,4 +504,14 @@ where
     T: 'static,
 {
     Error::mismatch(this, std::any::type_name::<T>())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::serde::json::{from_str, value::JsonValue};
+
+    #[test]
+    fn should_deserialize_null() {
+        assert_eq!(from_str::<JsonValue>("null").unwrap(), JsonValue::Null);
+    }
 }
