@@ -109,7 +109,11 @@ impl<R: Read> JsonDeserializer<R> {
         let buf = &mut [0; 4];
         match self.reader.read(buf) {
             Ok(4) if buf == b"null" => Ok(()),
-            Ok(_) => Err(Error::custom("expected 'null'")),
+            Ok(n) =>{
+                let s = String::from_utf8_lossy(buf);
+                dbg!(n, s);
+                Err(Error::custom("expected 'null'"))
+            },
             Err(err) => Err(Error::error(err)),
         }
     }
@@ -117,8 +121,8 @@ impl<R: Read> JsonDeserializer<R> {
     fn parse_bool(&mut self) -> Result<bool, Error> {
         let buf = &mut [0; 5];
         match self.reader.read(buf) {
-            Ok(4) if buf.as_slice() == b"true" => Ok(true),
-            Ok(5) if buf.as_slice() == b"false" => Ok(false),
+            Ok(4) if &buf[..4] == b"true" => Ok(true),
+            Ok(5) if &buf[..5] == b"false" => Ok(false),
             Ok(_) => Err(Error::custom("expected 'boolean'")),
             Err(err) => Err(Error::error(err)),
         }
