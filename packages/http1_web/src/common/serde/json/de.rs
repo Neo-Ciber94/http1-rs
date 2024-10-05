@@ -157,22 +157,23 @@ impl<R: Read> JsonDeserializer<R> {
 
             match self.read_byte() {
                 None => return Err(Error::custom("expected number")),
-                Some(byte) => {
-                    match byte {
-                        b'0'..b'9' | b'-' | b'.' | b'e' => {
-                            if s.len() > 1 {
-                                return Err(Error::custom("expected number sign"));
-                            }
-
-                            if byte == b'.' && s.contains(".") {
-                                return Err(Error::custom("invalid decimal number"));
-                            }
+                Some(byte) => match byte {
+                    b'-' | b'.' | b'e' => {
+                        if s.len() > 1 {
+                            return Err(Error::custom("expected number sign"));
                         }
-                        _ => break,
-                    }
 
-                    s.push(byte as char);
-                }
+                        if byte == b'.' && s.contains(".") {
+                            return Err(Error::custom("invalid decimal number"));
+                        }
+
+                        s.push(byte as char);
+                    }
+                    _ if byte.is_ascii_digit() => {
+                        s.push(byte as char);
+                    }
+                    _ => break,
+                },
             }
         }
 
@@ -182,6 +183,7 @@ impl<R: Read> JsonDeserializer<R> {
         }
 
         let is_negative = s.starts_with("-");
+        dbg!(&s);
 
         if is_negative {
             let i: u128 = s.parse().map_err(Error::error)?;
@@ -543,5 +545,17 @@ mod tests {
     fn should_deserialize_bool() {
         assert_eq!(from_str::<bool>("true").unwrap(), true);
         assert_eq!(from_str::<bool>("false").unwrap(), false);
+    }
+
+    #[test]
+    fn should_deserialize_integer() {
+        assert_eq!(from_str::<u8>("23").unwrap(), 23);
+        assert_eq!(from_str::<u16>("5090").unwrap(), 5090);
+        assert_eq!(from_str::<u32>("239000000").unwrap(), 239000000);
+        assert_eq!(from_str::<u64>("239000000000").unwrap(), 239000000000);
+        assert_eq!(
+            from_str::<u128>("239000000000000000").unwrap(),
+            239000000000000000
+        );
     }
 }
