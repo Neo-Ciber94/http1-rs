@@ -11,6 +11,7 @@ pub mod map;
 pub mod ser;
 pub mod de;
 pub mod value;
+pub mod number;
 
 pub fn to_writer<W: Write, T: Serialize>(
     mut writer: W,
