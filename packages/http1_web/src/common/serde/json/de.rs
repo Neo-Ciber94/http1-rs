@@ -513,10 +513,12 @@ mod tests {
     #[test]
     fn should_deserialize_null() {
         assert_eq!(from_str::<JsonValue>("null").unwrap(), JsonValue::Null);
+        assert_eq!(from_str::<()>("null").unwrap(), ());
     }
 
-    // #[test]
-    // fn should_deserialize_unit() {
-    //     assert_eq!(from_str::<()>("null").unwrap(), JsonValue::Null);
-    // }
+    #[test]
+    fn should_deserialize_bool() {
+        assert_eq!(from_str::<bool>("true").unwrap(), true);
+        assert_eq!(from_str::<bool>("false").unwrap(), false);
+    }
 }
