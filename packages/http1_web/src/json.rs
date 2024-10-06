@@ -21,10 +21,7 @@ impl<T: Deserialize> FromRequest for Json<T> {
     fn from_request(
         mut req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, http1::error::BoxError> {
-        println!("Reading...");
         let bytes = req.body_mut().read_all_bytes()?;
-        let b = String::from_utf8_lossy(&bytes);
-        println!("Bytes: `{b}`");
         let value = common::serde::json::from_bytes::<T>(bytes)?;
         Ok(Json(value))
     }

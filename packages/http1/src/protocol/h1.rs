@@ -71,6 +71,10 @@ fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
     }
 
     // Read the body
+    buf.clear();
+
+    reader.read_to_string(&mut buf)?;
+
     let body = buf.into();
     let response = builder.build(body).map_err(std::io::Error::other)?;
 
