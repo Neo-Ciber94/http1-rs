@@ -509,3 +509,46 @@ impl_deserialize_number!(I128Visitor: i128 => deserialize_i128 => visit_i128 [
     impl_deserialize_to_int!(i128:visit_i128 => i32:visit_i32);
     impl_deserialize_to_int!(i128:visit_i128 => i64:visit_i64);
 ]);
+
+macro_rules! impl_deserialize_tuple {
+    ($visitor:ident => $($T:ident),*) => {
+        struct $visitor<$($T),*>(PhantomData<($($T),*,)>);
+
+        impl<$($T),*> Visitor for $visitor<$($T),*> where $($T : Deserialize),* {
+            type Value = ($($T),*,);
+
+            #[allow(non_snake_case)]
+            fn visit_seq<Seq: super::visitor::SeqAccess>(self, mut seq: Seq) -> Result<Self::Value, Error> {
+                $(
+                    let $T = match seq.next_element()? {
+                        Some(x) => x,
+                        None => {
+                            return Err(Error::custom(format!("expected `{}` but was empty", std::any::type_name::<$T>())));
+                        }
+                    };
+                )*
+
+                Ok(( $($T),*, ))
+            }
+        }
+
+        impl<$($T),*> Deserialize for ($($T),*,)  where $($T : Deserialize),* {
+            fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+                deserializer.deserialize_seq($visitor(PhantomData))
+            }
+        }
+    };
+}
+
+impl_deserialize_tuple!(Tuple1Visitor => T1);
+impl_deserialize_tuple!(Tuple2Visitor => T1, T2);
+impl_deserialize_tuple!(Tuple3Visitor => T1, T2, T3);
+impl_deserialize_tuple!(Tuple4Visitor => T1, T2, T3, T4);
+impl_deserialize_tuple!(Tuple5Visitor => T1, T2, T3, T4, T5);
+impl_deserialize_tuple!(Tuple6Visitor => T1, T2, T3, T4, T5, T6);
+impl_deserialize_tuple!(Tuple7Visitor => T1, T2, T3, T4, T5, T6, T7);
+impl_deserialize_tuple!(Tuple8Visitor => T1, T2, T3, T4, T5, T6, T7, T8);
+impl_deserialize_tuple!(Tuple9Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_deserialize_tuple!(Tuple10Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_deserialize_tuple!(Tuple11Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_deserialize_tuple!(Tuple12Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);

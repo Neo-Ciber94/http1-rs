@@ -84,6 +84,12 @@ impl From<String> for JsonValue {
     }
 }
 
+impl<'a> From<&'a str> for JsonValue {
+    fn from(value: &'a str) -> Self {
+        JsonValue::String(value.into())
+    }
+}
+
 impl From<bool> for JsonValue {
     fn from(value: bool) -> Self {
         JsonValue::Bool(value)
