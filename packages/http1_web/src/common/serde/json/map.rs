@@ -37,20 +37,6 @@ impl<K, V> OrderedMap<K, V>
 where
     K: Eq + Hash,
 {
-    /// Inserts a key-value pair into the map.
-    /// If the key is new, it is added to the `keys` vector to preserve order.
-    /// If the key already exists, its value is updated.
-    // pub fn insert(&mut self, key: K, value: V) {
-    //     match self.map.entry(key) {
-    //         std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
-    //             occupied_entry.insert(value);
-    //         }
-    //         std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-    //             vacant_entry.insert(value);
-    //         }
-    //     }
-    // }
-
     /// Retrieves a reference to the value corresponding to the key.
     pub fn get(&self, key: &K) -> Option<&V> {
         self.map.get(key)
