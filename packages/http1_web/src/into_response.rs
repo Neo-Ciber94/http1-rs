@@ -192,7 +192,7 @@ macro_rules! impl_into_response_parts_tuple {
             )*
         {
             type Err = BoxError;
-        
+
             fn into_response_parts(self, res: ResponseParts) -> Result<ResponseParts, Self::Err> {
                 let ($($T),*,) = self;
                 $(
@@ -201,20 +201,20 @@ macro_rules! impl_into_response_parts_tuple {
 
                 Ok(res)
             }
-        }   
+        }
     };
 }
 
-impl_into_response_parts_tuple!{ T1 }
-impl_into_response_parts_tuple!{ T1, T2 }
-impl_into_response_parts_tuple!{ T1, T2, T3 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8, T9 }
-impl_into_response_parts_tuple!{ T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
+impl_into_response_parts_tuple! { T1 }
+impl_into_response_parts_tuple! { T1, T2 }
+impl_into_response_parts_tuple! { T1, T2, T3 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5, T6 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5, T6, T7 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
+impl_into_response_parts_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
 
 macro_rules! impl_into_response_for_tuple {
     ($($T:ident),*) => {

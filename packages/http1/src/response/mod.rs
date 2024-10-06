@@ -33,7 +33,7 @@ impl<T> Response<T> {
             status,
             body,
             headers: Headers::new(),
-            extensions: Default::default()
+            extensions: Default::default(),
         }
     }
 
@@ -145,7 +145,7 @@ impl Builder {
         Builder {
             status: StatusCode::OK,
             headers: Headers::new(),
-            extensions: Default::default()
+            extensions: Default::default(),
         }
     }
 
