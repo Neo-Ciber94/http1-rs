@@ -252,7 +252,7 @@ impl JsonValue {
     ///
     /// ```
     /// use http1_web::json;
-    
+
     /// let mut jjk = json!({
     ///     name: "Satoru Gojo",
     ///     age: 28,
