@@ -209,7 +209,7 @@ impl<R: Read> JsonDeserializer<R> {
                 break;
             }
 
-            match self.read_byte() {
+            match self.peek() {
                 None => return Err(Error::custom("expected number")),
                 Some(byte) => match byte {
                     b'-' | b'.' | b'e' => {
@@ -225,6 +225,8 @@ impl<R: Read> JsonDeserializer<R> {
                     _ => break,
                 },
             }
+
+            self.read_byte();
         }
 
         self.consume_rest()?;
@@ -248,14 +250,11 @@ impl<R: Read> JsonDeserializer<R> {
     fn parse_string(&mut self) -> Result<String, Error> {
         let mut s = String::with_capacity(2);
 
-        if self.peek() == Some(b'"') {
-            let _ = self.read_byte();
-        } else {
-            return Err(Error::custom("expected start of string"));
-        }
+        self.read_until_byte(b'"')?;
+        self.read_byte();
 
         loop {
-            match self.read_byte() {
+            match self.peek() {
                 None => return Err(Error::custom("expected next string char")),
                 Some(byte) => match byte {
                     b'\\' => match self.read_byte() {
@@ -271,12 +270,17 @@ impl<R: Read> JsonDeserializer<R> {
                         }
                         None => return Err(Error::custom("expected character after escape")),
                     },
-                    b'"' => break,
+                    b'"' => {
+                        self.read_byte();
+                        break;
+                    }
                     _ => {
                         s.push(byte as char);
                     }
                 },
             }
+
+            self.read_byte();
         }
 
         self.consume_rest()?;
