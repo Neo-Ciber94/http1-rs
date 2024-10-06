@@ -183,19 +183,22 @@ impl<R: Read> JsonDeserializer<R> {
     }
 
     fn parse_bool(&mut self) -> Result<bool, Error> {
-        let buf = &mut [0; 5];
-        match self.read(buf) {
-            Ok(4) if &buf[..4] == b"true" => {
-                self.consume_rest()?;
-                Ok(true)
-            }
-            Ok(5) if &buf[..5] == b"false" => {
-                self.consume_rest()?;
-                Ok(false)
-            }
-            Ok(_) => Err(Error::custom("expected 'boolean'")),
-            Err(err) => Err(Error::error(err)),
+        let (len, expected) = match self.peek() {
+            Some(b't') => (4, "true"),  // length of "true"
+            Some(b'f') => (5, "false"), // length of "false"
+            _ => return Err(Error::custom("expected 'boolean'")),
+        };
+
+        let mut buf = [0u8; 5];
+        let read = self.read(&mut buf[..len]).map_err(Error::error)?;
+
+        if &buf[..read] != expected.as_bytes() {
+            let s = String::from_utf8_lossy(&buf[..read]);
+            return Err(Error::custom(format!("expected `{expected}` but was {s}",)));
         }
+
+        self.consume_rest()?;
+        Ok(expected == "true")
     }
 
     fn parse_number(&mut self) -> Result<Number, Error> {
@@ -311,7 +314,6 @@ impl<R: Read> JsonDeserializer<R> {
                         continue;
                     }
                     b']' => {
-                        println!("end");
                         break;
                     }
                     bb => {
@@ -545,7 +547,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let mut string = self.parse_string()?;
 
         if string.is_empty() {
-            return Err(Error::custom("expected char but was empty string".to_string()));
+            return Err(Error::custom(
+                "expected char but was empty string".to_string(),
+            ));
         }
 
         if string.len() > 1 {
@@ -768,6 +772,108 @@ mod tests {
                 String::from("red"),
                 String::from("apple")
             ]
+        );
+    }
+
+    #[test]
+    fn should_deserialize_tuple() {
+        // Arity 1
+        assert_eq!(from_str::<(u32,)>("[12]").unwrap(), (12,));
+
+        // Arity 2
+        assert_eq!(from_str::<(u32, bool)>("[12, true]").unwrap(), (12, true));
+
+        // Arity 3
+        assert_eq!(
+            from_str::<(u32, bool, String)>("[12, true, \"hello\"]").unwrap(),
+            (12, true, String::from("hello"))
+        );
+
+        // Arity 4
+        assert_eq!(
+            from_str::<(u32, bool, String, f64)>("[12, true, \"hello\", 3.14]").unwrap(),
+            (12, true, String::from("hello"), 3.14)
+        );
+
+        // Arity 5
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8)>("[12, true, \"hello\", 3.14, 42]").unwrap(),
+            (12, true, String::from("hello"), 3.14, 42u8)
+        );
+
+        // Arity 6
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8, char)>(
+                "[12, true, \"hello\", 3.14, 42, \"a\"]"
+            )
+            .unwrap(),
+            (12, true, String::from("hello"), 3.14, 42u8, 'a')
+        );
+
+        // Arity 7
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8, char, i64)>(
+                "[12, true, \"hello\", 3.14, 42, \"a\", -99]"
+            )
+            .unwrap(),
+            (12, true, String::from("hello"), 3.14, 42u8, 'a', -99)
+        );
+
+        // Arity 8
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8, char, i64, f32)>(
+                "[12, true, \"hello\", 3.14, 42, \"a\", -99, 0.1]"
+            )
+            .unwrap(),
+            (
+                12,
+                true,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                -99,
+                0.1f32
+            )
+        );
+
+        // Arity 9
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8, char, i64, f32, u16)>(
+                "[12, true, \"hello\", 3.14, 42, \"a\", -99, 0.1, 65535]"
+            )
+            .unwrap(),
+            (
+                12,
+                true,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                -99,
+                0.1f32,
+                65535u16
+            )
+        );
+
+        // Arity 10
+        assert_eq!(
+            from_str::<(u32, bool, String, f64, u8, char, i64, f32, u16, i8)>(
+                "[12, true, \"hello\", 3.14, 42, \"a\", -99, 0.1, 65535, -128]"
+            )
+            .unwrap(),
+            (
+                12,
+                true,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                -99,
+                0.1f32,
+                65535u16,
+                -128i8
+            )
         );
     }
 }
