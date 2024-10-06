@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -38,8 +39,21 @@ where
     K: Eq + Hash,
 {
     /// Retrieves a reference to the value corresponding to the key.
-    pub fn get(&self, key: &K) -> Option<&V> {
-        self.map.get(key)
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        Q: Hash + Eq + ?Sized,
+        K: Borrow<Q>,
+    {
+        self.map.get(&key)
+    }
+
+    /// Retrieves a mutable reference to the value corresponding to the key.
+    pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        Q: Hash + Eq + ?Sized,
+        K: Borrow<Q>,
+    {
+        self.map.get_mut(&key)
     }
 
     /// Returns `true` if the map contains the given key.

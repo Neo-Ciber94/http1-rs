@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    ops::{Index, IndexMut},
+};
 
 use crate::common::serde::{
     de::{Deserialize, Deserializer, Error},
@@ -62,7 +65,7 @@ impl JsonValue {
         }
     }
 
-    pub fn as_array(&self) -> Option<&Vec<JsonValue>> {
+    pub fn as_array(&self) -> Option<&[JsonValue]> {
         match self {
             JsonValue::Array(arr) => Some(arr),
             _ => None,
@@ -74,6 +77,108 @@ impl JsonValue {
             JsonValue::Object(map) => Some(map),
             _ => None,
         }
+    }
+
+    pub(crate) fn variant(&self) -> &str {
+        match self {
+            JsonValue::Number(_) => "number",
+            JsonValue::String(_) => "string",
+            JsonValue::Bool(_) => "boolean",
+            JsonValue::Array(_) => "array",
+            JsonValue::Object(_) => "object",
+            JsonValue::Null => "null",
+        }
+    }
+}
+
+impl<I: JsonValueIndex> Index<I> for JsonValue {
+    type Output = JsonValue;
+
+    fn index(&self, index: I) -> &Self::Output {
+        index.index(self)
+    }
+}
+
+impl<I: JsonValueIndex> IndexMut<I> for JsonValue {
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        index.index_mut(self)
+    }
+}
+
+pub trait JsonValueIndex {
+    fn get(self, value: &JsonValue) -> Option<&JsonValue>;
+    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue>;
+    fn index(self, value: &JsonValue) -> &JsonValue;
+    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue;
+}
+
+impl JsonValueIndex for usize {
+    fn get(self, value: &JsonValue) -> Option<&JsonValue> {
+        match value {
+            JsonValue::Array(vec) => vec.get(self),
+            _ => None,
+        }
+    }
+
+    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue> {
+        match value {
+            JsonValue::Array(vec) => vec.get_mut(self),
+            _ => None,
+        }
+    }
+
+    fn index(self, value: &JsonValue) -> &JsonValue {
+        match value {
+            JsonValue::Array(vec) => &vec[self],
+            _ => panic!("cannot index as an array a `{}`", value.variant()),
+        }
+    }
+
+    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue {
+        match value {
+            JsonValue::Array(vec) => &mut vec[self],
+            _ => panic!("cannot index as an array a `{}`", value.variant()),
+        }
+    }
+}
+
+impl<'a> JsonValueIndex for &'a str {
+    fn get(self, value: &JsonValue) -> Option<&JsonValue> {
+        match value {
+            JsonValue::Object(map) => map.get(self),
+            _ => None,
+        }
+    }
+
+    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue> {
+        match value {
+            JsonValue::Object(map) => map.get_mut(self),
+            _ => None,
+        }
+    }
+
+    fn index(self, value: &JsonValue) -> &JsonValue {
+        match value {
+            JsonValue::Object(map) => map
+                .get(self)
+                .unwrap_or_else(|| panic!("not value found in `{self}`")),
+            _ => panic!("cannot index as an object a `{}`", value.variant()),
+        }
+    }
+
+    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue {
+        match value {
+            JsonValue::Object(map) => map
+                .get_mut(self)
+                .unwrap_or_else(|| panic!("not value found in `{self}`")),
+            _ => panic!("cannot index as an object a `{}`", value.variant()),
+        }
+    }
+}
+
+impl From<()> for JsonValue {
+    fn from(_value: ()) -> Self {
+        JsonValue::Null
     }
 }
 
@@ -162,6 +267,20 @@ impl<T: Into<JsonValue>> From<Vec<T>> for JsonValue {
     }
 }
 
+impl<T: Into<JsonValue>> From<HashSet<T>> for JsonValue {
+    fn from(value: HashSet<T>) -> Self {
+        let arr = value.into_iter().map(|x| x.into()).collect::<Vec<_>>();
+        JsonValue::Array(arr)
+    }
+}
+
+impl<T: Into<JsonValue>> From<BTreeSet<T>> for JsonValue {
+    fn from(value: BTreeSet<T>) -> Self {
+        let arr = value.into_iter().map(|x| x.into()).collect::<Vec<_>>();
+        JsonValue::Array(arr)
+    }
+}
+
 impl<T: Into<JsonValue>> From<Option<T>> for JsonValue {
     fn from(value: Option<T>) -> Self {
         match value {
@@ -173,6 +292,30 @@ impl<T: Into<JsonValue>> From<Option<T>> for JsonValue {
 
 impl<V: Into<JsonValue>> From<HashMap<String, V>> for JsonValue {
     fn from(value: HashMap<String, V>) -> Self {
+        let mut map = OrderedMap::new();
+
+        for (k, v) in value {
+            map.insert(k, v.into());
+        }
+
+        JsonValue::Object(map)
+    }
+}
+
+impl<V: Into<JsonValue>> From<BTreeMap<String, V>> for JsonValue {
+    fn from(value: BTreeMap<String, V>) -> Self {
+        let mut map = OrderedMap::new();
+
+        for (k, v) in value {
+            map.insert(k, v.into());
+        }
+
+        JsonValue::Object(map)
+    }
+}
+
+impl<V: Into<JsonValue>> From<OrderedMap<String, V>> for JsonValue {
+    fn from(value: OrderedMap<String, V>) -> Self {
         let mut map = OrderedMap::new();
 
         for (k, v) in value {
