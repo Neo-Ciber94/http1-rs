@@ -12,41 +12,56 @@ use crate::common::serde::{
 
 use super::{map::OrderedMap, number::Number, ser::JsonSerializationError};
 
+/// A JSON value, which can represent various types of data such as numbers, strings,
+/// booleans, arrays, objects, or null values.
 #[derive(Debug, Clone)]
 pub enum JsonValue {
+    /// A numeric value (can be a float, integer, or unsigned integer).
     Number(Number),
+    /// A string value.
     String(String),
+    /// A boolean value.
     Bool(bool),
+    /// An array of JSON values.
     Array(Vec<JsonValue>),
+    /// An object (a map from strings to JSON values).
     Object(OrderedMap<String, JsonValue>),
+    /// A null value.
     Null,
 }
 
 impl JsonValue {
+    /// Returns `true` if the value is `JsonValue::Null`.
     pub fn is_null(&self) -> bool {
         matches!(self, JsonValue::Null)
     }
 
+    /// Returns `true` if the value is `JsonValue::Number`.
     pub fn is_number(&self) -> bool {
         matches!(self, JsonValue::Number(_))
     }
 
+    /// Returns `true` if the value is `JsonValue::Bool`.
     pub fn is_bool(&self) -> bool {
         matches!(self, JsonValue::Bool(_))
     }
 
+    /// Returns `true` if the value is `JsonValue::String`.
     pub fn is_string(&self) -> bool {
         matches!(self, JsonValue::String(_))
     }
 
+    /// Returns `true` if the value is `JsonValue::Array`.
     pub fn is_array(&self) -> bool {
         matches!(self, JsonValue::Array(_))
     }
 
+    /// Returns `true` if the value is `JsonValue::Object`.
     pub fn is_object(&self) -> bool {
         matches!(self, JsonValue::Object(_))
     }
 
+    /// Returns `true` if the value is a floating-point number (`JsonValue::Number::Float`).
     pub fn is_f64(&self) -> bool {
         match self {
             JsonValue::Number(Number::Float(_)) => true,
@@ -54,6 +69,7 @@ impl JsonValue {
         }
     }
 
+    /// Returns `true` if the value is an unsigned integer (`JsonValue::Number::UInteger`).
     pub fn is_u128(&self) -> bool {
         match self {
             JsonValue::Number(Number::UInteger(_)) => true,
@@ -61,6 +77,7 @@ impl JsonValue {
         }
     }
 
+    /// Returns `true` if the value is a signed integer (`JsonValue::Number::Integer`).
     pub fn is_i128(&self) -> bool {
         match self {
             JsonValue::Number(Number::Integer(_)) => true,
@@ -68,6 +85,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::String`, returns the string as a `&str`.
+    /// Otherwise, returns `None`.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             JsonValue::String(s) => Some(s.as_str()),
@@ -75,6 +94,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::String`, returns the string as a mutable reference.
+    /// Otherwise, returns `None`.
     pub fn as_string_mut(&mut self) -> Option<&mut String> {
         match self {
             JsonValue::String(s) => Some(s),
@@ -82,6 +103,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Number`, returns the number.
+    /// Otherwise, returns `None`.
     pub fn as_number(&self) -> Option<Number> {
         match self {
             JsonValue::Number(n) => Some(*n),
@@ -89,6 +112,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Bool`, returns the boolean.
+    /// Otherwise, returns `None`.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             JsonValue::Bool(b) => Some(*b),
@@ -96,6 +121,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Array`, returns the array as a slice of JSON values.
+    /// Otherwise, returns `None`.
     pub fn as_array(&self) -> Option<&[JsonValue]> {
         match self {
             JsonValue::Array(arr) => Some(arr),
@@ -103,6 +130,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Array`, returns the array as a mutable reference
+    /// to a vector of JSON values. Otherwise, returns `None`.
     pub fn as_array_mut(&mut self) -> Option<&mut Vec<JsonValue>> {
         match self {
             JsonValue::Array(arr) => Some(arr),
@@ -110,6 +139,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Object`, returns the object as a reference to a map.
+    /// Otherwise, returns `None`.
     pub fn as_map(&self) -> Option<&OrderedMap<String, JsonValue>> {
         match self {
             JsonValue::Object(map) => Some(map),
@@ -117,6 +148,8 @@ impl JsonValue {
         }
     }
 
+    /// If the value is a `JsonValue::Object`, returns the object as a mutable reference
+    /// to a map. Otherwise, returns `None`.
     pub fn as_map_mut(&mut self) -> Option<&mut OrderedMap<String, JsonValue>> {
         match self {
             JsonValue::Object(map) => Some(map),
@@ -124,11 +157,14 @@ impl JsonValue {
         }
     }
 
-    /// Takes the current value and leaves `JsonValue::Null`.
+    /// Takes the current value and replaces it with `JsonValue::Null`.
+    ///
+    /// This can be used to extract the current value while leaving a null in its place.
     pub fn take(&mut self) -> JsonValue {
         std::mem::take(self)
     }
 
+    /// Returns the string representation of the type of the `JsonValue` (e.g., "string", "array").
     pub(crate) fn variant(&self) -> &str {
         match self {
             JsonValue::Number(_) => "number",
