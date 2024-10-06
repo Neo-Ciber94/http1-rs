@@ -7,10 +7,6 @@ pub trait Visitor: Sized {
         Err(Error::Unexpected(super::de::Unexpected::Unit))
     }
 
-    fn visit_none(self) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Option))
-    }
-
     fn visit_bool(self, value: bool) -> Result<Self::Value, Error> {
         Err(Error::Unexpected(super::de::Unexpected::Bool(value)))
     }
@@ -71,8 +67,12 @@ pub trait Visitor: Sized {
         Err(Error::Unexpected(super::de::Unexpected::Str(value)))
     }
 
-    fn visit_option<T: Deserializer>(self, value: Option<T>) -> Result<Self::Value, Error> {
-        let _ = value;
+    fn visit_none(self) -> Result<Self::Value, Error> {
+        Err(Error::Unexpected(super::de::Unexpected::Option))
+    }
+
+    fn visit_some<D: Deserializer>(self, deserializer: D) -> Result<Self::Value, Error> {
+        let _ = deserializer;
         Err(Error::Unexpected(super::de::Unexpected::Option))
     }
 
@@ -88,7 +88,7 @@ pub trait Visitor: Sized {
 }
 
 pub trait SeqAccess {
-    fn next_element<T: Deserialize>(&mut self) -> Result<Option<T>, Error>;
+    fn next_element<D: Deserialize>(&mut self) -> Result<Option<D>, Error>;
 }
 
 pub trait MapAccess {

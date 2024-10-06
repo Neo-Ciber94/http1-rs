@@ -169,10 +169,6 @@ impl Visitor for UnitVisitor {
     fn visit_none(self) -> Result<Self::Value, Error> {
         Ok(())
     }
-
-    fn visit_option<T: Deserializer>(self, _value: Option<T>) -> Result<Self::Value, Error> {
-        self.visit_none()
-    }
 }
 
 impl Deserialize for () {
@@ -552,3 +548,26 @@ impl_deserialize_tuple!(Tuple9Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9);
 impl_deserialize_tuple!(Tuple10Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 impl_deserialize_tuple!(Tuple11Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_deserialize_tuple!(Tuple12Visitor => T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+
+impl<T: Deserialize> Deserialize for Option<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        struct OptionVisitor<T>(PhantomData<T>);
+        impl<T: Deserialize> Visitor for OptionVisitor<T> {
+            type Value = Option<T>;
+
+            fn visit_none(self) -> Result<Self::Value, Error> {
+                Ok(None)
+            }
+
+            fn visit_unit(self) -> Result<Self::Value, Error> {
+                Ok(None)
+            }
+
+            fn visit_some<D: Deserializer>(self, deserializer: D) -> Result<Self::Value, Error> {
+                T::deserialize(deserializer).map(Some)
+            }
+        }
+
+        deserializer.deserialize_option(OptionVisitor(PhantomData))
+    }
+}

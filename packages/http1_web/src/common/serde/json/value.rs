@@ -658,11 +658,8 @@ impl Deserialize for JsonValue {
                 Ok(JsonValue::Null)
             }
 
-            fn visit_option<T: Deserializer>(self, value: Option<T>) -> Result<Self::Value, Error> {
-                match value {
-                    Some(x) => x.deserialize_any(ValueVisitor),
-                    None => self.visit_none(),
-                }
+            fn visit_some<D: Deserializer>(self, deserializer: D) -> Result<Self::Value, Error> {
+                deserializer.deserialize_any(ValueVisitor)
             }
 
             fn visit_string(self, value: String) -> Result<Self::Value, Error> {
