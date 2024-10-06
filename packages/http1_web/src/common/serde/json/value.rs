@@ -22,31 +22,62 @@ pub enum JsonValue {
     Null,
 }
 
-impl PartialEq for JsonValue {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (JsonValue::Number(a), JsonValue::Number(b)) => a == b,
-            (JsonValue::String(a), JsonValue::String(b)) => a == b,
-            (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
-            (JsonValue::Array(a), JsonValue::Array(b)) => a == b,
-            (JsonValue::Object(a), JsonValue::Object(b)) => a.iter().eq(b.iter()),
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
-    }
-}
-
 impl JsonValue {
     pub fn is_null(&self) -> bool {
         matches!(self, JsonValue::Null)
+    }
+
+    pub fn is_number(&self) -> bool {
+        matches!(self, JsonValue::Number(_))
+    }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, JsonValue::Bool(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, JsonValue::String(_))
     }
 
     pub fn is_array(&self) -> bool {
         matches!(self, JsonValue::Array(_))
     }
 
+    pub fn is_object(&self) -> bool {
+        matches!(self, JsonValue::Object(_))
+    }
+
+    pub fn is_f64(&self) -> bool {
+        match self {
+            JsonValue::Number(Number::Float(_)) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_u128(&self) -> bool {
+        match self {
+            JsonValue::Number(Number::UInteger(_)) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_i128(&self) -> bool {
+        match self {
+            JsonValue::Number(Number::Integer(_)) => true,
+            _ => false,
+        }
+    }
+
     pub fn as_str(&self) -> Option<&str> {
         match self {
             JsonValue::String(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+        match self {
+            JsonValue::String(s) => Some(s),
             _ => None,
         }
     }
@@ -72,11 +103,30 @@ impl JsonValue {
         }
     }
 
+    pub fn as_array_mut(&mut self) -> Option<&mut Vec<JsonValue>> {
+        match self {
+            JsonValue::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
     pub fn as_map(&self) -> Option<&OrderedMap<String, JsonValue>> {
         match self {
             JsonValue::Object(map) => Some(map),
             _ => None,
         }
+    }
+
+    pub fn as_map_mut(&mut self) -> Option<&mut OrderedMap<String, JsonValue>> {
+        match self {
+            JsonValue::Object(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    /// Takes the current value and leaves `JsonValue::Null`.
+    pub fn take(&mut self) -> JsonValue {
+        std::mem::take(self)
     }
 
     pub(crate) fn variant(&self) -> &str {
@@ -88,6 +138,25 @@ impl JsonValue {
             JsonValue::Object(_) => "object",
             JsonValue::Null => "null",
         }
+    }
+}
+
+impl PartialEq for JsonValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (JsonValue::Number(a), JsonValue::Number(b)) => a == b,
+            (JsonValue::String(a), JsonValue::String(b)) => a == b,
+            (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
+            (JsonValue::Array(a), JsonValue::Array(b)) => a == b,
+            (JsonValue::Object(a), JsonValue::Object(b)) => a.iter().eq(b.iter()),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+impl Default for JsonValue {
+    fn default() -> Self {
+        JsonValue::Null
     }
 }
 
@@ -105,6 +174,7 @@ impl<I: JsonValueIndex> IndexMut<I> for JsonValue {
     }
 }
 
+/// Allow to index a json value object or array.
 pub trait JsonValueIndex {
     fn get(self, value: &JsonValue) -> Option<&JsonValue>;
     fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue>;
