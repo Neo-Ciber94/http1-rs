@@ -118,16 +118,13 @@ impl<R: Read> JsonDeserializer<R> {
             return Ok(());
         }
 
-        match self.next.take() {
-            Some(b) => {
-                if !b.is_ascii_whitespace() {
-                    return Err(Error::custom(format!(
-                        "expected only whitespace after end but found: `{}`",
-                        b as char
-                    )));
-                }
+        if let Some(b) = self.next.take() {
+            if !b.is_ascii_whitespace() {
+                return Err(Error::custom(format!(
+                    "expected only whitespace after end but found: `{}`",
+                    b as char
+                )));
             }
-            None => {}
         }
 
         let mut buffer = [0; 64]; // buffer to hold a single byte
@@ -548,7 +545,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let mut string = self.parse_string()?;
 
         if string.is_empty() {
-            return Err(Error::custom(format!("expected char but was empty string")));
+            return Err(Error::custom("expected char but was empty string".to_string()));
         }
 
         if string.len() > 1 {
