@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque}, rc::Rc, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
+    rc::Rc,
+    sync::Arc,
+};
 
 pub trait SequenceSerializer {
     type Ok;
@@ -259,7 +264,6 @@ impl<T: Serialize> Serialize for BTreeSet<T> {
     }
 }
 
-
 impl<K, V> Serialize for HashMap<K, V>
 where
     K: Serialize,
@@ -315,3 +319,35 @@ impl<T: Serialize> Serialize for Arc<T> {
         (**self).serialize(serializer)
     }
 }
+
+macro_rules! impl_serialize_tuple {
+    ($($T:ident),*) => {
+        #[allow(non_snake_case)]
+        impl<$($T),*> Serialize for ($($T),*,)
+            where $($T : Serialize),* {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+                let mut seq = serializer.serialize_sequence()?;
+
+                let ($($T),*,) = &self;
+                $(
+                    seq.serialize_element($T)?;
+                )*
+
+                seq.end()
+            }
+        }
+    };
+}
+
+impl_serialize_tuple!(T1);
+impl_serialize_tuple!(T1, T2);
+impl_serialize_tuple!(T1, T2, T3);
+impl_serialize_tuple!(T1, T2, T3, T4);
+impl_serialize_tuple!(T1, T2, T3, T4, T5);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_serialize_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
