@@ -1118,6 +1118,26 @@ impl Deserialize for JsonValue {
             fn visit_string(self, value: String) -> Result<Self::Value, Error> {
                 Ok(JsonValue::String(value))
             }
+
+            fn visit_seq<Seq: SeqAccess>(self, mut seq: Seq) -> Result<Self::Value, Error> {
+                let mut items = vec![];
+
+                while let Some(x) = seq.next_element()? {
+                    items.push(x);
+                }
+
+                Ok(JsonValue::Array(items))
+            }
+
+            fn visit_map<Map: MapAccess>(self, mut map: Map) -> Result<Self::Value, Error> {
+                let mut obj: OrderedMap<String, JsonValue> = OrderedMap::new();
+
+                while let Some((key, value)) = map.next_entry()? {
+                    obj.insert(key, value);
+                }
+
+                Ok(JsonValue::Object(obj))
+            }
         }
 
         deserializer.deserialize_any(ValueVisitor)

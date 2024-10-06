@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::common::serde::expected::Expected;
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialOrd)]
 pub enum Number {
     Float(f64),
     UInteger(u128),
@@ -118,6 +118,22 @@ impl Number {
             Number::UInteger(u) => Some(*u),
             Number::Integer(i) => (*i).try_into().ok(),
             Number::Float(f) => (*f as u128).try_into().ok(),
+        }
+    }
+}
+
+impl PartialEq for Number {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Float(a), Self::Float(b)) => a == b,
+            (Self::UInteger(a), Self::UInteger(b)) => a == b,
+            (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::Float(a), Self::UInteger(b)) => (*a).is_finite() && *a == *b as f64,
+            (Self::Float(a), Self::Integer(b)) => (*a).is_finite() && *a == *b as f64,
+            (Self::UInteger(a), Self::Float(b)) => *a as f64 == *b,
+            (Self::UInteger(a), Self::Integer(b)) => (*b >= 0) && *a == (*b as u128),
+            (Self::Integer(a), Self::UInteger(b)) => (*a >= 0) && (*a as u128) == *b,
+            (Self::Integer(a), Self::Float(b)) => (*a as f64) == *b
         }
     }
 }

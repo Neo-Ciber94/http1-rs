@@ -316,10 +316,7 @@ impl<R: Read> JsonDeserializer<R> {
                     b']' => {
                         break;
                     }
-                    bb => {
-                        let c = bb as char;
-                        dbg!(c);
-                    }
+                    _ => {}
                 },
                 None => break,
             }
@@ -345,7 +342,11 @@ impl<R: Read> JsonDeserializer<R> {
 
         loop {
             let key = self.parse_string()?;
+            
+            // Read separator
             self.read_until_byte(b':')?;
+            self.read_byte();
+
             let value = self.parse_json()?;
 
             map.insert(key, value);
@@ -877,12 +878,37 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn should_deserialize_object() {
-    //     let value = from_str::<JsonValue>(r#"{
-    //         "name: "Hibara",
-    //         "age": 23,
-    //         "
-    //     }"#).unwrap();
-    // }
+    #[test]
+    fn should_deserialize_object() {
+        let value = from_str::<JsonValue>(
+            r#"{
+            "name": "Yatora Yaguchi",
+            "age": 18,
+            "likes_art": true,
+            "friends": [
+                {
+                    "name": "Ryuji Ayukawa",
+                    "age": 18
+                },
+                {
+                    "name": "Maru Mori",
+                    "age": 21
+                }
+            ]
+        }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            value.select("name").unwrap(),
+            &JsonValue::from("Yatora Yaguchi")
+        );
+        assert_eq!(value.select("age").unwrap(), &JsonValue::from(18));
+        assert_eq!(value.select("likes_art").unwrap(), &JsonValue::from(true));
+        assert_eq!(
+            value.select("friends.0.name").unwrap(),
+            &JsonValue::from("Ryuji Ayukawa")
+        );
+        assert_eq!(value.select("friends.1.age").unwrap(), &JsonValue::from(21));
+    }
 }
