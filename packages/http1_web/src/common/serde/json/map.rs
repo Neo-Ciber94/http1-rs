@@ -62,7 +62,11 @@ where
     }
 
     /// Removes a key from the map, returning its value if it was present.
-    pub fn remove(&mut self, key: &K) -> Option<V> {
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        Q: Hash + Eq + ?Sized,
+        K: Borrow<Q>,
+    {
         match self.map.remove_entry(key) {
             Some((k, v)) => {
                 self.keys.retain(|x| x != &k);

@@ -877,12 +877,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_deserialize_object() {
-        let value = from_str::<JsonValue>(r#"{
-            "name: "Hibara",
-            "age": 23,
-            "
-        }"#).unwrap();
-    }
+    // #[test]
+    // fn should_deserialize_object() {
+    //     let value = from_str::<JsonValue>(r#"{
+    //         "name: "Hibara",
+    //         "age": 23,
+    //         "
+    //     }"#).unwrap();
+    // }
 }

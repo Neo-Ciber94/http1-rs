@@ -164,6 +164,61 @@ impl JsonValue {
         std::mem::take(self)
     }
 
+    pub fn get_element(self, path: &str) -> Option<JsonValue> {
+        if path.is_empty() || path == "$" {
+            return Some(self);
+        }
+
+        if path.starts_with("$") {
+            return self.get_element(&path[1..]);
+        }
+
+        if path.starts_with("[") {
+            let pos = path.find("]")?;
+            let sub_path = path.get(1..pos)?;
+            let rest = &path[pos..];
+
+            match self {
+                JsonValue::Array(mut vec) => {
+                    if sub_path == "*" {
+                        Some(JsonValue::Array(vec))
+                    } else {
+                        let index: usize = sub_path.parse().ok()?;
+
+                        if index > vec.len() {
+                            vec.remove(0).get_element(rest)
+                        } else {
+                            None
+                        }
+                    }
+                }
+                JsonValue::Object(mut map) => {
+                    if sub_path == "*" {
+                        Some(JsonValue::Object(map))
+                    } else {
+                        map.remove(sub_path)
+                    }
+                }
+                _ => unreachable!(),
+            }
+        } else {
+            match self {
+                JsonValue::Object(mut map) => {
+                    if path.contains(".") {
+                        let (sub_path, rest) = path.split_once(".")?;
+                        let value = map.remove(sub_path)?;
+                        value.get_element(rest)
+                    } else {
+                        map.remove(path)
+                    }
+                }
+                _ => None
+            }
+
+            
+        }
+    }
+
     /// Returns the string representation of the type of the `JsonValue` (e.g., "string", "array").
     pub(crate) fn variant(&self) -> &str {
         match self {
