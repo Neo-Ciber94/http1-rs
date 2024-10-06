@@ -49,8 +49,10 @@ impl<R: Read> JsonDeserializer<R> {
 
         let buf = &mut [0];
         match self.reader.read(buf) {
-            Ok(0) => None,
-            Ok(_) => Some(buf[0]),
+            Ok(n) => match n {
+                0 => None,
+                _ => Some(buf[0]),
+            },
             Err(_) => None,
         }
     }
@@ -98,10 +100,14 @@ impl<R: Read> JsonDeserializer<R> {
                 // We set the value we already have saved
                 buf[0] = b;
 
-                // And then fill the rest of the buffer
-                let chunk = &mut buf[1..];
-                let size = self.reader.read(chunk)?;
-                Ok(size + 1)
+                if buf.len() > 1 {
+                    // And then fill the rest of the buffer
+                    let chunk = &mut buf[1..];
+                    let size = self.reader.read(chunk)?;
+                    return Ok(size + 1);
+                }
+
+                Ok(1)
             }
         }
     }
@@ -171,7 +177,10 @@ impl<R: Read> JsonDeserializer<R> {
                 self.consume_rest()?;
                 Ok(())
             }
-            Ok(_) => Err(Error::custom("expected 'null'")),
+            Ok(n) => {
+                let s = String::from_utf8_lossy(&buf[..n]);
+                Err(Error::custom(format!("expected 'null' but was `{s}`")))
+            }
             Err(err) => Err(Error::error(err)),
         }
     }
@@ -196,7 +205,7 @@ impl<R: Read> JsonDeserializer<R> {
         let mut s = String::with_capacity(2);
 
         loop {
-            if self.peek().is_none() {
+            if self.peek().is_none() || self.peek().as_ref().is_some_and(u8::is_ascii_whitespace) {
                 break;
             }
 
@@ -284,25 +293,40 @@ impl<R: Read> JsonDeserializer<R> {
 
         // If is just an empty array, exit
         if self.read_until_next_non_whitespace() == Some(b']') {
+            self.read_byte();
+            self.consume_rest()?;
             return Ok(vec);
         }
 
         loop {
+            // Parse first element
             let item = self.parse_json()?;
             vec.push(item);
 
             match self.read_until_next_non_whitespace() {
-                Some(b',') => {
-                    self.read_byte(); // read next
-                }
-                Some(b']') => {
-                    break;
-                }
-                Some(_) => continue,
-                None => return Err(Error::custom("expected array element but was empty")),
+                Some(b) => match b {
+                    b',' => {
+                        self.read_byte(); // discard ','
+                        continue;
+                    }
+                    b']' => {
+                        println!("end");
+                        break;
+                    }
+                    bb => {
+                        let c = bb as char;
+                        dbg!(c);
+                    }
+                },
+                None => break,
             }
         }
 
+        // Ensure is ending with ']'
+        self.read_until_byte(b']')?;
+        self.read_byte();
+
+        // Consume rest
         self.depth -= 1;
         self.consume_rest()?;
 
@@ -732,7 +756,7 @@ mod tests {
 
         assert_eq!(
             from_str::<Vec<i32>>("[-5, 49, -10]").unwrap(),
-            vec![4, -23, 10]
+            vec![-5, 49, -10]
         );
     }
 }
