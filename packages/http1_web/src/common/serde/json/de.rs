@@ -14,6 +14,7 @@ use super::{
 pub struct JsonDeserializer<R> {
     reader: BufReader<R>,
     next: Option<u8>,
+    depth: usize,
 }
 
 impl JsonDeserializer<()> {
@@ -24,6 +25,7 @@ impl JsonDeserializer<()> {
         JsonDeserializer {
             reader: BufReader::new(reader),
             next: None,
+            depth: 0,
         }
     }
 }
@@ -54,18 +56,16 @@ impl<R: Read> JsonDeserializer<R> {
     }
 
     fn read_until_next_non_whitespace(&mut self) -> Option<u8> {
-        loop {
-            match self.peek() {
-                Some(b) => {
-                    if !b.is_ascii_whitespace() {
-                        return Some(b);
-                    }
-
-                    let _ = self.read_byte();
-                }
-                None => return None,
+        while let Some(b) = self.peek() {
+            if b.is_ascii_whitespace() {
+                self.read_byte();
+                continue;
             }
+
+            return Some(b);
         }
+
+        None
     }
 
     fn read_until_byte(&mut self, expected: u8) -> Result<u8, Error> {
@@ -106,17 +106,57 @@ impl<R: Read> JsonDeserializer<R> {
         }
     }
 
+    fn consume_rest(&mut self) -> Result<(), Error> {
+        // We only consume the rest at the top level
+        if self.depth > 0 {
+            return Ok(());
+        }
+
+        match self.next.take() {
+            Some(b) => {
+                if !b.is_ascii_whitespace() {
+                    return Err(Error::custom(format!(
+                        "expected only whitespace after end but found: `{}`",
+                        b as char
+                    )));
+                }
+            }
+            None => {}
+        }
+
+        let mut buffer = [0; 64]; // buffer to hold a single byte
+
+        loop {
+            let read_count = self.reader.read(&mut buffer).map_err(Error::error)?;
+
+            match read_count {
+                0 => break,
+                n => {
+                    let chunk = &buffer[..n];
+                    if !chunk.iter().all(u8::is_ascii_whitespace) {
+                        let s = String::from_utf8_lossy(chunk);
+                        return Err(Error::custom(format!(
+                            "expected only whitespace after end but found: `{s}`"
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn parse_json(&mut self) -> Result<JsonValue, Error> {
         match self.read_until_next_non_whitespace() {
             Some(b) => match b {
                 b't' | b'f' => self.parse_bool().map(JsonValue::Bool),
                 b'n' => self.parse_null().map(|_| JsonValue::Null),
-                b'-' | b'0'..b'9' => self.parse_number().map(JsonValue::Number),
+                b'0'..b'9' | b'-' | b'e' | b'.' => self.parse_number().map(JsonValue::Number),
                 b'"' => self.parse_string().map(JsonValue::String),
                 b'[' => self.parse_array().map(JsonValue::Array),
                 b'{' => self.parse_object().map(JsonValue::Object),
                 _ => Err(Error::custom(format!(
-                    "unexpected json token {}",
+                    "unexpected json token `{}`",
                     b as char,
                 ))),
             },
@@ -127,12 +167,11 @@ impl<R: Read> JsonDeserializer<R> {
     fn parse_null(&mut self) -> Result<(), Error> {
         let buf = &mut [0; 4];
         match self.read(buf) {
-            Ok(4) if buf == b"null" => Ok(()),
-            Ok(n) => {
-                let s = String::from_utf8_lossy(buf);
-                dbg!(n, s);
-                Err(Error::custom("expected 'null'"))
+            Ok(4) if buf == b"null" => {
+                self.consume_rest()?;
+                Ok(())
             }
+            Ok(_) => Err(Error::custom("expected 'null'")),
             Err(err) => Err(Error::error(err)),
         }
     }
@@ -140,8 +179,14 @@ impl<R: Read> JsonDeserializer<R> {
     fn parse_bool(&mut self) -> Result<bool, Error> {
         let buf = &mut [0; 5];
         match self.read(buf) {
-            Ok(4) if &buf[..4] == b"true" => Ok(true),
-            Ok(5) if &buf[..5] == b"false" => Ok(false),
+            Ok(4) if &buf[..4] == b"true" => {
+                self.consume_rest()?;
+                Ok(true)
+            }
+            Ok(5) if &buf[..5] == b"false" => {
+                self.consume_rest()?;
+                Ok(false)
+            }
             Ok(_) => Err(Error::custom("expected 'boolean'")),
             Err(err) => Err(Error::error(err)),
         }
@@ -172,6 +217,8 @@ impl<R: Read> JsonDeserializer<R> {
                 },
             }
         }
+
+        self.consume_rest()?;
 
         if s.contains(".") || s.contains("e") {
             let f: f64 = s.parse().map_err(Error::error)?;
@@ -223,14 +270,22 @@ impl<R: Read> JsonDeserializer<R> {
             }
         }
 
+        self.consume_rest()?;
+
         Ok(s)
     }
 
     fn parse_array(&mut self) -> Result<Vec<JsonValue>, Error> {
         self.read_until_byte(b'[')?;
         self.read_byte(); // discard the `[`
+        self.depth += 1;
 
         let mut vec = vec![];
+
+        // If is just an empty array, exit
+        if self.read_until_next_non_whitespace() == Some(b']') {
+            return Ok(vec);
+        }
 
         loop {
             let item = self.parse_json()?;
@@ -241,18 +296,15 @@ impl<R: Read> JsonDeserializer<R> {
                     self.read_byte(); // read next
                 }
                 Some(b']') => {
-                    self.read_byte(); // end
                     break;
                 }
-                Some(b) => {
-                    return Err(Error::custom(format!(
-                        "invalid array element token {}",
-                        b as char
-                    )))
-                }
+                Some(_) => continue,
                 None => return Err(Error::custom("expected array element but was empty")),
             }
         }
+
+        self.depth -= 1;
+        self.consume_rest()?;
 
         Ok(vec)
     }
@@ -261,6 +313,7 @@ impl<R: Read> JsonDeserializer<R> {
         self.read_until_byte(b'{')?;
         self.read_byte(); // discard the `{`
 
+        self.depth += 1;
         let mut map = OrderedMap::new();
 
         loop {
@@ -287,6 +340,9 @@ impl<R: Read> JsonDeserializer<R> {
                 None => return Err(Error::custom("expected object element but was empty")),
             }
         }
+
+        self.depth -= 1;
+        self.consume_rest()?;
 
         Ok(map)
     }
@@ -651,5 +707,32 @@ mod tests {
         // Numbers using exponents (negative)
         assert_eq!(from_str::<f64>("-4.56e9").unwrap(), -4.56e9); // -4,560,000,000
         assert_eq!(from_str::<f64>("-9.87e-6").unwrap(), -9.87e-6); // -0.00000987
+    }
+
+    #[test]
+    fn should_deserialize_string() {
+        assert_eq!(
+            from_str::<String>("\"Hello World!\"").unwrap(),
+            String::from("Hello World!")
+        );
+    }
+
+    #[test]
+    fn should_deserialize_array() {
+        // Empty array
+        assert_eq!(from_str::<Vec<char>>("[]").unwrap(), vec![]);
+        assert_eq!(from_str::<Vec<char>>("[ ]").unwrap(), vec![]);
+        assert_eq!(from_str::<Vec<char>>(" [] ").unwrap(), vec![]);
+
+        // Array of numbers
+        assert_eq!(
+            from_str::<Vec<i32>>("[4,-23,10]").unwrap(),
+            vec![4, -23, 10]
+        );
+
+        assert_eq!(
+            from_str::<Vec<i32>>("[-5, 49, -10]").unwrap(),
+            vec![4, -23, 10]
+        );
     }
 }
