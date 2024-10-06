@@ -60,7 +60,7 @@ pub trait Visitor: Sized {
     }
 
     fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
-        return Err(Error::Unexpected(super::de::Unexpected::Float(value)));
+        Err(Error::Unexpected(super::de::Unexpected::Float(value)))
     }
 
     fn visit_char(self, value: char) -> Result<Self::Value, Error> {

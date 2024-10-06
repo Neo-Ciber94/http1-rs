@@ -278,7 +278,7 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
 }
 
 fn map_key_error() -> JsonSerializationError {
-    JsonSerializationError::Other(format!("Keys can only be serialized to string"))
+    JsonSerializationError::Other("Keys can only be serialized to string".into())
 }
 
 #[cfg(test)]

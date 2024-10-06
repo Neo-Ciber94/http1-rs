@@ -301,9 +301,9 @@ impl MapSerializer for JsonObjectSerializer {
         let v = value.serialize(JsonValueSerializer)?;
 
         let JsonValue::String(s) = k else {
-            return Err(JsonSerializationError::Other(format!(
-                "json object keys should be strings"
-            )));
+            return Err(JsonSerializationError::Other(
+                "json object keys should be strings".into(),
+            ));
         };
 
         self.0.insert(s, v);

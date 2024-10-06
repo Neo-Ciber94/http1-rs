@@ -15,6 +15,7 @@ where
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct BoxedMiddleware(
     Box<dyn Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static>,
 );

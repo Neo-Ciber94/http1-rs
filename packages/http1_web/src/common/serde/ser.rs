@@ -113,7 +113,7 @@ pub trait Serializer: Sized {
     }
 
     fn serialize_vec<T: Serialize>(self, value: &Vec<T>) -> Result<Self::Ok, Self::Err> {
-        self.serialize_slice(&value)
+        self.serialize_slice(value)
     }
 
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err>;

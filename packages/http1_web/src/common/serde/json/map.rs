@@ -65,9 +65,9 @@ where
 
     /// Returns an iterator over the key-value pairs in insertion order.
     pub fn into_iter(mut self) -> impl Iterator<Item = (K, V)> {
-        self.keys.into_iter().filter_map(move |k| {
+        self.keys.into_iter().map(move |k| {
             let v = self.map.remove(&k).expect("missing value for key");
-            Some((k, v))
+            (k, v)
         })
     }
 }

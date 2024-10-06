@@ -173,6 +173,8 @@ impl Display for Cookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes
         pub struct ModifiedUsAscii;
+        
+        #[allow(clippy::match_like_matches_macro)]
         impl Alphabet for ModifiedUsAscii {
             fn contains(&self, value: u8) -> bool {
                 match value {
