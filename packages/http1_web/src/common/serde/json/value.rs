@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::common::serde::{
     de::{Deserialize, Deserializer, Error},
     expected::Expected,
@@ -73,6 +75,106 @@ impl JsonValue {
             JsonValue::Object(map) => Some(map),
             _ => None,
         }
+    }
+}
+
+impl From<String> for JsonValue {
+    fn from(value: String) -> Self {
+        JsonValue::String(value)
+    }
+}
+
+impl From<bool> for JsonValue {
+    fn from(value: bool) -> Self {
+        JsonValue::Bool(value)
+    }
+}
+
+impl From<u8> for JsonValue {
+    fn from(value: u8) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<u16> for JsonValue {
+    fn from(value: u16) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<u32> for JsonValue {
+    fn from(value: u32) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<u64> for JsonValue {
+    fn from(value: u64) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<u128> for JsonValue {
+    fn from(value: u128) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<i8> for JsonValue {
+    fn from(value: i8) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<i16> for JsonValue {
+    fn from(value: i16) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<i32> for JsonValue {
+    fn from(value: i32) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<i64> for JsonValue {
+    fn from(value: i64) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<i128> for JsonValue {
+    fn from(value: i128) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl<T: Into<JsonValue>> From<Vec<T>> for JsonValue {
+    fn from(value: Vec<T>) -> Self {
+        let arr = value.into_iter().map(|x| x.into()).collect::<Vec<_>>();
+        JsonValue::Array(arr)
+    }
+}
+
+impl<T: Into<JsonValue>> From<Option<T>> for JsonValue {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(x) => x.into(),
+            None => JsonValue::Null,
+        }
+    }
+}
+
+impl<V: Into<JsonValue>> From<HashMap<String, V>> for JsonValue {
+    fn from(value: HashMap<String, V>) -> Self {
+        let mut map = OrderedMap::new();
+
+        for (k, v) in value {
+            map.insert(k, v.into());
+        }
+
+        JsonValue::Object(map)
     }
 }
 
@@ -469,13 +571,14 @@ impl Deserializer for JsonValue {
             JsonValue::Null => visitor.visit_none(),
         }
     }
-    
+
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
     where
-        V: Visitor {
+        V: Visitor,
+    {
         match self {
             JsonValue::Null => visitor.visit_none(),
-            s => s.deserialize_any(visitor)
+            s => s.deserialize_any(visitor),
         }
     }
 }
