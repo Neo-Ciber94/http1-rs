@@ -1,9 +1,11 @@
-use std::io::Write;
+use std::{fmt::Display, io::Write};
 
 use super::number::Number;
 
 pub trait Formatter<W: Write> {
-    fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>;
+    fn write_number<N>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>
+    where
+        N: Into<Number> + Display;
     fn write_bool(&mut self, writer: &mut W, value: bool) -> std::io::Result<()>;
     fn write_str(&mut self, writer: &mut W, value: &str) -> std::io::Result<()>;
     fn write_null(&mut self, writer: &mut W) -> std::io::Result<()>;
@@ -23,21 +25,12 @@ pub trait Formatter<W: Write> {
 
 pub struct CompactFormatter;
 impl<W: Write> Formatter<W> for CompactFormatter {
-    fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()> {
-        match value.into() {
-            Number::Float(f) => {
-                let s = f.to_string();
-                writer.write_all(s.as_bytes())
-            }
-            Number::Integer(i) => {
-                let s = i.to_string();
-                writer.write_all(s.as_bytes())
-            }
-            Number::UInteger(u) => {
-                let s = u.to_string();
-                writer.write_all(s.as_bytes())
-            }
-        }
+    fn write_number<N>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>
+    where
+        N: Into<Number> + Display,
+    {
+        let s = value.to_string();
+        writer.write_all(s.as_bytes())
     }
 
     fn write_bool(&mut self, writer: &mut W, value: bool) -> std::io::Result<()> {
@@ -138,7 +131,10 @@ where
     W: Write,
     F: Formatter<W>,
 {
-    fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()> {
+    fn write_number<N>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>
+    where
+        N: Into<Number> + Display,
+    {
         (**self).write_number(writer, value)
     }
 
@@ -199,21 +195,12 @@ impl<W> Formatter<W> for PrettyFormatter
 where
     W: Write,
 {
-    fn write_number<N: Into<Number>>(&mut self, writer: &mut W, value: N) -> std::io::Result<()> {
-        match value.into() {
-            Number::Float(f) => {
-                let s = f.to_string();
-                writer.write_all(s.as_bytes())
-            }
-            Number::Integer(i) => {
-                let s = i.to_string();
-                writer.write_all(s.as_bytes())
-            }
-            Number::UInteger(u) => {
-                let s = u.to_string();
-                writer.write_all(s.as_bytes())
-            }
-        }
+    fn write_number<N>(&mut self, writer: &mut W, value: N) -> std::io::Result<()>
+    where
+        N: Into<Number> + Display,
+    {
+        let s = value.to_string();
+        writer.write_all(s.as_bytes())
     }
 
     fn write_bool(&mut self, writer: &mut W, value: bool) -> std::io::Result<()> {
