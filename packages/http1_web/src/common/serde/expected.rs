@@ -38,12 +38,16 @@ impl<T> Expected for Vec<T> {
 }
 
 pub struct TypeMismatchError {
-    this: Box<dyn Expected>,
+    this: Box<dyn Expected + Send + Sync + 'static>,
     expected: String,
 }
 
 impl TypeMismatchError {
-    pub fn new(this: impl Expected + 'static, expected: impl Into<String>) -> Self {
+    pub fn new<E, I>(this: E, expected: I) -> Self
+    where
+        E: Expected + Send + Sync + 'static,
+        I: Into<String>,
+    {
         TypeMismatchError {
             this: Box::new(this),
             expected: expected.into(),

@@ -342,7 +342,7 @@ impl<R: Read> JsonDeserializer<R> {
 
         loop {
             let key = self.parse_string()?;
-            
+
             // Read separator
             self.read_until_byte(b':')?;
             self.read_byte();
@@ -605,7 +605,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
     }
 }
 
-fn type_mismatch_error<T>(this: impl Expected + 'static) -> Error
+fn type_mismatch_error<T>(this: impl Expected + Send + Sync + 'static) -> Error
 where
     T: 'static,
 {

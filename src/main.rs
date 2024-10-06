@@ -2,8 +2,10 @@ use http1::{
     body::Body, headers, request::Request, response::Response, runtime::ThreadPooledRuntime,
     server::Server, status::StatusCode, uri::uri::Uri,
 };
-use http1_web::{app::App, handler::BoxedHandler};
-use std::fs::File;
+use http1_web::{
+    app::App, common::serde::json::value::JsonValue, handler::BoxedHandler, json::Json,
+};
+use std::{collections::HashMap, fs::File};
 
 fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:5000".parse().unwrap();
@@ -22,6 +24,12 @@ fn main() -> std::io::Result<()> {
                 .insert_header(headers::CONTENT_TYPE, "image/jpg")
                 .status(StatusCode::OK)
                 .build(Body::new(file))
+        })
+        .get("/json", |json: Json<HashMap<String, JsonValue>>| {
+            println!("{:?}", json);
+            Json(http1_web::json!({
+                hello: "world"
+            }))
         });
 
     server

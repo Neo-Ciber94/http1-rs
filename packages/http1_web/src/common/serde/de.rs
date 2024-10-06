@@ -28,7 +28,7 @@ impl Error {
 
     pub fn mismatch<T>(this: T, expected: impl Into<String>) -> Self
     where
-        T: Expected + 'static,
+        T: Expected + Send + Sync + 'static,
     {
         Error::Mismatch(TypeMismatchError::new(this, expected))
     }
@@ -44,6 +44,8 @@ impl Display for Error {
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 #[derive(Debug, PartialEq)]
 pub enum Unexpected {
