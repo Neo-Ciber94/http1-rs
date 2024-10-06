@@ -233,6 +233,10 @@ impl JsonValue {
 /// Helper for creating `JsonValue`
 #[macro_export]
 macro_rules! json {
+    () => {
+        JsonValue::Object(Default::default())
+    };
+
     (null) =>  {
         JsonValue::Null
     };
@@ -449,6 +453,18 @@ impl From<i64> for JsonValue {
 
 impl From<i128> for JsonValue {
     fn from(value: i128) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<f32> for JsonValue {
+    fn from(value: f32) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<f64> for JsonValue {
+    fn from(value: f64) -> Self {
         JsonValue::Number(Number::from(value))
     }
 }
@@ -1029,5 +1045,53 @@ impl Expected for JsonValue {
 
 #[cfg(test)]
 mod tests {
-    
+    use crate::common::serde::json::{map::OrderedMap, value::JsonValue};
+
+    #[test]
+    fn should_build_json_using_macro() {
+        // null
+        assert_eq!(json! { null }, JsonValue::Null);
+
+        // number
+        assert_eq!(json! { 23 }, JsonValue::from(23));
+
+        // boolean
+        assert_eq!(json! { true }, JsonValue::from(true));
+
+        // string
+        assert_eq!(json! { "Pineapple" }, JsonValue::from("Pineapple"));
+
+        // array
+        assert_eq!(
+            json! { [0.5f32, true, "Makoto"] },
+            JsonValue::Array(vec![
+                JsonValue::from(0.5f32),
+                JsonValue::from(true),
+                JsonValue::from("Makoto")
+            ])
+        );
+
+        // empty object
+        assert_eq!(json!(), JsonValue::Object(Default::default()));
+
+        // object
+        let mut map = OrderedMap::default();
+        map.insert(String::from("name"), JsonValue::from("Makoto Hanaoka"));
+        map.insert(String::from("age"), JsonValue::from(17));
+        map.insert(String::from("in_love"), JsonValue::from(true));
+        map.insert(
+            String::from("friends"),
+            JsonValue::from([JsonValue::from("Ryuji Taiga"), JsonValue::from("Saki Aoi")]),
+        );
+
+        assert_eq!(
+            json! { {
+                name: "Makoto Hanaoka",
+                age: 17,
+                in_love: true,
+                friends: ["Ryuji Taiga", "Saki Aoi"]
+            }},
+            JsonValue::Object(map)
+        )
+    }
 }
