@@ -762,5 +762,15 @@ mod tests {
             from_str::<Vec<i32>>("[-5, 49, -10]").unwrap(),
             vec![-5, 49, -10]
         );
+
+        // Array of strings
+        assert_eq!(
+            from_str::<Vec<String>>(r#"["five", "red", "apple"]"#).unwrap(),
+            vec![
+                String::from("five"),
+                String::from("red"),
+                String::from("apple")
+            ]
+        );
     }
 }
