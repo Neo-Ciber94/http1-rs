@@ -18,8 +18,7 @@ impl BoxedHandler {
         BoxedHandler(Box::new(move |req| match Args::from_request(req) {
             Ok(args) => {
                 let result = handler.call(args);
-                let res = result.into_response();
-                res
+                result.into_response()
             }
             Err(err) => {
                 eprintln!("{err}");

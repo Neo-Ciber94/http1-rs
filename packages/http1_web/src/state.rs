@@ -36,6 +36,6 @@ impl<T: 'static> FromRequestRef for State<T> {
         req.extensions()
             .get::<State<T>>()
             .cloned()
-            .ok_or_else(|| format!("failed to get app State<T>").into())
+            .ok_or_else(|| "failed to get app State<T>".into())
     }
 }

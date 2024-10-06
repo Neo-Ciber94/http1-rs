@@ -36,6 +36,12 @@ impl<'a> App<'a, ()> {
     }
 }
 
+impl Default for App<'_, ()> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, T> App<'a, T> {
     pub fn middleware<M>(mut self, handler: M) -> Self
     where

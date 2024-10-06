@@ -157,7 +157,7 @@ impl<R: Read> JsonDeserializer<R> {
             Some(b) => match b {
                 b't' | b'f' => self.parse_bool().map(JsonValue::Bool),
                 b'n' => self.parse_null().map(|_| JsonValue::Null),
-                b'0'..b'9' | b'-' | b'e' | b'.' => self.parse_number().map(JsonValue::Number),
+                b'0'..=b'9' | b'-' | b'e' | b'.' => self.parse_number().map(JsonValue::Number),
                 b'"' => self.parse_string().map(JsonValue::String),
                 b'[' => self.parse_array().map(JsonValue::Array),
                 b'{' => self.parse_object().map(JsonValue::Object),

@@ -50,7 +50,7 @@ impl FromRequestRef for Params {
         req.extensions()
             .get::<Params>()
             .cloned()
-            .ok_or_else(|| format!("Failed to get params").into())
+            .ok_or_else(|| "Failed to get params".into())
     }
 }
 
@@ -65,7 +65,7 @@ impl FromRequestRef for Scheme {
         req.uri()
             .scheme()
             .cloned()
-            .ok_or_else(|| format!("Failed to get uri scheme").into())
+            .ok_or_else(|| "Failed to get uri scheme".into())
     }
 }
 
@@ -74,7 +74,7 @@ impl FromRequestRef for Authority {
         req.uri()
             .authority()
             .cloned()
-            .ok_or_else(|| format!("Failed to get uri authority").into())
+            .ok_or_else(|| "Failed to get uri authority".into())
     }
 }
 
@@ -86,7 +86,7 @@ impl FromRequestRef for Headers {
 
 impl FromRequestRef for Version {
     fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
-        Ok(req.version().clone())
+        Ok(*req.version())
     }
 }
 

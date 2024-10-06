@@ -115,13 +115,19 @@ impl PrettyFormatter {
     }
 }
 
+impl Default for PrettyFormatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrettyFormatter {
     fn write_indented<W: Write>(&mut self, w: &mut W, value: &[u8]) -> std::io::Result<()> {
         for _ in 0..self.level {
-            w.write(&self.indent)?;
+            w.write_all(&self.indent)?;
         }
 
-        w.write(value)?;
+        w.write_all(value)?;
         Ok(())
     }
 }
