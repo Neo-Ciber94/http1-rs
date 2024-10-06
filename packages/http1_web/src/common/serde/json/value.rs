@@ -164,56 +164,150 @@ impl JsonValue {
         std::mem::take(self)
     }
 
-    pub fn get_element(self, path: &str) -> Option<JsonValue> {
-        if path.is_empty() || path == "$" {
+    /// Selects a nested `JsonValue` based on a dot-separated path.
+    ///
+    /// The path can specify nested fields or indices using dot-separated components.
+    /// For example:
+    /// - `"students.0.name"` will access the name of the first student in an array.
+    /// - `"skills.2"` will access the third skill in the skills array.
+    ///
+    /// # Parameters
+    /// - `path`: A dot-separated string representing the nested path to traverse. If the path is empty or `"."`, the method returns the current value.
+    ///
+    /// # Returns
+    /// - `Some(&JsonValue)` if the path is valid and the corresponding value exists.
+    /// - `None` if the path is invalid or the value does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use http1_web::json;
+    ///
+    /// let jjk = json!({
+    ///     name: "Satoru Gojo",
+    ///     age: 28,
+    ///     is_active: true,
+    ///     skills: [
+    ///         "Infinity",
+    ///         "Limitless",
+    ///         "Domain Expansion: Unlimited Void"
+    ///     ],
+    ///     students: [
+    ///         json!({
+    ///             name: "Yuji Itadori",
+    ///             age: 15
+    ///         }),
+    ///         json!({
+    ///             name: "Megumi Fushiguro",
+    ///             age: 16
+    ///         })
+    ///     ]
+    /// });
+    ///
+    /// assert_eq!(jjk.select("students.0.name"), Some(&json!("Yuji Itadori")));
+    /// assert_eq!(jjk.select("skills.2"), Some(&json!("Domain Expansion: Unlimited Void")));
+    /// assert_eq!(jjk.select("age"), Some(&json!(28)));
+    /// assert_eq!(jjk.select("students.1.age"), Some(&json!(16)));
+    /// ```
+    pub fn select(&self, path: &str) -> Option<&JsonValue> {
+        if path.is_empty() || path == "." {
             return Some(self);
         }
 
-        if path.starts_with("$") {
-            return self.get_element(&path[1..]);
+        match path.split_once(".") {
+            None => match self {
+                JsonValue::Array(vec) => {
+                    let index: usize = path.parse().ok()?;
+                    vec.get(index)
+                }
+                JsonValue::Object(map) => map.get(path),
+                _ => None,
+            },
+            Some((sub_path, rest)) => match self {
+                JsonValue::Array(vec) => {
+                    let index: usize = sub_path.parse().ok()?;
+                    vec.get(index).and_then(|v| v.select(rest))
+                }
+                JsonValue::Object(map) => map.get(sub_path).and_then(|v| v.select(rest)),
+                _ => None,
+            },
+        }
+    }
+
+    /// Selects a mutable reference to a nested `JsonValue` based on a dot-separated path.
+    ///
+    /// The path can specify nested fields or indices using dot-separated components.
+    /// For example:
+    /// - `"students.0.name"` will access the name of the first student in an array.
+    /// - `"skills.2"` will access the third skill in the skills array.
+    ///
+    /// # Parameters
+    /// - `path`: A dot-separated string representing the nested path to traverse. If the path is empty or `"."`, the method returns the current value.
+    ///
+    /// # Returns
+    /// - `Some(&mut JsonValue)` if the path is valid and the corresponding value exists.
+    /// - `None` if the path is invalid or the value does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use http1_web::json;
+    
+    /// let mut jjk = json!({
+    ///     name: "Satoru Gojo",
+    ///     age: 28,
+    ///     is_active: true,
+    ///     skills: [
+    ///         "Infinity",
+    ///         "Limitless",
+    ///         "Domain Expansion: Unlimited Void"
+    ///     ],
+    ///     students: [
+    ///         json!({
+    ///             name: "Yuji Itadori",
+    ///             age: 15
+    ///         }),
+    ///         json!({
+    ///             name: "Megumi Fushiguro",
+    ///             age: 16
+    ///         })
+    ///     ]
+    /// });
+    ///
+    /// if let Some(age) = jjk.select_mut("age") {
+    ///     *age = json!(29);
+    /// }
+    ///
+    /// assert_eq!(jjk.select("age"), Some(&json!(29)));
+    ///
+    /// if let Some(name) = jjk.select_mut("students.0.name") {
+    ///     *name = json!("Yuji Itadori (updated)");
+    /// }
+    ///
+    /// assert_eq!(jjk.select("students.0.name"), Some(&json!("Yuji Itadori (updated)")));
+    /// ```
+    pub fn select_mut(&mut self, path: &str) -> Option<&mut JsonValue> {
+        if path.is_empty() || path == "." {
+            return Some(self);
         }
 
-        if path.starts_with("[") {
-            let pos = path.find("]")?;
-            let sub_path = path.get(1..pos)?;
-            let rest = &path[pos..];
-
-            match self {
-                JsonValue::Array(mut vec) => {
-                    if sub_path == "*" {
-                        Some(JsonValue::Array(vec))
-                    } else {
-                        let index: usize = sub_path.parse().ok()?;
-
-                        if index > vec.len() {
-                            vec.remove(0).get_element(rest)
-                        } else {
-                            None
-                        }
-                    }
+        match path.split_once(".") {
+            None => match self {
+                JsonValue::Array(vec) => {
+                    let index: usize = path.parse().ok()?;
+                    vec.get_mut(index)
                 }
-                JsonValue::Object(mut map) => {
-                    if sub_path == "*" {
-                        Some(JsonValue::Object(map))
-                    } else {
-                        map.remove(sub_path)
-                    }
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            match self {
-                JsonValue::Object(mut map) => {
-                    if path.contains(".") {
-                        let (sub_path, rest) = path.split_once(".")?;
-                        let value = map.remove(sub_path)?;
-                        value.get_element(rest)
-                    } else {
-                        map.remove(path)
-                    }
-                }
+                JsonValue::Object(map) => map.get_mut(path),
                 _ => None,
-            }
+            },
+            Some((sub_path, rest)) => match self {
+                JsonValue::Array(vec) => {
+                    let index: usize = sub_path.parse().ok()?;
+                    vec.get_mut(index).and_then(|v| v.select_mut(rest))
+                }
+                JsonValue::Object(map) => map.get_mut(sub_path).and_then(|v| v.select_mut(rest)),
+                _ => None,
+            },
         }
     }
 
@@ -234,20 +328,20 @@ impl JsonValue {
 #[macro_export]
 macro_rules! json {
     () => {
-        JsonValue::Object(Default::default())
+        $crate::common::serde::json::value::JsonValue::Object(Default::default())
     };
 
     (null) =>  {
-        JsonValue::Null
+        $crate::common::serde::json::value::JsonValue::Null
     };
 
     ($value:literal) => {
-        JsonValue::from($value)
+        $crate::common::serde::json::value::JsonValue::from($value)
     };
 
     ([$($item:expr),* $(,)?]) => {
         {
-            JsonValue::Array(vec![
+            $crate::common::serde::json::value::JsonValue::Array(vec![
                 $(
                     json!($item)
                 ),*
@@ -258,12 +352,12 @@ macro_rules! json {
     ({ $($key:ident : $value:expr),* $(,)?}) => {
         {
             #[allow(unused_mut)]
-           let mut map = OrderedMap::<String, JsonValue>::new();
+           let mut map = $crate::common::serde::json::map::OrderedMap::<String, $crate::common::serde::json::value::JsonValue>::new();
            $(
-                map.insert({ stringify!($key) }.into(), JsonValue::from($value));
+                map.insert({ stringify!($key) }.into(), $crate::common::serde::json::value::JsonValue::from($value));
            )*
 
-           JsonValue::Object(map)
+           $crate::common::serde::json::value::JsonValue::Object(map)
         }
     }
 }
@@ -1093,5 +1187,71 @@ mod tests {
             }},
             JsonValue::Object(map)
         )
+    }
+
+    #[test]
+    fn should_select_json_value() {
+        let jjk = json!({
+            name: "Satoru Gojo",
+            age: 28,
+            is_active: true,
+            skills: [
+                "Infinity",
+                "Limitless",
+                "Domain Expansion: Unlimited Void"
+            ],
+            students: [
+                json!({
+                    name: "Yuji Itadori",
+                    age: 15,
+                }),
+                json!({
+                    name: "Megumi Fushiguro",
+                    age: 16
+                })
+            ]
+        });
+
+        // Select first
+        assert_eq!(jjk.select("name").unwrap(), &JsonValue::from("Satoru Gojo"));
+        assert_eq!(jjk.select("age").unwrap(), &JsonValue::from(28));
+        assert_eq!(jjk.select("is_active").unwrap(), &JsonValue::from(true));
+        assert_eq!(
+            jjk.select("skills").unwrap(),
+            &JsonValue::from(vec![
+                JsonValue::from("Infinity"),
+                JsonValue::from("Limitless"),
+                JsonValue::from("Domain Expansion: Unlimited Void"),
+            ])
+        );
+
+        // Select array item
+        assert_eq!(
+            jjk.select("skills.0").unwrap(),
+            &JsonValue::from("Infinity")
+        );
+        assert_eq!(
+            jjk.select("skills.1").unwrap(),
+            &JsonValue::from("Limitless")
+        );
+        assert_eq!(
+            jjk.select("skills.2").unwrap(),
+            &JsonValue::from("Domain Expansion: Unlimited Void")
+        );
+
+        assert_eq!(jjk.select("skills.6"), None);
+
+        // Select array object
+        assert_eq!(
+            jjk.select("students.0.name").unwrap(),
+            &JsonValue::from("Yuji Itadori")
+        );
+        assert_eq!(jjk.select("students.0.age").unwrap(), &JsonValue::from(15));
+
+        assert_eq!(
+            jjk.select("students.1.name").unwrap(),
+            &JsonValue::from("Megumi Fushiguro")
+        );
+        assert_eq!(jjk.select("students.1.age").unwrap(), &JsonValue::from(16));
     }
 }
