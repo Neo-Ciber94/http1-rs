@@ -69,9 +69,7 @@ pub trait Serializer: Sized {
 
     fn serialize_u128(self, value: u128) -> Result<Self::Ok, Self::Err>;
 
-    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Err> {
-        self.serialize_f64(value.into())
-    }
+    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Err>;
 
     fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Err>;
 

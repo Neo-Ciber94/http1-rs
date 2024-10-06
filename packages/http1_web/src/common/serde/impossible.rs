@@ -30,6 +30,10 @@ where
         match self.void {}
     }
 
+    fn serialize_f32(self, _value: f32) -> Result<Self::Ok, Self::Err> {
+        match self.void {}
+    }
+
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Err> {
         match self.void {}
     }
@@ -53,7 +57,7 @@ where
     fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
         match self.void {}
     }
-    
+
     fn serialize_slice<T: Serialize>(self, _value: &[T]) -> Result<Self::Ok, Self::Err> {
         match self.void {}
     }

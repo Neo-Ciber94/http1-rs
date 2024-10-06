@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::common::serde::{
     de::{Deserialize, Deserializer, Error},
     expected::Expected,
-    impossible::Impossible,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
     visitor::{MapAccess, SeqAccess, Visitor},
 };
@@ -225,8 +224,8 @@ pub struct JsonValueSerializer;
 impl Serializer for JsonValueSerializer {
     type Ok = JsonValue;
     type Err = JsonSerializationError;
-    type Seq = Impossible<JsonValue, JsonSerializationError>;
-    type Map = Impossible<JsonValue, JsonSerializationError>;
+    type Seq = JsonArraySerializer;
+    type Map = JsonObjectSerializer;
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
         Ok(JsonValue::Null)
@@ -237,6 +236,10 @@ impl Serializer for JsonValueSerializer {
     }
 
     fn serialize_u128(self, value: u128) -> Result<Self::Ok, Self::Err> {
+        Ok(JsonValue::Number(Number::from(value)))
+    }
+
+    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Err> {
         Ok(JsonValue::Number(Number::from(value)))
     }
 
@@ -257,14 +260,15 @@ impl Serializer for JsonValueSerializer {
     }
 
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
-        todo!()
+        Ok(Default::default())
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
-        todo!()
+        Ok(Default::default())
     }
 }
 
+#[derive(Default)]
 pub struct JsonArraySerializer(Vec<JsonValue>);
 impl SequenceSerializer for JsonArraySerializer {
     type Ok = JsonValue;
@@ -282,6 +286,7 @@ impl SequenceSerializer for JsonArraySerializer {
     }
 }
 
+#[derive(Default)]
 pub struct JsonObjectSerializer(OrderedMap<String, JsonValue>);
 impl MapSerializer for JsonObjectSerializer {
     type Ok = JsonValue;

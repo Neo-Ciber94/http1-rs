@@ -66,6 +66,11 @@ where
         Ok(())
     }
 
+    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Err> {
+        self.formatter.write_number(&mut self.writer, value)?;
+        Ok(())
+    }
+
     fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_number(&mut self.writer, value)?;
         Ok(())
@@ -266,6 +271,10 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
     fn serialize_slice<T: Serialize>(self, _value: &[T]) -> Result<Self::Ok, Self::Err> {
         Err(map_key_error())
     }
+
+    fn serialize_f32(self, _: f32) -> Result<Self::Ok, Self::Err> {
+        Err(map_key_error())
+    }
 }
 
 fn map_key_error() -> JsonSerializationError {
@@ -316,6 +325,95 @@ mod tests {
         assert_eq!(
             to_pretty_string(&array).unwrap(),
             "[\n  1.23,\n  true,\n  \"Test\"\n]"
+        );
+    }
+
+    #[test]
+    fn should_serialize_tuple() {
+        // Arity 1 tuple
+        assert_eq!(to_string(&(true,)).unwrap(), "[true]");
+
+        // Arity 2 tuple
+        assert_eq!(to_string(&(true, -12)).unwrap(), "[true,-12]");
+
+        // Arity 3 tuple
+        assert_eq!(
+            to_string(&(true, -12, String::from("hello"))).unwrap(),
+            "[true,-12,\"hello\"]"
+        );
+
+        // Arity 4 tuple
+        assert_eq!(
+            to_string(&(true, -12, String::from("hello"), 3.14)).unwrap(),
+            "[true,-12,\"hello\",3.14]"
+        );
+        // Arity 5 tuple
+        assert_eq!(
+            to_string(&(true, -12, String::from("hello"), 3.14, 42u8)).unwrap(),
+            "[true,-12,\"hello\",3.14,42]"
+        );
+
+        // Arity 6 tuple
+        assert_eq!(
+            to_string(&(true, -12, String::from("hello"), 3.14, 42u8, 'a')).unwrap(),
+            "[true,-12,\"hello\",3.14,42,\"a\"]"
+        );
+
+        // Arity 7 tuple
+        assert_eq!(
+            to_string(&(true, -12, String::from("hello"), 3.14, 42u8, 'a', false)).unwrap(),
+            "[true,-12,\"hello\",3.14,42,\"a\",false]"
+        );
+
+        // Arity 8 tuple
+        assert_eq!(
+            to_string(&(
+                true,
+                -12,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                false,
+                0.01f32
+            ))
+            .unwrap(),
+            "[true,-12,\"hello\",3.14,42,\"a\",false,0.01]"
+        );
+
+        // Arity 9 tuple
+        assert_eq!(
+            to_string(&(
+                true,
+                -12,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                false,
+                0.1f32,
+                99i64
+            ))
+            .unwrap(),
+            "[true,-12,\"hello\",3.14,42,\"a\",false,0.1,99]"
+        );
+
+        // Arity 10 tuple
+        assert_eq!(
+            to_string(&(
+                true,
+                -12,
+                String::from("hello"),
+                3.14,
+                42u8,
+                'a',
+                false,
+                0.1f32,
+                99i64,
+                255u16
+            ))
+            .unwrap(),
+            "[true,-12,\"hello\",3.14,42,\"a\",false,0.1,99,255]"
         );
     }
 

@@ -71,3 +71,12 @@ where
         })
     }
 }
+
+impl<K, V> Default for OrderedMap<K, V> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            keys: Default::default(),
+        }
+    }
+}
