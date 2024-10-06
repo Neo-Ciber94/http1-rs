@@ -212,10 +212,8 @@ impl JsonValue {
                         map.remove(path)
                     }
                 }
-                _ => None
+                _ => None,
             }
-
-            
         }
     }
 
@@ -228,6 +226,40 @@ impl JsonValue {
             JsonValue::Array(_) => "array",
             JsonValue::Object(_) => "object",
             JsonValue::Null => "null",
+        }
+    }
+}
+
+/// Helper for creating `JsonValue`
+#[macro_export]
+macro_rules! json {
+    (null) =>  {
+        JsonValue::Null
+    };
+
+    ($value:literal) => {
+        JsonValue::from($value)
+    };
+
+    ([$($item:expr),* $(,)?]) => {
+        {
+            JsonValue::Array(vec![
+                $(
+                    json!($item)
+                ),*
+            ])
+        }
+    };
+
+    ({ $($key:ident : $value:expr),* $(,)?}) => {
+        {
+            #[allow(unused_mut)]
+           let mut map = OrderedMap::<String, JsonValue>::new();
+           $(
+                map.insert({ stringify!($key) }.into(), JsonValue::from($value));
+           )*
+
+           JsonValue::Object(map)
         }
     }
 }
@@ -484,6 +516,13 @@ impl<V: Into<JsonValue>> From<OrderedMap<String, V>> for JsonValue {
         }
 
         JsonValue::Object(map)
+    }
+}
+
+impl<T: Into<JsonValue>, const N: usize> From<[T; N]> for JsonValue {
+    fn from(value: [T; N]) -> Self {
+        let arr = value.into_iter().map(|x| x.into()).collect::<Vec<_>>();
+        JsonValue::Array(arr)
     }
 }
 
@@ -986,4 +1025,9 @@ impl Expected for JsonValue {
             JsonValue::Null => write!(f, "expected `{expected}` but was null"),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    
 }
