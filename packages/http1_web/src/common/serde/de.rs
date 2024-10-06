@@ -166,6 +166,10 @@ struct UnitVisitor;
 impl Visitor for UnitVisitor {
     type Value = ();
 
+    fn visit_unit(self) -> Result<Self::Value, Error> {
+        Ok(())
+    }
+
     fn visit_none(self) -> Result<Self::Value, Error> {
         Ok(())
     }
