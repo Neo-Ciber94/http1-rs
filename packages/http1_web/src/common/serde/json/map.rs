@@ -8,41 +8,12 @@ pub struct OrderedMap<K, V> {
     keys: Vec<K>,
 }
 
-impl<K, V> OrderedMap<K, V>
-where
-    K: Eq + Hash + Clone,
-{
+impl<K, V> OrderedMap<K, V> {
     /// Creates a new, empty `OrderedMap`.
     pub fn new() -> Self {
         OrderedMap {
             map: HashMap::new(),
             keys: Vec::new(),
-        }
-    }
-
-    /// Inserts a key-value pair into the map.
-    /// If the key is new, it is added to the `keys` vector to preserve order.
-    /// If the key already exists, its value is updated.
-    pub fn insert(&mut self, key: K, value: V) {
-        if !self.map.contains_key(&key) {
-            self.keys.push(key.clone());
-        }
-        self.map.insert(key, value);
-    }
-
-    /// Retrieves a reference to the value corresponding to the key.
-    pub fn get(&self, key: &K) -> Option<&V> {
-        self.map.get(key)
-    }
-
-    /// Removes a key from the map, returning its value if it was present.
-    pub fn remove(&mut self, key: &K) -> Option<V> {
-        match self.map.remove_entry(key) {
-            Some((k, v)) => {
-                self.keys.retain(|x| x != &k);
-                Some(v)
-            }
-            None => None,
         }
     }
 
@@ -56,19 +27,72 @@ where
         self.map.is_empty()
     }
 
-    /// Returns an iterator over the key-value pairs in insertion order.
-    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.keys
-            .iter()
-            .filter_map(move |k| self.map.get(k).map(|v| (k, v)))
+    /// Returns an iterator over the keys.
+    pub fn keys(&self) -> std::slice::Iter<K> {
+        self.keys.iter()
+    }
+}
+
+impl<K, V> OrderedMap<K, V>
+where
+    K: Eq + Hash,
+{
+    /// Inserts a key-value pair into the map.
+    /// If the key is new, it is added to the `keys` vector to preserve order.
+    /// If the key already exists, its value is updated.
+    // pub fn insert(&mut self, key: K, value: V) {
+    //     match self.map.entry(key) {
+    //         std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
+    //             occupied_entry.insert(value);
+    //         }
+    //         std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+    //             vacant_entry.insert(value);
+    //         }
+    //     }
+    // }
+
+    /// Retrieves a reference to the value corresponding to the key.
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.map.get(key)
+    }
+
+    /// Returns `true` if the map contains the given key.
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.map.contains_key(key)
+    }
+
+    /// Removes a key from the map, returning its value if it was present.
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        match self.map.remove_entry(key) {
+            Some((k, v)) => {
+                self.keys.retain(|x| x != &k);
+                Some(v)
+            }
+            None => None,
+        }
     }
 
     /// Returns an iterator over the key-value pairs in insertion order.
-    pub fn into_iter(mut self) -> impl Iterator<Item = (K, V)> {
-        self.keys.into_iter().map(move |k| {
-            let v = self.map.remove(&k).expect("missing value for key");
-            (k, v)
-        })
+    pub fn iter(&self) -> Iter<K, V> {
+        Iter {
+            keys: self.keys.iter(),
+            map: &self.map,
+        }
+    }
+}
+
+impl<K, V> OrderedMap<K, V>
+where
+    K: Eq + Hash + Clone,
+{
+    /// Inserts a key-value pair into the map.
+    /// If the key is new, it is added to the `keys` vector to preserve order.
+    /// If the key already exists, its value is updated.
+    pub fn insert(&mut self, key: K, value: V) {
+        if !self.map.contains_key(&key) {
+            self.keys.push(key.clone());
+        }
+        self.map.insert(key, value);
     }
 }
 
@@ -78,5 +102,95 @@ impl<K, V> Default for OrderedMap<K, V> {
             map: Default::default(),
             keys: Default::default(),
         }
+    }
+}
+
+pub struct Iter<'a, K, V> {
+    keys: std::slice::Iter<'a, K>,
+    map: &'a HashMap<K, V>,
+}
+
+impl<'a, K, V> Iterator for Iter<'a, K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.keys.next().and_then(|k| {
+            let v = self.map.get(k)?;
+            Some((k, v))
+        })
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+pub struct IntoIter<K, V> {
+    keys: std::vec::IntoIter<K>,
+    map: HashMap<K, V>,
+}
+
+impl<K, V> Iterator for IntoIter<K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.keys.next().and_then(|k| {
+            let v = self.map.remove(&k)?;
+            Some((k, v))
+        })
+    }
+}
+
+impl<K, V> IntoIterator for OrderedMap<K, V>
+where
+    K: Eq + Hash,
+{
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            keys: self.keys.into_iter(),
+            map: self.map,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::serde::json::map::OrderedMap;
+
+    #[test]
+    fn should_get_entries_in_order() {
+        let mut map = OrderedMap::new();
+        map.insert("first", 1);
+        map.insert("second", 2);
+        map.insert("third", 3);
+        println!("{:?}", map);
+
+        // Should get keys in order
+        let keys = map.keys().cloned().collect::<Vec<_>>();
+        assert_eq!(keys, vec!["first", "second", "third"]);
+
+        // Entries
+        let mut iter = map.into_iter();
+        assert_eq!(iter.next(), Some(("first", 1)));
+        assert_eq!(iter.next(), Some(("second", 2)));
+        assert_eq!(iter.next(), Some(("third", 3)));
+        assert_eq!(iter.next(), None);
     }
 }
