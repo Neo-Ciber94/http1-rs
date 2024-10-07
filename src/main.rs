@@ -29,10 +29,10 @@ fn main() -> std::io::Result<()> {
             html::html(|| {
                 html::attr("lang", "en");
                 html::head(|| {
-                    html::title(|| html::content("This is an app"));
+                    html::title("This is an app");
                 });
                 html::body(|| {
-                    html::h1(|| html::content("Hello World!"));
+                    html::h1("Hello World!");
                 });
             })
         })

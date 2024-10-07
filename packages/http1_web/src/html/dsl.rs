@@ -89,6 +89,26 @@ impl<T: IntoChildren> IntoChildren for Option<T> {
     }
 }
 
+impl<T: IntoChildren, const N: usize> IntoChildren for [T; N] {
+    fn into_children(self) -> Children {
+        let mut nodes = vec![];
+
+        for x in self {
+            match x.into_children() {
+                Children::None => {}
+                Children::Node(node) => nodes.push(node),
+                Children::List(vec) => nodes.extend(vec),
+            }
+        }
+
+        if nodes.is_empty() {
+            Children::None
+        } else {
+            Children::List(nodes)
+        }
+    }
+}
+
 impl<T: IntoChildren> IntoChildren for Vec<T> {
     fn into_children(self) -> Children {
         let mut nodes = vec![];
@@ -115,6 +135,44 @@ impl<F: FnOnce()> IntoChildren for F {
         Children::None
     }
 }
+
+macro_rules! impl_into_children_tuple {
+    ($($T:ident),*) => {
+        #[allow(non_snake_case)]
+        impl<$($T),*> IntoChildren for ($($T),*,) where $($T: IntoChildren),* {
+            fn into_children(self) -> Children {
+                let mut nodes = vec![];
+
+                let ($($T),*,) = self;
+
+                $(
+                    match IntoChildren::into_children($T) {
+                        Children::None => {},
+                        Children::Node(node) => nodes.push(node),
+                        Children::List(vec) => nodes.extend(vec),
+                    };
+                )*
+
+                if nodes.is_empty() {
+                    Children::None
+                } else {
+                    Children::List(nodes)
+                }
+            }
+        }
+    };
+}
+
+impl_into_children_tuple!(T1);
+impl_into_children_tuple!(T1, T2);
+impl_into_children_tuple!(T1, T2, T3);
+impl_into_children_tuple!(T1, T2, T3, T4);
+impl_into_children_tuple!(T1, T2, T3, T4, T5);
+impl_into_children_tuple!(T1, T2, T3, T4, T5, T6);
+impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 #[derive(Debug)]
 struct Context {
@@ -155,7 +213,7 @@ fn __html_element<T: IntoChildren>(
             match children {
                 Children::Node(node) => parent.children_mut().push(node),
                 Children::List(vec) => parent.children_mut().extend(vec),
-                Children::None => {},
+                Children::None => {}
             }
         }
 
@@ -164,13 +222,13 @@ fn __html_element<T: IntoChildren>(
 }
 
 /// Declare a `html` element.
-pub fn html_element<F: FnOnce()>(tag: impl Into<String>, block: F) -> Option<Element> {
-    __html_element(tag, false, block)
+pub fn html_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> Option<Element> {
+    __html_element(tag, false, content)
 }
 
 /// Declare a void `html` element.
-pub fn html_void_element<F: FnOnce()>(tag: impl Into<String>, block: F) -> Option<Element> {
-    __html_element(tag, true, block)
+pub fn html_void_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> Option<Element> {
+    __html_element(tag, true, content)
 }
 
 /// Declare a text node for the current html element.
@@ -211,11 +269,26 @@ pub fn attr(name: impl Into<String>, value: impl IntoAttrValue) {
     })
 }
 
+/// Sets a `class` attribute in the current html element.
+pub fn class(value: impl IntoAttrValue) {
+    attr("class", value)
+}
+
+/// Sets a `id` attribute in the current html element.
+pub fn id(value: impl IntoAttrValue) {
+    attr("id", value)
+}
+
+/// Sets a `style` attribute in the current html element.
+pub fn styles(value: impl IntoAttrValue) {
+    attr("style", value)
+}
+
 macro_rules! define_html_element_fn {
     ($($tag:ident),*) => {
        $(
-            pub fn $tag<F: FnOnce()>(block: F) -> Option<Element> {
-                html_element(stringify!($tag), block)
+            pub fn $tag<T: IntoChildren>(content: T) -> Option<Element> {
+                html_element(stringify!($tag), content)
             }
        )*
     };
@@ -224,8 +297,8 @@ macro_rules! define_html_element_fn {
 macro_rules! define_html_void_element_fn {
     ($($tag:ident),*) => {
        $(
-            pub fn $tag<F: FnOnce()>(block: F) -> Option<Element> {
-                html_void_element(stringify!($tag), block)
+            pub fn $tag<T: IntoChildren>(content: T) -> Option<Element> {
+                html_void_element(stringify!($tag), content)
             }
        )*
     };
