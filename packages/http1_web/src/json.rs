@@ -31,7 +31,7 @@ impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         match common::serde::json::to_string(&self.0) {
             Ok(x) => Response::builder()
-                .insert_header(CONTENT_TYPE, "application/json")
+                .insert_header(CONTENT_TYPE, "application/json; charset=UTF-8")
                 .build(x.into()),
             Err(err) => {
                 eprintln!("Failed to create JSON response: {err}");
