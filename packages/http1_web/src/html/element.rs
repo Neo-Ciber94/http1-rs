@@ -182,7 +182,8 @@ impl Element {
 
 impl IntoResponse for Element {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        Html(self).into_response()
+        let html = self.to_string();
+        Html(html).into_response()
     }
 }
 
