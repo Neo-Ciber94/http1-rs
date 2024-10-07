@@ -226,7 +226,7 @@ impl Builder {
     ///
     /// # Returns
     /// A `Response` containing the status, headers, and body.
-    pub fn build<T>(self, body: T) -> Response<T> {
+    pub fn body<T>(self, body: T) -> Response<T> {
         let Self {
             status,
             headers,

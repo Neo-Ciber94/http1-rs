@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
                 .insert_header("X-Server", "MyServer")
                 .insert_header(headers::CONTENT_TYPE, "image/jpg")
                 .status(StatusCode::OK)
-                .build(Body::new(file))
+                .body(Body::new(file))
         })
         .get("/json", |json: Json<HashMap<String, JsonValue>>| {
             println!("{:?}", json);

@@ -32,7 +32,7 @@ impl<T: Serialize> IntoResponse for Json<T> {
         match common::serde::json::to_string(&self.0) {
             Ok(x) => Response::builder()
                 .insert_header(CONTENT_TYPE, "application/json; charset=UTF-8")
-                .build(x.into()),
+                .body(x.into()),
             Err(err) => {
                 eprintln!("Failed to create JSON response: {err}");
                 Response::new(StatusCode::UNPROCESSABLE_CONTENT, Body::empty())

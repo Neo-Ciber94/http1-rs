@@ -29,7 +29,7 @@ impl<'a> IntoResponse for &'a str {
     fn into_response(self) -> Response<Body> {
         Response::builder()
             .insert_header(headers::CONTENT_TYPE, "text/plain")
-            .build(self.into())
+            .body(self.into())
     }
 }
 
@@ -49,7 +49,7 @@ impl<'a> IntoResponse for &'a [u8] {
     fn into_response(self) -> Response<Body> {
         Response::builder()
             .insert_header(headers::CONTENT_TYPE, "application/octet-stream")
-            .build(self.into())
+            .body(self.into())
     }
 }
 
