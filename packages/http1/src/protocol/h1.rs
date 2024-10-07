@@ -43,6 +43,8 @@ fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
     let mut builder = Request::builder();
 
     let (method, url, version) = read_request_line(&buf)?;
+    let can_discard_body = method == Method::GET || method == Method::HEAD;
+
     *builder.method_mut().unwrap() = method;
     *builder.uri_mut().unwrap() = url;
     *builder.version_mut().unwrap() = version;
@@ -67,7 +69,7 @@ fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
     }
 
     // Read the body
-    let body = read_request_body(reader, &headers)?;
+    let body = read_request_body(reader, &headers, can_discard_body)?;
 
     // Set headers
     if let Some(req_headers) = builder.headers_mut() {
@@ -84,12 +86,17 @@ fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
 fn read_request_body<R: Read>(
     reader: BufReader<&mut R>,
     headers: &Headers,
+    can_discard_body: bool,
 ) -> std::io::Result<Body> {
     let content_length = headers
         .get(CONTENT_LENGTH)
         .and_then(|x| x.as_str().parse().ok());
 
     let transfer_encoding = headers.get(TRANSFER_ENCODING).map(|x| x.as_str());
+
+    if can_discard_body && transfer_encoding.is_none() && content_length.is_none() {
+        return Ok(Body::empty());
+    }
 
     let bytes = if let Some(length) = content_length {
         // Read body based on Content-Length
