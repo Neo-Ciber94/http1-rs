@@ -1,5 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Display};
 
+use crate::into_response::IntoResponse;
+
 use super::Html;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -178,9 +180,9 @@ impl Element {
     }
 }
 
-impl From<Element> for Html {
-    fn from(value: Element) -> Self {
-        Html::raw(value.to_string())
+impl IntoResponse for Element {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        Html(self).into_response()
     }
 }
 

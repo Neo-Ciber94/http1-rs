@@ -3,7 +3,7 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, common::serde::json::value::JsonValue, handler::BoxedHandler, json::Json,
+    app::App, common::serde::json::value::JsonValue, handler::BoxedHandler, html, json::Json,
 };
 use std::{collections::HashMap, fs::File};
 
@@ -25,7 +25,18 @@ fn main() -> std::io::Result<()> {
                 .status(StatusCode::OK)
                 .body(Body::new(file))
         })
-        .get("/json", |json: Json<HashMap<String, JsonValue>>| {
+        .get("/", || {
+            html::html(|| {
+                html::attr("lang", "en");
+                html::head(|| {
+                    html::title(|| html::content("This is an app"));
+                });
+                html::body(|| {
+                    html::h1(|| html::content("Hello World!"));
+                });
+            })
+        })
+        .post("/json", |json: Json<HashMap<String, JsonValue>>| {
             println!("{:?}", json);
             Json(http1_web::json!({
                 hello: "world"
