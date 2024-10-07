@@ -1,4 +1,4 @@
-use http1::{headers::CONTENT_LENGTH, response::Response};
+use http1::{headers::CONTENT_TYPE, response::Response};
 
 use crate::into_response::IntoResponse;
 
@@ -20,7 +20,7 @@ impl Html {
 impl IntoResponse for Html {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         Response::builder()
-            .insert_header(CONTENT_LENGTH, "text/html")
+            .insert_header(CONTENT_TYPE, "text/html")
             .body(self.0.into())
     }
 }
