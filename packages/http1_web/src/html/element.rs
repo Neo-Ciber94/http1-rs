@@ -1,5 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Display};
 
+use super::Html;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NameValueAttr {
     name: String,
@@ -173,6 +175,12 @@ impl Element {
 
     pub fn children_mut(&mut self) -> &mut Vec<Node> {
         &mut self.children
+    }
+}
+
+impl From<Element> for Html {
+    fn from(value: Element) -> Self {
+        Html::raw(value.to_string())
     }
 }
 
