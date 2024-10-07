@@ -246,7 +246,7 @@ impl Builder {
 }
 
 fn assert_html_name(name: &str, debug_name: &'static str) {
-    assert!(name.is_empty(), "{debug_name} cannot be empty");
+    assert!(!name.is_empty(), "{debug_name} cannot be empty");
 
     if name.as_bytes()[0].is_ascii_digit() {
         panic!("{debug_name} cannot start with a digit");
@@ -259,7 +259,7 @@ fn assert_html_name(name: &str, debug_name: &'static str) {
             *b as char
         );
         assert!(
-            b.is_ascii_whitespace(),
+            !b.is_ascii_whitespace(),
             "{debug_name} cannot contains whitespace"
         )
     }
