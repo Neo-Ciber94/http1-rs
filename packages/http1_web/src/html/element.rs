@@ -165,7 +165,7 @@ fn write_element(
     for attr in el.attributes.values() {
         match attr {
             Attribute::NameValue(NameValueAttr { name, value }) => {
-                write!(f, " {name}={value}")?;
+                write!(f, " {name}=\"{value}\"")?;
             }
             Attribute::Boolean(BooleanAttr { name }) => {
                 write!(f, " {name}")?;
@@ -248,9 +248,12 @@ impl Builder {
 fn assert_html_name(name: &str, debug_name: &'static str) {
     assert!(!name.is_empty(), "{debug_name} cannot be empty");
 
-    if name.as_bytes()[0].is_ascii_digit() {
-        panic!("{debug_name} cannot start with a digit");
-    }
+    let first = name.as_bytes()[0];
+
+    assert!(
+        first.is_ascii_alphabetic(),
+        "{debug_name} should start with a letter"
+    );
 
     for b in name.as_bytes() {
         assert!(
@@ -267,6 +270,8 @@ fn assert_html_name(name: &str, debug_name: &'static str) {
 
 #[cfg(test)]
 mod tests {
+    use crate::html::element::Attribute;
+
     use super::Element;
 
     #[test]
@@ -276,24 +281,29 @@ mod tests {
             .child(
                 Element::builder("body").child(
                     Element::builder("h1")
+                        .attribute(Attribute::with_value("class", "text-red"))
                         .child("Hello World!")
                         .child(Element::builder("hr").is_void()),
                 ),
             )
             .build();
 
-        println!("{el}");
-
         assert_eq!(
             el.to_string(),
-            "<html>
-            <head>
-                <title>This is HTML</title>
-            </head>
-            <body>
-                <h1>Hello World!</h1>
-            </body>
-        </html>"
+r#"<html>
+  <head>
+    <title>
+      This is HTML
+    </title>
+  </head>
+  <body>
+    <h1 class="text-red">
+      Hello World!
+      <hr />
+    </h1>
+  </body>
+</html>
+"#
         )
     }
 }
