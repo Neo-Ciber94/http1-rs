@@ -50,7 +50,9 @@ fn __html_element<F: FnOnce()>(tag: impl Into<String>, is_void: bool, block: F) 
         if ctx.elements.len() > 1 {
             if let Some(el) = ctx.elements.pop() {
                 if let Some(parent) = ctx.elements.last_mut() {
-                    parent.children_mut().push(el.into());
+                    if !parent.is_void() {
+                        parent.children_mut().push(el.into());
+                    }
                 }
             }
 
@@ -72,7 +74,7 @@ pub fn html_void_element<F: FnOnce()>(tag: impl Into<String>, block: F) -> Optio
 }
 
 /// Declare a text node for the current html element.
-pub fn text(text: impl Into<String>) {
+pub fn content(text: impl Into<String>) {
     SCOPES.with_borrow_mut(|ctx: &mut Context| {
         if let Some(parent) = ctx.elements.last_mut() {
             let text = text.into();
@@ -151,7 +153,7 @@ define_html_void_element_fn!(
 #[cfg(test)]
 mod tests {
 
-    use super::{attr, html_element, html_void_element, text};
+    use super::{attr, content, html_element, html_void_element};
 
     #[test]
     fn should_build_1_level_html() {
@@ -179,14 +181,14 @@ mod tests {
         let html = html_element("html", || {
             html_element("head", || {
                 html_element("title", || {
-                    text("This is a Title");
+                    content("This is a Title");
                 });
             });
 
             html_element("body", || {
                 html_element("h1", || {
                     attr("class", "text-red");
-                    text("Hello World!");
+                    content("Hello World!");
                     html_void_element("hr", || {});
                 });
             });
