@@ -29,10 +29,50 @@ fn main() -> std::io::Result<()> {
             html::html(|| {
                 html::attr("lang", "en");
                 html::head(|| {
-                    html::title("This is an app");
+                    html::title("My Simple Webpage");
+                    html::style(
+                        r#"
+                            body {
+                                font-family: Arial, sans-serif;
+                                line-height: 1.6;
+                                color: #333;
+                                max-width: 800px;
+                                margin: 0 auto;
+                                padding: 20px;
+                            }
+                            h1 {
+                                color: #2c3e50;
+                                border-bottom: 2px solid #3498db;
+                                padding-bottom: 10px;
+                            }
+                            p {
+                                margin-bottom: 15px;
+                            }
+                            .highlight {
+                                background-color: #f1c40f;
+                                padding: 5px;
+                                border-radius: 3px;
+                            }
+                        "#,
+                    );
                 });
                 html::body(|| {
-                    html::h1("Hello World!");
+                    html::h1("Welcome to My Simple Webpage");
+                    html::p("This is a basic webpage created using a custom HTML DSL in Rust.");
+                    html::p(|| {
+                        html::content("Here's some text with a ");
+                        html::span(|| {
+                            html::attr("class", "highlight");
+                            html::content("highlighted portion");
+                        });
+                        html::content(".");
+                    });
+                    html::h2("Features of this page:");
+                    html::ul(|| {
+                        html::li("Simple and clean design");
+                        html::li("Custom styling with CSS");
+                        html::li("Responsive layout");
+                    });
                 });
             })
         })

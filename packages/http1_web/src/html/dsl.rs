@@ -196,7 +196,16 @@ fn __html_element<T: IntoChildren>(
     let children = content.into_children();
 
     CONTEXT.with_borrow_mut(|ctx: &mut Context| {
-        // If there is any elements we insert the last one into the previous one children
+        // Insert the current children in the last node
+        if let Some(parent) = ctx.elements.last_mut() {
+            match children {
+                Children::Node(node) => parent.children_mut().push(node),
+                Children::List(vec) => parent.children_mut().extend(vec),
+                Children::None => {}
+            }
+        }
+
+        // Then if there is any elements we insert the last one into the previous one
         if ctx.elements.len() > 1 {
             if let Some(el) = ctx.elements.pop() {
                 if let Some(parent) = ctx.elements.last_mut() {
@@ -209,14 +218,7 @@ fn __html_element<T: IntoChildren>(
             return None;
         }
 
-        if let Some(parent) = ctx.elements.last_mut() {
-            match children {
-                Children::Node(node) => parent.children_mut().push(node),
-                Children::List(vec) => parent.children_mut().extend(vec),
-                Children::None => {}
-            }
-        }
-
+        // Return the last node
         ctx.elements.pop()
     })
 }
@@ -302,6 +304,11 @@ macro_rules! define_html_void_element_fn {
             }
        )*
     };
+}
+
+#[doc = concat!("Declares a `<")]
+pub fn hello<T: IntoChildren>(content: T) -> Option<Element> {
+    html_element(stringify!(hello), content)
 }
 
 #[rustfmt::skip]
