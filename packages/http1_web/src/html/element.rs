@@ -57,6 +57,44 @@ pub enum Node {
     Text(String),
 }
 
+impl Node {
+    pub fn is_element(&self) -> bool {
+        matches!(self, Node::Element(_))
+    }
+
+    pub fn is_text(&self) -> bool {
+        matches!(self, Node::Text(_))
+    }
+
+    pub fn as_element(&self) -> Option<&Element> {
+        match self {
+            Node::Element(element) => Some(element),
+            Node::Text(_) => None,
+        }
+    }
+
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            Node::Element(_) => None,
+            Node::Text(text) => Some(text.as_str()),
+        }
+    }
+
+    pub fn into_element(self) -> Option<Element> {
+        match self {
+            Node::Element(element) => Some(element),
+            Node::Text(_) => None,
+        }
+    }
+
+    pub fn into_text(self) -> Option<String> {
+        match self {
+            Node::Element(_) => None,
+            Node::Text(text) => Some(text),
+        }
+    }
+}
+
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -220,8 +258,8 @@ impl Builder {
         }
     }
 
-    pub fn is_void(mut self) -> Self {
-        self.is_void = true;
+    pub fn is_void(mut self, is_void: bool) -> Self {
+        self.is_void = is_void;
         self
     }
 
@@ -283,14 +321,14 @@ mod tests {
                     Element::builder("h1")
                         .attribute(Attribute::with_value("class", "text-red"))
                         .child("Hello World!")
-                        .child(Element::builder("hr").is_void()),
+                        .child(Element::builder("hr").is_void(true)),
                 ),
             )
             .build();
 
         assert_eq!(
             el.to_string(),
-r#"<html>
+            r#"<html>
   <head>
     <title>
       This is HTML

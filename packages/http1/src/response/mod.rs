@@ -121,7 +121,7 @@ impl Response<()> {
     ///
     /// let response = Response::builder()
     ///     .status(StatusCode::OK)
-    ///     .build("Hello, World!");
+    ///     .body("Hello, World!");
     /// ```
     pub fn builder() -> Builder {
         Builder::new()
