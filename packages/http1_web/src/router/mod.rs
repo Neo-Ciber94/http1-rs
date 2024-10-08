@@ -42,6 +42,10 @@ impl<'a, T> Router<'a, T> {
     pub fn entries_mut(&'a mut self) -> impl Iterator<Item = (&Route, &mut T)> {
         self.0.entries_mut()
     }
+
+    pub fn into_entries(self) -> impl Iterator<Item = (Route<'a>, T)> {
+        self.0.into_entries()
+    }
 }
 
 impl<T> Default for Router<'_, T> {

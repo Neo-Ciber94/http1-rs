@@ -51,23 +51,36 @@ impl<'a, T> App<'a, T> {
         self
     }
 
+    pub fn scope(mut self, route: &'a str, scope: Scope<'a>) -> Self {
+        // for (method, router) in scope.method_router {
+        //     for (r, handler) in router.into_entries() {
+        //         let full_path = format!("{route}{r}");
+        //         self.add_route(method.clone(), &full_path, handler);
+        //     }
+        // }
+        self
+    }
+
+    fn add_route(&mut self, method: Method, route: &'a str, handler: BoxedHandler) {
+        match self.method_router.entry(method) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(route, handler);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let mut router = Router::new();
+                router.insert(route, handler);
+                entry.insert(router);
+            }
+        }
+    }
+
     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
     where
         Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        match self.method_router.entry(method) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().insert(route, BoxedHandler::new(handler));
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let mut router = Router::new();
-                router.insert(route, BoxedHandler::new(handler));
-                entry.insert(router);
-            }
-        }
-
+        self.add_route(method, route, BoxedHandler::new(handler));
         self
     }
 
@@ -188,66 +201,25 @@ fn not_found_handler(_: Request<Body>) -> Response<Body> {
     Response::new(StatusCode::NOT_FOUND, Body::empty())
 }
 
-// struct Node<'a> {
-//     method_router: HashMap<Method, Router<'a, BoxedHandler>>,
-//     fallback: Option<BoxedHandler>,
-//     middleware: Option<BoxedMiddleware>,
-// }
+struct Scope<'a> {
+    method_router: HashMap<Method, Router<'a, BoxedHandler>>,
+}
 
-// impl<'a> Node<'a> {
-//     pub fn new() -> Self {
-//         Node {
-//             method_router: HashMap::new(),
-//             fallback: None,
-//             middleware: None,
-//         }
-//     }
-// }
+impl<'a> Scope<'a> {
+    pub fn new() -> Self {
+        Scope {
+            method_router: HashMap::new(),
+        }
+    }
+}
 
-// struct Scope<'a> {
-//     node: Router<'a, Node<'a>>,
-// }
-
-// impl<'a> Scope<'a> {
-//     pub fn new() -> Self {
-//         let mut node = Router::new();
-//         node.insert("/", Node::new());
-//         Scope { node }
-//     }
-
-//     pub fn scope(mut self, route: &str, inner: Scope<'a>) -> Self {
-
-
-//         self
-//     }
-
-//     pub fn middleware<M>(mut self, handler: M) -> Self
-//     where
-//         M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
-//     {
-//         let route = self.node.find_mut("/").expect("failed to get root router");
-//         route.middleware = Some(BoxedMiddleware::new(handler));
-//         self
-//     }
-
-//     pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
-//     where
-//         Args: FromRequest,
-//         H: Handler<Args, Output = R> + Sync + Send + 'static,
-//         R: IntoResponse,
-//     {
-//         let route = self.node.find_mut("/").expect("failed to get root router");
-//         match route.method_router.entry(method) {
-//             std::collections::hash_map::Entry::Occupied(mut entry) => {
-//                 entry.get_mut().insert(route, BoxedHandler::new(handler));
-//             }
-//             std::collections::hash_map::Entry::Vacant(entry) => {
-//                 let mut router = Router::new();
-//                 router.insert(route, BoxedHandler::new(handler));
-//                 entry.insert(router);
-//             }
-//         }
-
-//         self
-//     }
-// }
+impl<'a> Scope<'a> {
+    pub fn route<H, Args, R>(mut self, method: Method, route: &'a str, handler: H) -> Self
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self
+    }
+}

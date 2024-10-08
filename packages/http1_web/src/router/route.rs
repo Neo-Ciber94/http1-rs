@@ -1,4 +1,4 @@
-use std::{borrow::Cow, str::Split};
+use std::{borrow::Cow, fmt::Display, str::Split};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RouteSegment<'a> {
@@ -37,6 +37,16 @@ impl PartialOrd for RouteSegment<'_> {
     }
 }
 
+impl Display for RouteSegment<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RouteSegment::Static(s) => write!(f, "/{s}"),
+            RouteSegment::Dynamic(s) => write!(f, "/{s}"),
+            RouteSegment::CatchAll(s) => write!(f, "/{s}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Route<'a>(Vec<RouteSegment<'a>>);
 
@@ -50,6 +60,20 @@ impl<'a> From<&'a str> for Route<'a> {
     fn from(value: &'a str) -> Self {
         let segments = route_segments(value).collect::<Vec<_>>();
         Route(segments)
+    }
+}
+
+impl Display for Route<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.is_empty() {
+            write!(f, "/")?;
+        } else {
+            for segment in self.0.iter() {
+                write!(f, "{}", segment)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

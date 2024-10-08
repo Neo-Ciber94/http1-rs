@@ -79,6 +79,10 @@ impl<'a, T> SimpleRouter<'a, T> {
     pub fn entries_mut(&'a mut self) -> impl Iterator<Item = (&Route, &mut T)> {
         self.routes.iter_mut()
     }
+
+    pub fn into_entries(self) -> impl Iterator<Item = (Route<'a>, T)> {
+        self.routes.into_iter()
+    }
 }
 
 fn find_route<'a>(
