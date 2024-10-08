@@ -8,7 +8,7 @@ use http1::{
     version::Version,
 };
 
-use crate::router::Params;
+use crate::router::params::ParamsMap;
 
 pub trait FromRequest: Sized {
     fn from_request(req: Request<Body>) -> Result<Self, BoxError>;
@@ -45,10 +45,10 @@ impl FromRequestRef for () {
     }
 }
 
-impl FromRequestRef for Params {
+impl FromRequestRef for ParamsMap {
     fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
         req.extensions()
-            .get::<Params>()
+            .get::<ParamsMap>()
             .cloned()
             .ok_or_else(|| "Failed to get params".into())
     }

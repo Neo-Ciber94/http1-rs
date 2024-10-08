@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use params::ParamsMap;
+use route::Route;
 
+pub mod params;
 mod route;
 mod simple_router;
 
@@ -23,9 +25,22 @@ impl<'a, T> Router<'a, T> {
         self.0.insert(route, value);
     }
 
-    /// Finds the route that matches the given path.
-    pub fn find(&'a self, path: &'a str) -> Option<Match<'a, T>> {
+    /// Finds the route that matches the given path and get a reference to it.
+    pub fn find(&'a self, path: &'a str) -> Option<Match<&'a T>> {
         self.0.find(path)
+    }
+
+    /// Finds the route that matches the given path and get a mutable reference to it.
+    pub fn find_mut(&'a mut self, path: &'a str) -> Option<Match<&'a mut T>> {
+        self.0.find_mut(path)
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = (&Route, &T)> {
+        self.0.entries()
+    }
+
+    pub fn entries_mut(&'a mut self) -> impl Iterator<Item = (&Route, &mut T)> {
+        self.0.entries_mut()
     }
 }
 
@@ -35,33 +50,12 @@ impl<T> Default for Router<'_, T> {
     }
 }
 
-/// The params for a route.
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct Params(pub(crate) HashMap<String, String>);
-
-impl Params {
-    /// Returns the value for the given key.
-    pub fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).map(|x| x.as_str())
-    }
-
-    /// Returns `true` if the given key exists.
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.0.contains_key(key)
-    }
-
-    /// Returns an iterator over the key-values.
-    pub fn iter(&self) -> std::collections::hash_map::Iter<String, String> {
-        self.0.iter()
-    }
-}
-
 /// Represents a route match.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Match<'a, T> {
+pub struct Match<T> {
     /// The params
-    pub params: Params,
+    pub params: ParamsMap,
 
     /// The value of the match
-    pub value: &'a T,
+    pub value: T,
 }

@@ -4,7 +4,7 @@ use crate::router::route::RouteSegment;
 
 use super::{
     route::{self, get_segments, Route},
-    Match, Params,
+    Match, ParamsMap,
 };
 
 #[derive(Default, Clone, Debug)]
@@ -36,13 +36,13 @@ impl<'a, T> SimpleRouter<'a, T> {
         self.routes.insert(r, value);
     }
 
-    pub fn find(&'a self, path: &'a str) -> Option<Match<'a, T>> {
+    pub fn find(&'a self, path: &'a str) -> Option<Match<&'a T>> {
         let mut params_map = HashMap::new();
 
         for (route, value) in self.routes.iter() {
             match find_route(route, path, &mut params_map) {
                 Some(_) => {
-                    let params = Params(std::mem::take(&mut params_map));
+                    let params = ParamsMap(std::mem::take(&mut params_map));
                     return Some(Match { params, value });
                 }
                 None => {
@@ -52,6 +52,32 @@ impl<'a, T> SimpleRouter<'a, T> {
         }
 
         None
+    }
+
+    pub fn find_mut(&'a mut self, path: &'a str) -> Option<Match<&'a mut T>> {
+        let mut params_map = HashMap::new();
+
+        for (route, value) in self.routes.iter_mut() {
+            match find_route(route, path, &mut params_map) {
+                Some(_) => {
+                    let params = ParamsMap(std::mem::take(&mut params_map));
+                    return Some(Match { params, value });
+                }
+                None => {
+                    params_map.clear();
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = (&Route, &T)> {
+        self.routes.iter()
+    }
+
+    pub fn entries_mut(&'a mut self) -> impl Iterator<Item = (&Route, &mut T)> {
+        self.routes.iter_mut()
     }
 }
 
