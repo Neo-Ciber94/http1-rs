@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub struct App<T> {
-    method_router: HashMap<Method, Router<BoxedHandler>>,
+    scope: Scope,
     fallback: Option<BoxedHandler>,
     middleware: Option<BoxedMiddleware>,
     state: State<T>,
@@ -28,7 +28,7 @@ impl App<()> {
 
     pub fn with_state<T>(state: T) -> App<T> {
         App {
-            method_router: HashMap::with_capacity(4),
+            scope: Scope::new(),
             fallback: None,
             middleware: None,
             state: State::new(state),
@@ -51,36 +51,14 @@ impl<T> App<T> {
         self
     }
 
-    pub fn scope(mut self, route: &str, scope: Scope) -> Self {
-        for (method, router) in scope.method_router {
-            for (r, handler) in router.into_entries() {
-                let full_path = format!("{route}{r}");
-                self.add_route(method.clone(), &full_path, handler);
-            }
-        }
-        self
-    }
-
-    fn add_route(&mut self, method: Method, route: &str, handler: BoxedHandler) {
-        match self.method_router.entry(method) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().insert(route, handler);
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let mut router = Router::new();
-                router.insert(route, handler);
-                entry.insert(router);
-            }
-        }
-    }
-
     pub fn route<H, Args, R>(mut self, method: Method, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.add_route(method, route, BoxedHandler::new(handler));
+        self.scope
+            .add_route(method, route, BoxedHandler::new(handler));
         self
     }
 
@@ -167,6 +145,7 @@ where
         let method = req.method().clone();
         let req_path = req.uri().path_and_query().path().to_owned();
         let route_match = self
+            .scope
             .method_router
             .get(&method)
             .and_then(|router| router.find(&req_path));
