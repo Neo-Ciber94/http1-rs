@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use http1::{body::Body, request::Request, response::Response, status::StatusCode};
 
 use crate::{from_request::FromRequest, into_response::IntoResponse};
@@ -6,7 +8,9 @@ pub trait Handler<Args> {
     type Output: IntoResponse;
     fn call(&self, args: Args) -> Self::Output;
 }
-pub struct BoxedHandler(Box<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
+
+#[derive(Clone)]
+pub struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
 
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
@@ -15,7 +19,7 @@ impl BoxedHandler {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        BoxedHandler(Box::new(move |req| match Args::from_request(req) {
+        BoxedHandler(Arc::new(move |req| match Args::from_request(req) {
             Ok(args) => {
                 let result = handler.call(args);
                 result.into_response()

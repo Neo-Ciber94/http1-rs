@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use http1::{body::Body, request::Request, response::Response};
 
 use crate::handler::BoxedHandler;
@@ -16,8 +18,9 @@ where
 }
 
 #[allow(clippy::type_complexity)]
+#[derive(Clone)]
 pub struct BoxedMiddleware(
-    Box<dyn Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static>,
+    Arc<dyn Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static>,
 );
 
 impl BoxedMiddleware {
@@ -25,7 +28,7 @@ impl BoxedMiddleware {
     where
         F: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
     {
-        BoxedMiddleware(Box::new(move |req, next| handler.on_request(req, next)))
+        BoxedMiddleware(Arc::new(move |req, next| handler.on_request(req, next)))
     }
 
     pub fn on_request(&self, req: Request<Body>, next: &BoxedHandler) -> Response<Body> {

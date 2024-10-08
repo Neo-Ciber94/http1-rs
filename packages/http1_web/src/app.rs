@@ -17,7 +17,7 @@ use crate::{
 pub struct App<T> {
     scope: Scope,
     fallback: Option<BoxedHandler>,
-    middleware: Option<BoxedMiddleware>,
+    middleware: Vec<BoxedMiddleware>,
     state: State<T>,
 }
 
@@ -30,7 +30,7 @@ impl App<()> {
         App {
             scope: Scope::new(),
             fallback: None,
-            middleware: None,
+            middleware: Vec::new(),
             state: State::new(state),
         }
     }
@@ -47,7 +47,7 @@ impl<T> App<T> {
     where
         M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
     {
-        self.middleware = Some(BoxedMiddleware::new(handler));
+        self.middleware.push(BoxedMiddleware::new(handler));
         self
     }
 
@@ -140,7 +140,7 @@ where
     T: 'static,
 {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
-        let middleware = self.middleware.as_ref();
+        let middlewares = self.middleware.as_slice();
 
         let method = req.method().clone();
         let req_path = req.uri().path_and_query().path().to_owned();
@@ -157,9 +157,17 @@ where
                 req.extensions_mut().insert(self.state.clone());
 
                 // Handle the request
-                let res = match middleware {
-                    Some(middleware) => middleware.on_request(req, mtch.value),
-                    None => mtch.value.call(req),
+                let res = if middlewares.is_empty() {
+                    mtch.value.call(req)
+                } else {
+                    let handler = middlewares
+                        .iter()
+                        .cloned()
+                        .fold(mtch.value.clone(), |cur, next| {
+                            BoxedHandler::new(move |r| next.on_request(r, &cur))
+                        });
+
+                    handler.call(req)
                 };
 
                 match method {
