@@ -8,18 +8,19 @@ use super::{
 };
 
 #[derive(Default, Clone, Debug)]
-pub(crate) struct SimpleRouter<'a, T> {
-    routes: BTreeMap<Route<'a>, T>,
+pub(crate) struct SimpleRouter<T> {
+    routes: BTreeMap<Route, T>,
 }
 
-impl<'a, T> SimpleRouter<'a, T> {
+impl<T> SimpleRouter<T> {
     pub fn new() -> Self {
         SimpleRouter {
             routes: Default::default(),
         }
     }
 
-    pub fn insert(&mut self, route: &'a str, value: T) {
+    pub fn insert(&mut self, route: impl Into<String>, value: T) {
+        let route = route.into();
         assert!(route.starts_with("/"), "route should start with '/'");
         let r = Route::from(route);
 
@@ -29,14 +30,14 @@ impl<'a, T> SimpleRouter<'a, T> {
 
         for (index, segment) in segments.enumerate() {
             if matches!(segment, RouteSegment::CatchAll(_)) && index < len - 1 {
-                panic!("catch-all segment must be the last route segment: {route:?}");
+                panic!("catch-all segment must be the last route segment: {r}");
             }
         }
 
         self.routes.insert(r, value);
     }
 
-    pub fn find(&'a self, path: &'a str) -> Option<Match<&'a T>> {
+    pub fn find(&self, path: &str) -> Option<Match<&T>> {
         let mut params_map = HashMap::new();
 
         for (route, value) in self.routes.iter() {
@@ -54,7 +55,7 @@ impl<'a, T> SimpleRouter<'a, T> {
         None
     }
 
-    pub fn find_mut(&'a mut self, path: &'a str) -> Option<Match<&'a mut T>> {
+    pub fn find_mut(&mut self, path: &str) -> Option<Match<&mut T>> {
         let mut params_map = HashMap::new();
 
         for (route, value) in self.routes.iter_mut() {
@@ -76,20 +77,20 @@ impl<'a, T> SimpleRouter<'a, T> {
         self.routes.iter()
     }
 
-    pub fn entries_mut(&'a mut self) -> impl Iterator<Item = (&Route, &mut T)> {
+    pub fn entries_mut(&mut self) -> impl Iterator<Item = (&Route, &mut T)> {
         self.routes.iter_mut()
     }
 
-    pub fn into_entries(self) -> impl Iterator<Item = (Route<'a>, T)> {
+    pub fn into_entries(self) -> impl Iterator<Item = (Route, T)> {
         self.routes.into_iter()
     }
 }
 
 fn find_route<'a>(
     route: &'a Route,
-    path: &str,
-    params_map: &mut HashMap<String, String>,
-) -> Option<&'a Route<'a>> {
+    path: &'a str,
+    params_map: &'a mut HashMap<String, String>,
+) -> Option<&'a Route> {
     let mut segments = get_segments(path).enumerate().peekable();
     let route_segments = route.iter();
 

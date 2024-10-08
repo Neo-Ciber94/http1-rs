@@ -1,18 +1,18 @@
-use std::{borrow::Cow, fmt::Display, str::Split};
+use std::{fmt::Display, str::Split};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum RouteSegment<'a> {
+pub enum RouteSegment {
     // A static route segment: /static
-    Static(Cow<'a, str>),
+    Static(String),
 
     // A dynamic segment: /:param
-    Dynamic(Cow<'a, str>),
+    Dynamic(String),
 
     // The rest of the path: /:rest*
-    CatchAll(Cow<'a, str>),
+    CatchAll(String),
 }
 
-impl Ord for RouteSegment<'_> {
+impl Ord for RouteSegment {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             // Static route have priority over all other
@@ -31,13 +31,13 @@ impl Ord for RouteSegment<'_> {
     }
 }
 
-impl PartialOrd for RouteSegment<'_> {
+impl PartialOrd for RouteSegment {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Display for RouteSegment<'_> {
+impl Display for RouteSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RouteSegment::Static(s) => write!(f, "/{s}"),
@@ -48,22 +48,29 @@ impl Display for RouteSegment<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Route<'a>(Vec<RouteSegment<'a>>);
+pub struct Route(Vec<RouteSegment>);
 
-impl Route<'_> {
-    pub fn iter(&self) -> std::slice::Iter<'_, RouteSegment<'_>> {
+impl Route {
+    pub fn iter(&self) -> std::slice::Iter<'_, RouteSegment> {
         self.0.iter()
     }
 }
 
-impl<'a> From<&'a str> for Route<'a> {
+impl<'a> From<&'a str> for Route {
     fn from(value: &'a str) -> Self {
         let segments = route_segments(value).collect::<Vec<_>>();
         Route(segments)
     }
 }
 
-impl Display for Route<'_> {
+impl From<String> for Route {
+    fn from(value: String) -> Self {
+        let segments = route_segments(&value).collect::<Vec<_>>();
+        Route(segments)
+    }
+}
+
+impl Display for Route {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0.is_empty() {
             write!(f, "/")?;
@@ -81,19 +88,19 @@ impl Display for Route<'_> {
 pub struct RouteSegmentsIter<'a>(Split<'a, &'a str>);
 
 impl<'a> Iterator for RouteSegmentsIter<'a> {
-    type Item = RouteSegment<'a>;
+    type Item = RouteSegment;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|part| match part {
             _ if part.starts_with(":") => {
                 if part.ends_with("*") {
                     let len = part.len();
-                    RouteSegment::CatchAll(Cow::Borrowed(&part[1..(len - 1)]))
+                    RouteSegment::CatchAll(part[1..(len - 1)].to_owned())
                 } else {
-                    RouteSegment::Dynamic(Cow::Borrowed(&part[1..]))
+                    RouteSegment::Dynamic(part[1..].to_owned())
                 }
             }
-            _ => RouteSegment::Static(Cow::Borrowed(part)),
+            _ => RouteSegment::Static(part.to_owned()),
         })
     }
 }
@@ -134,6 +141,7 @@ impl PartialOrd for RouteSegmentsIter<'_> {
     }
 }
 
+#[doc(hidden)]
 pub fn get_segments(mut route: &str) -> std::str::Split<'_, &str> {
     if route.starts_with("/") {
         route = &route[1..];
