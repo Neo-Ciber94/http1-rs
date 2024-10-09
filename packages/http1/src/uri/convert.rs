@@ -5,8 +5,8 @@ pub trait Alphabet {
 }
 
 /// Percent encode alphabet.
-pub struct PercentEncode;
-impl Alphabet for PercentEncode {
+pub struct UrlComponentEncode;
+impl Alphabet for UrlComponentEncode {
     fn contains(&self, value: u8) -> bool {
         match value {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => true,
@@ -15,46 +15,127 @@ impl Alphabet for PercentEncode {
     }
 }
 
-pub fn encode_uri_component<S: AsRef<str>>(input: S) -> String {
-    encode_uri_component_with(input, PercentEncode)
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes
+pub struct CookieCharset;
+
+#[allow(clippy::match_like_matches_macro)]
+impl Alphabet for CookieCharset {
+    fn contains(&self, value: u8) -> bool {
+        match value {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'('
+            | b')'
+            | b'<'
+            | b'>'
+            | b'@'
+            | b','
+            | b';'
+            | b':'
+            | b'\\'
+            | b'"'
+            | b'/'
+            | b'['
+            | b']'
+            | b'?'
+            | b'='
+            | b'{'
+            | b'}' => true,
+            _ => false,
+        }
+    }
 }
 
+/// Encodes a URI component by using the `UrlComponentEncode` alphabet for percent-encoding.
+/// This function wraps `encode_uri_component_with` with the default alphabet.
+///
+/// # Parameters
+/// - `input`: The string to be encoded.
+///
+/// # Returns
+/// A `String` representing the encoded URI component.
+pub fn encode_uri_component<S: AsRef<str>>(input: S) -> String {
+    encode_uri_component_with(input, UrlComponentEncode)
+}
+
+/// Encodes a URI component using a custom alphabet for percent-encoding.
+///
+/// This function iterates over the input string and encodes each character that is not part of
+/// the given `alphabet` as a percent-encoded value (e.g., `%20` for a space).
+///
+/// # Parameters
+/// - `input`: The string to be encoded.
+/// - `alphabet`: The set of allowed characters for the URI component encoding.
+///
+/// # Returns
+/// A `String` representing the encoded URI component.
 pub fn encode_uri_component_with<S: AsRef<str>>(input: S, alphabet: impl Alphabet) -> String {
+    // Create an empty `String` to store the encoded result.
     let mut encoded = String::new();
 
+    // Iterate over the bytes of the input string.
     for byte in input.as_ref().bytes() {
+        // If the byte is allowed by the alphabet, append it as-is to the result.
         match byte {
             _ if alphabet.contains(byte) => {
                 encoded.push(byte as char);
             }
+            // Otherwise, percent-encode the byte and append the result.
             _ => {
                 encoded.push_str(&format!("%{:02X}", byte));
             }
         }
     }
 
+    // Return the encoded string.
     encoded
 }
 
 #[derive(Debug)]
+/// An error type used when URI component decoding fails.
 pub struct InvalidUriComponent;
 
+/// Decodes a URI component that may contain percent-encoded characters back into a plain string.
+///
+/// The function will look for `%` signs and attempt to decode the following two characters as hex digits
+/// representing a byte value. If the encoding is invalid, the function returns an error.
+///
+/// # Parameters
+/// - `input`: The percent-encoded string to decode.
+///
+/// # Returns
+/// A `Result<String, InvalidUriComponent>` where:
+/// - `Ok` contains the decoded string.
+/// - `Err` contains the `InvalidUriComponent` error if the input is not a valid URI component.
 pub fn decode_uri_component<S: AsRef<str>>(input: S) -> Result<String, InvalidUriComponent> {
+    // Vector to hold the decoded bytes.
     let mut decoded = Vec::new();
     let mut chars = input.as_ref().chars();
 
+    // Iterate over the characters of the input string.
     while let Some(c) = chars.next() {
         if c == '%' {
+            // If the character is '%', try to decode the next two characters as a hex value.
             let hex1 = chars.next().ok_or(InvalidUriComponent)?;
             let hex2 = chars.next().ok_or(InvalidUriComponent)?;
             let hex = format!("{}{}", hex1, hex2);
+
+            // Convert the hex string to a byte.
             let byte = u8::from_str_radix(&hex, 16).map_err(|_| InvalidUriComponent)?;
             decoded.push(byte);
         } else {
+            // If the character is not a percent-encoded value, just push it as-is.
             decoded.push(c as u8);
         }
     }
 
+    // Attempt to convert the vector of bytes to a UTF-8 string.
+    // If this fails, return an error.
     String::from_utf8(decoded).map_err(|_| InvalidUriComponent)
 }
 

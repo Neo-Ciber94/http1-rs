@@ -6,7 +6,7 @@ use http1::{
     headers::{self, Headers},
     response::Response,
     status::StatusCode,
-    uri::convert::{self, Alphabet},
+    uri::convert::{self, CookieCharset},
 };
 
 use crate::into_response::{IntoResponse, IntoResponseParts};
@@ -171,47 +171,11 @@ impl From<Builder> for Cookie {
 
 impl Display for Cookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes
-        pub struct ModifiedUsAscii;
-
-        #[allow(clippy::match_like_matches_macro)]
-        impl Alphabet for ModifiedUsAscii {
-            fn contains(&self, value: u8) -> bool {
-                match value {
-                    b'A'..=b'Z'
-                    | b'a'..=b'z'
-                    | b'0'..=b'9'
-                    | b'-'
-                    | b'_'
-                    | b'.'
-                    | b'~'
-                    | b'('
-                    | b')'
-                    | b'<'
-                    | b'>'
-                    | b'@'
-                    | b','
-                    | b';'
-                    | b':'
-                    | b'\\'
-                    | b'"'
-                    | b'/'
-                    | b'['
-                    | b']'
-                    | b'?'
-                    | b'='
-                    | b'{'
-                    | b'}' => true,
-                    _ => false,
-                }
-            }
-        }
-
         write!(
             f,
             "{name}={value}",
-            name = convert::encode_uri_component_with(self.name(), ModifiedUsAscii),
-            value = convert::encode_uri_component_with(self.value(), ModifiedUsAscii),
+            name = convert::encode_uri_component_with(self.name(), CookieCharset),
+            value = convert::encode_uri_component_with(self.value(), CookieCharset),
         )?;
 
         if self.http_only {
@@ -222,7 +186,7 @@ impl Display for Cookie {
             write!(
                 f,
                 "; Path={}",
-                convert::encode_uri_component_with(path, ModifiedUsAscii)
+                convert::encode_uri_component_with(path, CookieCharset)
             )?;
         }
 
@@ -230,7 +194,7 @@ impl Display for Cookie {
             write!(
                 f,
                 "; Domain={}",
-                convert::encode_uri_component_with(domain, ModifiedUsAscii)
+                convert::encode_uri_component_with(domain, CookieCharset)
             )?;
         }
 
