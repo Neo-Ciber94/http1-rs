@@ -37,11 +37,11 @@ where
     }
 }
 
-struct BoxBody(Box<dyn HttpBody<Err = BoxError, Data = Vec<u8>>>);
+struct BoxBody(Box<dyn HttpBody<Err = BoxError, Data = Vec<u8>> + Send + 'static>);
 
 fn box_body<B>(body: B) -> BoxBody
 where
-    B: HttpBody + 'static,
+    B: HttpBody + Send + 'static,
     B::Err: Into<BoxError>,
     B::Data: Into<Vec<u8>>,
 {
@@ -59,7 +59,7 @@ impl Body {
 
     pub fn new<B>(body: B) -> Self
     where
-        B: HttpBody + 'static,
+        B: HttpBody + Send + 'static,
         B::Err: Into<BoxError>,
         B::Data: Into<Vec<u8>>,
     {
@@ -315,7 +315,7 @@ where
     }
 }
 
-impl<T: AsRef<[u8]> + 'static> From<ChunkedBody<T>> for Body {
+impl<T: AsRef<[u8]> + Send + 'static> From<ChunkedBody<T>> for Body {
     fn from(value: ChunkedBody<T>) -> Self {
         Body::new(value)
     }

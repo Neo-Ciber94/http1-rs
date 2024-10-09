@@ -29,7 +29,7 @@ impl<T> Deref for State<T> {
     }
 }
 
-impl<T: 'static> FromRequestRef for State<T> {
+impl<T: Send + Sync + 'static> FromRequestRef for State<T> {
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,
     ) -> Result<Self, http1::error::BoxError> {

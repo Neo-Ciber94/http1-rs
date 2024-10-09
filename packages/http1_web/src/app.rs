@@ -137,7 +137,7 @@ impl<T> App<T> {
 
 impl<T> RequestHandler for App<T>
 where
-    T: 'static,
+    T: Send + Sync + 'static,
 {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
