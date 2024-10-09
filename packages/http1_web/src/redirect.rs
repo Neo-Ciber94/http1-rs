@@ -12,7 +12,7 @@ use crate::into_response::IntoResponse;
 /// - `TemporaryRedirect`: Corresponds to HTTP status 307.
 /// - `PermanentRedirect`: Corresponds to HTTP status 308.
 /// - `NotModified`: Corresponds to HTTP status 304 (used for caching purposes).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RedirectionStatus {
     MovedPermanently,
     Found,

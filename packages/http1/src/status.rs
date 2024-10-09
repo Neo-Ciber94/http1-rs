@@ -97,15 +97,22 @@ status_codes! {
     410, "Gone", GONE,
     411, "Length Required", LENGTH_REQUIRED,
     412, "Precondition Failed", PRECONDITION_FAILED,
-    413, "Content Too Large", CONTENT_TOO_LARGE,
+    413, "Payload Too Large", PAYLOAD_TOO_LARGE,
     414, "URI Too Long", URI_TOO_LONG,
     415, "Unsupported Media Type", UNSUPPORTED_MEDIA_TYPE,
     416, "Range Not Satisfiable", RANGE_NOT_SATISFIABLE,
     417, "Expectation Failed", EXPECTATION_FAILED,
-    418, "(Unused)", UNUSED_418,
+    418, "I'm a Teapot", IM_A_TEAPOT,
     421, "Misdirected Request", MISDIRECTED_REQUEST,
     422, "Unprocessable Content", UNPROCESSABLE_CONTENT,
+    423, "Locked", LOCKED,
+    424, "Failed Dependency", FAILED_DEPENDENCY,
+    425, "Too Early", TOO_EARLY,
     426, "Upgrade Required", UPGRADE_REQUIRED,
+    428, "Precondition Required", PRECONDITION_REQUIRED,
+    429, "Too Many Requests", TOO_MANY_REQUESTS,
+    431, "Request Header Fields Too Large", REQUEST_HEADER_FIELDS_TOO_LARGE,
+    451, "Unavailable For Legal Reasons", UNAVAILABLE_FOR_LEGAL_REASONS,
 
     // Server Error 5xx
     500, "Internal Server Error", INTERNAL_SERVER_ERROR,
@@ -113,7 +120,12 @@ status_codes! {
     502, "Bad Gateway", BAD_GATEWAY,
     503, "Service Unavailable", SERVICE_UNAVAILABLE,
     504, "Gateway Timeout", GATEWAY_TIMEOUT,
-    505, "HTTP Version Not Supported", HTTP_VERSION_NOT_SUPPORTED
+    505, "HTTP Version Not Supported", HTTP_VERSION_NOT_SUPPORTED,
+    506, "Variant Also Negotiates", VARIANT_ALSO_NEGOTIATES,
+    507, "Insufficient Storage", INSUFFICIENT_STORAGE,
+    508, "Loop Detected", LOOP_DETECTED,
+    510, "Not Extended", NOT_EXTENDED,
+    511, "Network Authentication Required", NETWORK_AUTHENTICATION_REQUIRED
 }
 
 impl Display for StatusCode {
