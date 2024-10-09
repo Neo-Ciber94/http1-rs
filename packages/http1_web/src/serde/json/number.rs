@@ -133,7 +133,7 @@ impl PartialEq for Number {
             (Self::UInteger(a), Self::Float(b)) => *a as f64 == *b,
             (Self::UInteger(a), Self::Integer(b)) => (*b >= 0) && *a == (*b as u128),
             (Self::Integer(a), Self::UInteger(b)) => (*a >= 0) && (*a as u128) == *b,
-            (Self::Integer(a), Self::Float(b)) => (*a as f64) == *b
+            (Self::Integer(a), Self::Float(b)) => (*a as f64) == *b,
         }
     }
 }

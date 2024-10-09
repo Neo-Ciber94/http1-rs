@@ -1,8 +1,8 @@
+use crate::handler::BoxedHandler;
+use crate::middleware::Middleware;
 use http1::body::Body;
 use http1::request::Request;
 use http1::{common::date_time::DateTime, response::Response};
-use crate::middleware::Middleware;
-use crate::handler::BoxedHandler;
 
 /// A middleware that logs each request.
 pub struct Logging;

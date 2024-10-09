@@ -637,10 +637,7 @@ impl<T: Into<JsonValue>, const N: usize> From<[T; N]> for JsonValue {
 }
 
 impl Serialize for Number {
-    fn serialize<S: crate::serde::ser::Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Err> {
+    fn serialize<S: crate::serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         match self {
             Number::Float(f) => serializer.serialize_f64(*f),
             Number::UInteger(u) => serializer.serialize_u128(*u),
@@ -650,10 +647,7 @@ impl Serialize for Number {
 }
 
 impl Serialize for JsonValue {
-    fn serialize<S: crate::serde::ser::Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Err> {
+    fn serialize<S: crate::serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         match self {
             JsonValue::Number(number) => number.serialize(serializer),
             JsonValue::String(s) => serializer.serialize_str(s),
@@ -1049,9 +1043,7 @@ impl Deserializer for JsonValue {
 
 pub struct JsonSeqAccess(pub std::vec::IntoIter<JsonValue>);
 impl SeqAccess for JsonSeqAccess {
-    fn next_element<T: crate::serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<T>, Error> {
+    fn next_element<T: crate::serde::de::Deserialize>(&mut self) -> Result<Option<T>, Error> {
         match self.0.next() {
             Some(x) => {
                 let value = T::deserialize(x)?;
@@ -1064,10 +1056,7 @@ impl SeqAccess for JsonSeqAccess {
 
 pub struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(pub I);
 impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
-    fn next_entry<
-        K: crate::serde::de::Deserialize,
-        V: crate::serde::de::Deserialize,
-    >(
+    fn next_entry<K: crate::serde::de::Deserialize, V: crate::serde::de::Deserialize>(
         &mut self,
     ) -> Result<Option<(K, V)>, Error> {
         match self.0.next() {

@@ -377,10 +377,7 @@ impl<R: Read> JsonDeserializer<R> {
 }
 
 impl<R: Read> Deserializer for JsonDeserializer<R> {
-    fn deserialize_unit<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_unit<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -388,10 +385,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_unit()
     }
 
-    fn deserialize_bool<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bool<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -444,10 +438,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_u64(value)
     }
 
-    fn deserialize_u128<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -502,10 +493,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_i64(value)
     }
 
-    fn deserialize_i128<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -538,10 +526,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_f64(value)
     }
 
-    fn deserialize_char<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -561,10 +546,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_char(c)
     }
 
-    fn deserialize_string<V>(
-        mut self,
-        visitor: V,
-    ) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_string<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {

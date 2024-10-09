@@ -1,6 +1,6 @@
 pub mod app;
-pub mod serde;
 pub mod cookies;
+pub mod data;
 pub mod error_response;
 pub mod from_request;
 pub mod handler;
@@ -10,5 +10,5 @@ pub mod json;
 pub mod middleware;
 pub mod redirect;
 pub mod router;
+pub mod serde;
 pub mod state;
-pub mod data;
