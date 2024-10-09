@@ -2,9 +2,7 @@ use http1::{
     body::Body, headers, request::Request, response::Response, runtime::ThreadPooledRuntime,
     server::Server, status::StatusCode, uri::uri::Uri,
 };
-use http1_web::{
-    app::App, common::serde::json::value::JsonValue, handler::BoxedHandler, html, json::Json,
-};
+use http1_web::{app::App, handler::BoxedHandler, html, json::Json, serde::json::value::JsonValue};
 use std::{collections::HashMap, fs::File};
 
 fn main() -> std::io::Result<()> {

@@ -3,7 +3,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::common::serde::{
+use crate::serde::{
     de::{Deserialize, Deserializer, Error},
     expected::Expected,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
@@ -328,20 +328,20 @@ impl JsonValue {
 #[macro_export]
 macro_rules! json {
     () => {
-        $crate::common::serde::json::value::JsonValue::Object(Default::default())
+        $crate::serde::json::value::JsonValue::Object(Default::default())
     };
 
     (null) =>  {
-        $crate::common::serde::json::value::JsonValue::Null
+        $crate::serde::json::value::JsonValue::Null
     };
 
     ($value:literal) => {
-        $crate::common::serde::json::value::JsonValue::from($value)
+        $crate::serde::json::value::JsonValue::from($value)
     };
 
     ([$($item:expr),* $(,)?]) => {
         {
-            $crate::common::serde::json::value::JsonValue::Array(vec![
+            $crate::serde::json::value::JsonValue::Array(vec![
                 $(
                     json!($item)
                 ),*
@@ -352,12 +352,12 @@ macro_rules! json {
     ({ $($key:ident : $value:expr),* $(,)?}) => {
         {
             #[allow(unused_mut)]
-           let mut map = $crate::common::serde::json::map::OrderedMap::<String, $crate::common::serde::json::value::JsonValue>::new();
+           let mut map = $crate::serde::json::map::OrderedMap::<String, $crate::serde::json::value::JsonValue>::new();
            $(
-                map.insert({ stringify!($key) }.into(), $crate::common::serde::json::value::JsonValue::from($value));
+                map.insert({ stringify!($key) }.into(), $crate::serde::json::value::JsonValue::from($value));
            )*
 
-           $crate::common::serde::json::value::JsonValue::Object(map)
+           $crate::serde::json::value::JsonValue::Object(map)
         }
     }
 }
@@ -637,7 +637,7 @@ impl<T: Into<JsonValue>, const N: usize> From<[T; N]> for JsonValue {
 }
 
 impl Serialize for Number {
-    fn serialize<S: crate::common::serde::ser::Serializer>(
+    fn serialize<S: crate::serde::ser::Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Err> {
@@ -650,7 +650,7 @@ impl Serialize for Number {
 }
 
 impl Serialize for JsonValue {
-    fn serialize<S: crate::common::serde::ser::Serializer>(
+    fn serialize<S: crate::serde::ser::Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Err> {
@@ -769,9 +769,9 @@ impl MapSerializer for JsonObjectSerializer {
 }
 
 impl Deserializer for JsonValue {
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Null => visitor.visit_unit(),
@@ -779,9 +779,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Bool(value) => visitor.visit_bool(value),
@@ -789,9 +789,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -802,9 +802,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -817,9 +817,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -832,9 +832,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -847,9 +847,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -862,9 +862,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -875,9 +875,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -890,9 +890,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -905,9 +905,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -920,9 +920,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -935,9 +935,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -950,9 +950,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Number(value) => {
@@ -965,9 +965,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::String(mut value) => {
@@ -986,9 +986,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::String(value) => visitor.visit_string(value),
@@ -996,9 +996,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Array(value) => visitor.visit_seq(JsonSeqAccess(value.into_iter())),
@@ -1006,9 +1006,9 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::common::serde::de::Error>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
-        V: crate::common::serde::visitor::Visitor,
+        V: crate::serde::visitor::Visitor,
     {
         match self {
             JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess(value.into_iter())),
@@ -1049,7 +1049,7 @@ impl Deserializer for JsonValue {
 
 pub struct JsonSeqAccess(pub std::vec::IntoIter<JsonValue>);
 impl SeqAccess for JsonSeqAccess {
-    fn next_element<T: crate::common::serde::de::Deserialize>(
+    fn next_element<T: crate::serde::de::Deserialize>(
         &mut self,
     ) -> Result<Option<T>, Error> {
         match self.0.next() {
@@ -1065,8 +1065,8 @@ impl SeqAccess for JsonSeqAccess {
 pub struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(pub I);
 impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
     fn next_entry<
-        K: crate::common::serde::de::Deserialize,
-        V: crate::common::serde::de::Deserialize,
+        K: crate::serde::de::Deserialize,
+        V: crate::serde::de::Deserialize,
     >(
         &mut self,
     ) -> Result<Option<(K, V)>, Error> {
@@ -1159,7 +1159,7 @@ impl Expected for JsonValue {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::serde::json::{map::OrderedMap, value::JsonValue};
+    use crate::serde::json::{map::OrderedMap, value::JsonValue};
 
     #[test]
     fn should_build_json_using_macro() {
