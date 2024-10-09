@@ -11,3 +11,4 @@ pub mod middleware;
 pub mod redirect;
 pub mod router;
 pub mod state;
+pub mod data;

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use http1::{
     body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
@@ -6,6 +6,7 @@ use http1::{
 };
 
 use crate::{
+    data::DataMap,
     from_request::FromRequest,
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
@@ -18,6 +19,7 @@ pub struct App<T> {
     scope: Scope,
     fallback: Option<BoxedHandler>,
     middleware: Vec<BoxedMiddleware>,
+    data_map: Arc<DataMap>,
     state: State<T>,
 }
 
@@ -32,6 +34,7 @@ impl App<()> {
             fallback: None,
             middleware: Vec::new(),
             state: State::new(state),
+            data_map: Arc::new(DataMap::new()),
         }
     }
 }
@@ -48,6 +51,16 @@ impl<T> App<T> {
         M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
     {
         self.middleware.push(BoxedMiddleware::new(handler));
+        self
+    }
+
+    pub fn data<U>(mut self, value: U) -> Self
+    where
+        U: Send + Sync + 'static,
+    {
+        Arc::get_mut(&mut self.data_map)
+            .expect("Failed to get data map")
+            .insert(value);
         self
     }
 
@@ -155,6 +168,7 @@ where
                 // Add any additional extensions
                 req.extensions_mut().insert(mtch.params.clone());
                 req.extensions_mut().insert(self.state.clone());
+                req.extensions_mut().insert(self.data_map.clone());
 
                 // Handle the request
                 let res = if middlewares.is_empty() {
