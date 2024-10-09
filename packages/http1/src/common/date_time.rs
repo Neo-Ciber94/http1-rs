@@ -296,6 +296,13 @@ impl DateTime {
         remaining_ms_in_second as u16
     }
 
+    pub fn millis_since(&self, other: Self) -> u128 {
+        match self.as_millis().checked_sub(other.as_millis()) {
+            Some(millis) => millis,
+            None => 0,
+        }
+    }
+
     fn remaining_ms_in_day(&self) -> u128 {
         let millis = self.as_millis();
         let days = self.as_days();
