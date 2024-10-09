@@ -68,7 +68,12 @@ where
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, http1::error::BoxError> {
-        match req.extensions().get::<Data<T>>().cloned() {
+        match req
+            .extensions()
+            .get::<Arc<DataMap>>()
+            .and_then(|m| m.get::<T>())
+            .clone()
+        {
             Some(x) => Ok(x),
             None => Err(DataNotFound::<T>(PhantomData).into()),
         }
