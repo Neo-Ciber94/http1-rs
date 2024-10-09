@@ -6,12 +6,9 @@ use http1::{
 };
 
 use crate::{
-    common::{
-        self,
-        serde::{de::Deserialize, ser::Serialize},
-    },
     from_request::FromRequest,
     into_response::IntoResponse,
+    serde::{self, de::Deserialize, ser::Serialize},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,14 +19,14 @@ impl<T: Deserialize> FromRequest for Json<T> {
         mut req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, http1::error::BoxError> {
         let bytes = req.body_mut().read_all_bytes()?;
-        let value = common::serde::json::from_bytes::<T>(bytes)?;
+        let value = serde::json::from_bytes::<T>(bytes)?;
         Ok(Json(value))
     }
 }
 
 impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        match common::serde::json::to_string(&self.0) {
+        match serde::json::to_string(&self.0) {
             Ok(x) => Response::builder()
                 .insert_header(CONTENT_TYPE, "application/json; charset=UTF-8")
                 .body(x.into()),

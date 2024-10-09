@@ -1,5 +1,5 @@
 pub mod app;
-pub mod common;
+pub mod serde;
 pub mod cookies;
 pub mod error_response;
 pub mod from_request;
