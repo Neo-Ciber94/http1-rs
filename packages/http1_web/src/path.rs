@@ -13,6 +13,12 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Path<T>(pub T);
 
+impl<T> Path<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<T: Deserialize> FromRequestRef for Path<T> {
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,

@@ -3,7 +3,7 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, handler::BoxedHandler, html, json::Json, router::params::ParamsMap,
+    app::App, handler::BoxedHandler, html, json::Json, path::Path, router::params::ParamsMap,
     serde::json::value::JsonValue,
 };
 use std::{collections::HashMap, fs::File};
@@ -83,9 +83,9 @@ fn main() -> std::io::Result<()> {
                 hello: "world"
             }))
         })
-        .get("/dynamic/:name", |params: ParamsMap| {
+        .get("/dynamic/:val", |path: Path<u32>| {
             Json(http1_web::json!({
-               param: params.get("name")
+               param: path.0
             }))
         });
 
