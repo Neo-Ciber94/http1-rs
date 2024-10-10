@@ -577,3 +577,58 @@ impl<T: Deserialize> Deserialize for Option<T> {
         deserializer.deserialize_option(OptionVisitor(PhantomData))
     }
 }
+
+#[macro_export]
+macro_rules! impl_deserialize_struct {
+    ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
+        impl $crate::serde::de::Deserialize for $struct {
+            fn deserialize<D: $crate::serde::de::Deserializer>(
+                deserializer: D,
+            ) -> Result<Self, $crate::serde::de::Error> {
+                struct StructVisitor;
+
+                impl $crate::serde::visitor::Visitor for StructVisitor {
+                    type Value = $struct;
+
+                    fn visit_map<Map: $crate::serde::visitor::MapAccess>(
+                        self,
+                        mut map: Map,
+                    ) -> Result<Self::Value, $crate::serde::de::Error>  {
+                        $(
+                            let mut $field: Result<$value, $crate::serde::de::Error> = Err($crate::serde::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
+                        )*
+
+                        while let Some(k) = map.next_key::<String>()?  {
+                            match k.as_str() {
+                                $(
+                                    stringify!($field) => {
+                                        $field = match map.next_value::<$value>()? {
+                                            Some(x) => Ok(x),
+                                            None => {
+                                                return Err($crate::serde::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
+                                            }
+                                        };
+                                    }
+                                )*
+
+                                _ => {
+                                    return Err($crate::serde::de::Error::custom(format!(
+                                        "Unknown field '{k}'"
+                                    )));
+                                }
+                            }
+                        }
+
+                        Ok($struct {
+                            $(
+                                $field: $field?
+                            ),*
+                        })
+                    }
+                }
+
+                deserializer.deserialize_map(StructVisitor)
+            }
+        }
+    };
+}

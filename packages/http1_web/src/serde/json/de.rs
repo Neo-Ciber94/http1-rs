@@ -604,7 +604,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::json::{from_str, value::JsonValue};
+    use crate::{
+        impl_deserialize_struct,
+        serde::json::{from_str, value::JsonValue},
+    };
 
     #[test]
     fn should_deserialize_null() {
@@ -1032,7 +1035,7 @@ mod tests {
         assert_eq!(value.age, 18);
         assert_eq!(value.likes_art, true);
         assert_eq!(value.friends.len(), 2);
-    
+
         // Check the friends
         assert_eq!(value.friends[0].name, "Ryuji Ayukawa");
         assert_eq!(value.friends[0].age, 18);
@@ -1040,5 +1043,55 @@ mod tests {
         assert_eq!(value.friends[1].name, "Maru Mori");
         assert_eq!(value.friends[1].age, 21);
         assert_eq!(value.friends[1].likes_art, true);
+    }
+
+    #[test]
+    fn should_impl_deserialize_to_struct() {
+        #[derive(Debug, PartialEq)]
+        struct MyStruct {
+            string: String,
+            number: u32,
+            boolean: bool,
+            array: Vec<MyStruct>,
+        }
+
+        impl_deserialize_struct!(MyStruct =>  {
+            string: String,
+            number: u32,
+            boolean: bool,
+            array: Vec<MyStruct>
+        });
+
+        let json = r#"
+        {
+            "string": "test",
+            "number": 42,
+            "boolean": true,
+            "array": [
+                {
+                    "string": "nested",
+                    "number": 7,
+                    "boolean": false,
+                    "array": []
+                }
+            ]
+        }
+        "#;
+
+        let result = from_str::<MyStruct>(json).unwrap();
+
+        let expected = MyStruct {
+            string: "test".to_string(),
+            number: 42,
+            boolean: true,
+            array: vec![MyStruct {
+                string: "nested".to_string(),
+                number: 7,
+                boolean: false,
+                array: vec![],
+            }],
+        };
+
+        assert_eq!(result, expected);
     }
 }
