@@ -218,7 +218,12 @@ impl Scope {
     pub fn scope(mut self, route: &str, scope: Scope) -> Self {
         for (method, router) in scope.method_router {
             for (r, handler) in router.into_entries() {
-                let full_path = format!("{route}{r}");
+                let sub_route = r.to_string();
+                let full_path = if sub_route == "/" {
+                    route.to_string()
+                } else {
+                    format!("{route}{sub_route}")
+                };
                 self.add_route(method.clone(), &full_path, handler);
             }
         }
