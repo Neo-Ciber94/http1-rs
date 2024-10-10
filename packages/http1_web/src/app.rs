@@ -64,6 +64,11 @@ impl<T> App<T> {
         self
     }
 
+    pub fn scope(mut self, route: &str, scope: Scope) -> Self {
+        self.scope.add_scope(route, scope);
+        self
+    }
+
     pub fn route<H, Args, R>(mut self, method: Method, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -215,7 +220,7 @@ impl Scope {
 }
 
 impl Scope {
-    pub fn scope(mut self, route: &str, scope: Scope) -> Self {
+    fn add_scope(&mut self, route: &str, scope: Scope) {
         for (method, router) in scope.method_router {
             for (r, handler) in router.into_entries() {
                 let sub_route = r.to_string();
@@ -227,7 +232,6 @@ impl Scope {
                 self.add_route(method.clone(), &full_path, handler);
             }
         }
-        self
     }
 
     fn add_route(&mut self, method: Method, route: &str, handler: BoxedHandler) {
@@ -241,6 +245,11 @@ impl Scope {
                 entry.insert(router);
             }
         }
+    }
+
+    pub fn scope(mut self, route: &str, scope: Scope) -> Self {
+        self.add_scope(route, scope);
+        self
     }
 
     pub fn route<H, Args, R>(mut self, method: Method, route: &str, handler: H) -> Self
