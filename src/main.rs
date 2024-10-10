@@ -2,7 +2,10 @@ use http1::{
     body::Body, headers, request::Request, response::Response, runtime::ThreadPooledRuntime,
     server::Server, status::StatusCode, uri::uri::Uri,
 };
-use http1_web::{app::App, handler::BoxedHandler, html, json::Json, serde::json::value::JsonValue};
+use http1_web::{
+    app::App, handler::BoxedHandler, html, json::Json, router::params::ParamsMap,
+    serde::json::value::JsonValue,
+};
 use std::{collections::HashMap, fs::File};
 
 fn main() -> std::io::Result<()> {
@@ -78,6 +81,11 @@ fn main() -> std::io::Result<()> {
             println!("{:?}", json);
             Json(http1_web::json!({
                 hello: "world"
+            }))
+        })
+        .get("/dynamic/:name", |params: ParamsMap| {
+            Json(http1_web::json!({
+               param: params.get("name")
             }))
         });
 
