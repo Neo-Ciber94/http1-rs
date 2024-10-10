@@ -578,6 +578,7 @@ impl<T: Deserialize> Deserialize for Option<T> {
     }
 }
 
+/// Implement deserialize for a struct.
 #[macro_export]
 macro_rules! impl_deserialize_struct {
     ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
