@@ -8,6 +8,7 @@ pub mod html;
 pub mod into_response;
 pub mod json;
 pub mod middleware;
+pub mod path;
 pub mod redirect;
 pub mod router;
 pub mod serde;

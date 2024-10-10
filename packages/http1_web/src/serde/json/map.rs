@@ -32,6 +32,12 @@ impl<K, V> OrderedMap<K, V> {
     pub fn keys(&self) -> std::slice::Iter<K> {
         self.keys.iter()
     }
+
+    /// Remove all the entries in the map.
+    pub fn clear(&mut self) {
+        self.keys.clear();
+        self.map.clear();
+    }
 }
 
 impl<K, V> OrderedMap<K, V>
@@ -56,8 +62,20 @@ where
         self.map.get_mut(&key)
     }
 
+    /// Returns the reference to the element with the key at the given position.
+    pub fn get_index(&self, pos: usize) -> Option<&V> {
+        match self.keys.get(pos) {
+            Some(key) => self.get(key),
+            None => None,
+        }
+    }
+
     /// Returns `true` if the map contains the given key.
-    pub fn contains_key(&self, key: &K) -> bool {
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        Q: Hash + Eq + ?Sized,
+        K: Borrow<Q>,
+    {
         self.map.contains_key(key)
     }
 
@@ -172,6 +190,23 @@ where
             map: self.map,
         }
     }
+}
+
+impl<K, V> PartialEq for OrderedMap<K, V>
+where
+    K: Eq + Hash,
+    V: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.map == other.map && self.keys == other.keys
+    }
+}
+
+impl<K, V> Eq for OrderedMap<K, V>
+where
+    K: Eq + Hash,
+    V: PartialEq,
+{
 }
 
 #[cfg(test)]

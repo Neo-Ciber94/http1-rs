@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use crate::router::route::RouteSegment;
+use crate::{router::route::RouteSegment, serde::json::map::OrderedMap};
 
 use super::{
     route::{self, get_segments, Route},
@@ -38,7 +38,7 @@ impl<T> SimpleRouter<T> {
     }
 
     pub fn find(&self, path: &str) -> Option<Match<&T>> {
-        let mut params_map = HashMap::new();
+        let mut params_map = Default::default();
 
         for (route, value) in self.routes.iter() {
             match find_route(route, path, &mut params_map) {
@@ -56,7 +56,7 @@ impl<T> SimpleRouter<T> {
     }
 
     pub fn find_mut(&mut self, path: &str) -> Option<Match<&mut T>> {
-        let mut params_map = HashMap::new();
+        let mut params_map = Default::default();
 
         for (route, value) in self.routes.iter_mut() {
             match find_route(route, path, &mut params_map) {
@@ -89,7 +89,7 @@ impl<T> SimpleRouter<T> {
 fn find_route<'a>(
     route: &'a Route,
     path: &'a str,
-    params_map: &'a mut HashMap<String, String>,
+    params_map: &'a mut OrderedMap<String, String>,
 ) -> Option<&'a Route> {
     let mut segments = get_segments(path).enumerate().peekable();
     let route_segments = route.iter();

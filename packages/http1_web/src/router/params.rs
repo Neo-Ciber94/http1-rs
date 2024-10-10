@@ -1,13 +1,22 @@
-use std::collections::HashMap;
+use crate::serde::json::map::{IntoIter, Iter, OrderedMap};
+
+pub type ParamsIter<'a> = Iter<'a, String, String>;
+
+pub type ParamsIntoIter = IntoIter<String, String>;
 
 /// The params for a route.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct ParamsMap(pub(crate) HashMap<String, String>);
+pub struct ParamsMap(pub(crate) OrderedMap<String, String>);
 
 impl ParamsMap {
     /// Returns the value for the given key.
     pub fn get(&self, key: &str) -> Option<&str> {
         self.0.get(key).map(|x| x.as_str())
+    }
+
+    /// Returns the param at the given position.
+    pub fn get_index(&self, pos: usize) -> Option<&str> {
+        self.0.get_index(pos).map(|x| x.as_str())
     }
 
     /// Returns `true` if the given key exists.
@@ -16,7 +25,12 @@ impl ParamsMap {
     }
 
     /// Returns an iterator over the key-values.
-    pub fn iter(&self) -> std::collections::hash_map::Iter<String, String> {
+    pub fn iter(&self) -> ParamsIter {
         self.0.iter()
+    }
+
+    /// Returns an iterator over the key-values.
+    pub fn into_iter(self) -> ParamsIntoIter {
+        self.0.into_iter()
     }
 }
