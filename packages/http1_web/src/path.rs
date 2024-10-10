@@ -1,5 +1,8 @@
+use http1::{error::BoxError, status::StatusCode};
+
 use crate::{
     from_request::FromRequestRef,
+    into_response::IntoResponse,
     router::params::ParamsMap,
     serde::{
         de::{Deserialize, Deserializer},
@@ -19,17 +22,39 @@ impl<T> Path<T> {
     }
 }
 
+#[doc(hidden)]
+pub enum PathRejectionError {
+    NotParamsMap,
+    DeserializationError(BoxError),
+}
+
+impl IntoResponse for PathRejectionError {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        match self {
+            PathRejectionError::NotParamsMap => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            PathRejectionError::DeserializationError(err) => {
+                eprintln!("Path deserialization error: {err}");
+                StatusCode::UNPROCESSABLE_CONTENT.into_response()
+            }
+        }
+    }
+}
+
 impl<T: Deserialize> FromRequestRef for Path<T> {
+    type Rejection = PathRejectionError;
+
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,
-    ) -> Result<Self, http1::error::BoxError> {
+    ) -> Result<Self, Self::Rejection> {
         let params_map = req
             .extensions()
             .get::<ParamsMap>()
             .cloned()
-            .ok_or_else(|| "failed to get params map")?;
+            .ok_or(PathRejectionError::NotParamsMap)?;
 
-        let value = T::deserialize(PathDeserializer(params_map))?;
+        let value = T::deserialize(PathDeserializer(params_map))
+            .map_err(|err| PathRejectionError::DeserializationError(err.into()))?;
+
         Ok(Path(value))
     }
 }

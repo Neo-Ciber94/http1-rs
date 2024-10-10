@@ -1,6 +1,8 @@
 use std::{ops::Deref, sync::Arc};
 
-use crate::from_request::FromRequestRef;
+use http1::status::StatusCode;
+
+use crate::{from_request::FromRequestRef, into_response::IntoResponse};
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct State<T>(Arc<T>);
@@ -29,13 +31,24 @@ impl<T> Deref for State<T> {
     }
 }
 
+#[doc(hidden)]
+pub struct AppStateError;
+impl IntoResponse for AppStateError {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        eprintln!("Failed to extract app state");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
 impl<T: Send + Sync + 'static> FromRequestRef for State<T> {
+    type Rejection = AppStateError;
+
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,
-    ) -> Result<Self, http1::error::BoxError> {
+    ) -> Result<Self, Self::Rejection> {
         req.extensions()
             .get::<State<T>>()
             .cloned()
-            .ok_or_else(|| "failed to get app State<T>".into())
+            .ok_or(AppStateError)
     }
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use http1::{body::Body, request::Request, response::Response, status::StatusCode};
+use http1::{body::Body, request::Request, response::Response};
 
 use crate::{from_request::FromRequest, into_response::IntoResponse};
 
@@ -24,10 +24,7 @@ impl BoxedHandler {
                 let result = handler.call(args);
                 result.into_response()
             }
-            Err(err) => {
-                eprintln!("{err}");
-                Response::new(StatusCode::INTERNAL_SERVER_ERROR, Body::empty())
-            }
+            Err(err) => err.into_response(),
         }))
     }
 

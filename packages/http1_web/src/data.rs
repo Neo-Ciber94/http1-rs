@@ -1,13 +1,8 @@
-use std::{
-    fmt::{Debug, Display},
-    marker::PhantomData,
-    ops::Deref,
-    sync::Arc,
-};
+use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::Arc};
 
-use http1::common::any_map::AnyMap;
+use http1::{common::any_map::AnyMap, status::StatusCode};
 
-use crate::from_request::FromRequest;
+use crate::{from_request::FromRequest, into_response::IntoResponse};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Data<T>(Arc<T>);
@@ -41,33 +36,28 @@ impl<T> Deref for Data<T> {
     }
 }
 
-pub struct DataNotFound<T>(PhantomData<T>);
-
-impl<T> Debug for DataNotFound<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("DataNotFound").finish()
-    }
-}
-
-impl<T: 'static> Display for DataNotFound<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
+#[doc(hidden)]
+pub struct DataNotFound<T: 'static>(PhantomData<T>);
+impl<T: 'static> IntoResponse for DataNotFound<T> {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        eprintln!(
             "Failed to retrieve `{}` from request",
             std::any::type_name::<T>()
-        )
+        );
+
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
-
-impl<T: 'static> std::error::Error for DataNotFound<T> {}
 
 impl<T> FromRequest for Data<T>
 where
     T: Send + Sync + 'static,
 {
+    type Rejection = DataNotFound<T>;
+
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
-    ) -> Result<Self, http1::error::BoxError> {
+    ) -> Result<Self, Self::Rejection> {
         match req
             .extensions()
             .get::<Arc<DataMap>>()
@@ -75,7 +65,7 @@ where
             .clone()
         {
             Some(x) => Ok(x),
-            None => Err(DataNotFound::<T>(PhantomData).into()),
+            None => Err(DataNotFound::<T>(PhantomData)),
         }
     }
 }
@@ -104,12 +94,14 @@ impl DataMap {
 }
 
 impl FromRequest for Arc<DataMap> {
+    type Rejection = DataNotFound<DataMap>;
+
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
-    ) -> Result<Self, http1::error::BoxError> {
+    ) -> Result<Self, Self::Rejection> {
         req.extensions()
             .get::<Arc<DataMap>>()
             .cloned()
-            .ok_or_else(|| DataNotFound::<DataMap>(PhantomData).into())
+            .ok_or(DataNotFound(PhantomData))
     }
 }

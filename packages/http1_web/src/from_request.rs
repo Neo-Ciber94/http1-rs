@@ -1,98 +1,143 @@
 use http1::{
     body::Body,
-    error::BoxError,
     headers::Headers,
     method::Method,
     request::Request,
+    response::Response,
+    status::StatusCode,
     uri::{authority::Authority, scheme::Scheme, uri::Uri},
     version::Version,
 };
 
-use crate::router::params::ParamsMap;
+use crate::{
+    into_response::{Impossible, IntoResponse},
+    router::params::ParamsMap,
+};
 
 pub trait FromRequest: Sized {
-    fn from_request(req: Request<Body>) -> Result<Self, BoxError>;
+    type Rejection: IntoResponse;
+    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection>;
 }
 
 pub trait FromRequestRef: Sized {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError>;
-}
-
-impl FromRequest for Request<Body> {
-    fn from_request(req: Request<Body>) -> Result<Self, BoxError> {
-        Ok(req)
-    }
-}
-
-impl FromRequest for Body {
-    fn from_request(req: Request<Body>) -> Result<Self, BoxError> {
-        Ok(req.into_body())
-    }
+    type Rejection: IntoResponse;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection>;
 }
 
 impl<T> FromRequest for T
 where
     T: FromRequestRef,
 {
-    fn from_request(req: Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = T::Rejection;
+    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
         T::from_request_ref(&req)
     }
 }
 
+impl FromRequest for Request<Body> {
+    type Rejection = Impossible;
+    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
+        Ok(req)
+    }
+}
+
+impl FromRequest for Body {
+    type Rejection = Impossible;
+    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
+        Ok(req.into_body())
+    }
+}
+
 impl FromRequestRef for () {
-    fn from_request_ref(_: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = Impossible;
+    fn from_request_ref(_: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(())
     }
 }
 
+#[doc(hidden)]
+pub struct ParamsNotFound;
+impl IntoResponse for ParamsNotFound {
+    fn into_response(self) -> http1::response::Response<Body> {
+        eprintln!("ParamsMap not found");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
 impl FromRequestRef for ParamsMap {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = ParamsNotFound;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         req.extensions()
             .get::<ParamsMap>()
             .cloned()
-            .ok_or_else(|| "Failed to get params".into())
+            .ok_or(ParamsNotFound)
     }
 }
 
 impl FromRequestRef for Uri {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.uri().clone())
     }
 }
 
+#[doc(hidden)]
+pub struct SchemeNotFound;
+impl IntoResponse for SchemeNotFound {
+    fn into_response(self) -> http1::response::Response<Body> {
+        eprintln!("request scheme not found");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
 impl FromRequestRef for Scheme {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
-        req.uri()
-            .scheme()
-            .cloned()
-            .ok_or_else(|| "Failed to get uri scheme".into())
+    type Rejection = SchemeNotFound;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+        req.uri().scheme().cloned().ok_or(SchemeNotFound)
+    }
+}
+
+#[doc(hidden)]
+pub struct AuthorityNotFound;
+impl IntoResponse for AuthorityNotFound {
+    fn into_response(self) -> http1::response::Response<Body> {
+        eprintln!("request uri authority not found");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
 
 impl FromRequestRef for Authority {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
-        req.uri()
-            .authority()
-            .cloned()
-            .ok_or_else(|| "Failed to get uri authority".into())
+    type Rejection = AuthorityNotFound;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+        req.uri().authority().cloned().ok_or(AuthorityNotFound)
     }
 }
 
 impl FromRequestRef for Headers {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.headers().clone())
     }
 }
 
 impl FromRequestRef for Version {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(*req.version())
     }
 }
 
 impl FromRequestRef for Method {
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, BoxError> {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.method().clone())
+    }
+}
+
+impl<T: FromRequestRef> FromRequestRef for Option<T> {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+        Ok(T::from_request_ref(req).ok())
     }
 }
 
@@ -103,12 +148,20 @@ macro_rules! impl_from_request_tuple {
             where
                 $($T: crate::from_request::FromRequestRef,)*
                 $last: crate::from_request::FromRequest {
-            fn from_request(req: http1::request::Request<Body>) -> Result<Self, BoxError> {
+            type Rejection = Response<Body>;
+            fn from_request(req: http1::request::Request<Body>) -> Result<Self, Self::Rejection> {
                 $(
-                    let $T = <$T as crate::from_request::FromRequestRef>::from_request_ref(&req)?;
+                    let $T = match <$T as crate::from_request::FromRequestRef>::from_request_ref(&req) {
+                        Ok(x) => x,
+                        Err(err) => return Err(err.into_response())
+                    };
                 )*
 
-                let last = <$last as crate::from_request::FromRequest>::from_request(req)?;
+                let last = match <$last as crate::from_request::FromRequest>::from_request(req) {
+                    Ok(x) => x,
+                    Err(err) => return Err(err.into_response())
+                };
+
                 Ok(($($T,)* last,))
             }
         }

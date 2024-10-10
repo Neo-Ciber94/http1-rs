@@ -261,3 +261,14 @@ impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7 }
 impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
 impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
 impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
+
+enum Void {}
+
+/// A response that can never be constructed.
+pub struct Impossible(Void);
+
+impl IntoResponse for Impossible {
+    fn into_response(self) -> Response<Body> {
+        match self.0 {}
+    }
+}

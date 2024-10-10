@@ -3,8 +3,7 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, handler::BoxedHandler, html, json::Json, path::Path, router::params::ParamsMap,
-    serde::json::value::JsonValue,
+    app::App, handler::BoxedHandler, html, json::Json, path::Path, serde::json::value::JsonValue,
 };
 use std::{collections::HashMap, fs::File};
 
