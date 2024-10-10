@@ -337,8 +337,16 @@ impl<R: Read> JsonDeserializer<R> {
         self.read_until_byte(b'{')?;
         self.read_byte(); // discard the `{`
 
-        self.depth += 1;
         let mut map = OrderedMap::new();
+
+        // If is just an empty object, exit
+        if self.read_until_next_non_whitespace() == Some(b'}') {
+            self.read_byte();
+            self.consume_rest()?;
+            return Ok(map);
+        }
+
+        self.depth += 1;
 
         loop {
             let key = self.parse_string()?;
@@ -858,6 +866,15 @@ mod tests {
                 -128i8
             )
         );
+    }
+
+    #[test]
+    fn should_deserialize_empty_object() {
+        let value = from_str::<JsonValue>("{}").unwrap();
+        assert!(matches!(value, JsonValue::Object(_)));
+
+        let obj = value.as_map().unwrap();
+        assert_eq!(obj.len(), 0);
     }
 
     #[test]
