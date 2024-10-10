@@ -1005,7 +1005,7 @@ impl Deserializer for JsonValue {
         V: crate::serde::visitor::Visitor,
     {
         match self {
-            JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess(value.into_iter())),
+            JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess::new(value.into_iter())),
             _ => Err(Error::custom("expected object")),
         }
     }
@@ -1023,9 +1023,7 @@ impl Deserializer for JsonValue {
             JsonValue::String(s) => visitor.visit_string(s),
             JsonValue::Bool(value) => visitor.visit_bool(value),
             JsonValue::Array(vec) => visitor.visit_seq(JsonSeqAccess(vec.into_iter())),
-            JsonValue::Object(ordered_map) => {
-                visitor.visit_map(JsonObjectAccess(ordered_map.into_iter()))
-            }
+            JsonValue::Object(ordered_map) => visitor.visit_map(JsonObjectAccess::new(ordered_map.into_iter())),
             JsonValue::Null => visitor.visit_none(),
         }
     }
@@ -1054,16 +1052,34 @@ impl SeqAccess for JsonSeqAccess {
     }
 }
 
-pub struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>>(pub I);
+pub struct JsonObjectAccess<I: Iterator<Item = (String, JsonValue)>> {
+    iter: I,
+    value: Option<JsonValue>,
+}
+
+impl<I: Iterator<Item = (String, JsonValue)>> JsonObjectAccess<I> {
+    pub fn new(iter: I) -> Self {
+        JsonObjectAccess { iter, value: None }
+    }
+}
+
 impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> {
-    fn next_entry<K: crate::serde::de::Deserialize, V: crate::serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<(K, V)>, Error> {
-        match self.0.next() {
+    fn next_key<K: Deserialize>(&mut self) -> Result<Option<K>, Error> {
+        match self.iter.next() {
             Some((k, v)) => {
+                self.value = Some(v);
                 let key = K::deserialize(JsonValue::String(k))?;
+                Ok(Some(key))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn next_value<V: Deserialize>(&mut self) -> Result<Option<V>, Error> {
+        match self.value.take() {
+            Some(v) => {
                 let value = V::deserialize(v)?;
-                Ok(Some((key, value)))
+                Ok(Some(value))
             }
             None => Ok(None),
         }

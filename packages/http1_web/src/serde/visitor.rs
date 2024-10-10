@@ -92,5 +92,16 @@ pub trait SeqAccess {
 }
 
 pub trait MapAccess {
-    fn next_entry<K: Deserialize, V: Deserialize>(&mut self) -> Result<Option<(K, V)>, Error>;
+    fn next_entry<K: Deserialize, V: Deserialize>(&mut self) -> Result<Option<(K, V)>, Error> {
+        let key = self.next_key::<K>()?;
+        let value = self.next_value::<V>()?;
+
+        match (key, value) {
+            (Some(k), Some(v)) => Ok(Some((k, v))),
+            _ => Ok(None),
+        }
+    }
+
+    fn next_key<K: Deserialize>(&mut self) -> Result<Option<K>, Error>;
+    fn next_value<V: Deserialize>(&mut self) -> Result<Option<V>, Error>;
 }

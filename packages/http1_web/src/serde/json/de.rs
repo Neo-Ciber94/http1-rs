@@ -567,7 +567,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         V: crate::serde::visitor::Visitor,
     {
         let map = self.parse_object()?;
-        visitor.visit_map(JsonObjectAccess(map.into_iter()))
+        visitor.visit_map(JsonObjectAccess::new(map.into_iter()))
     }
 
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
@@ -892,5 +892,74 @@ mod tests {
             &JsonValue::from("Ryuji Ayukawa")
         );
         assert_eq!(value.select("friends.1.age").unwrap(), &JsonValue::from(21));
+    }
+
+    //#[test]
+    fn should_deserialize_to_struct() {
+        struct BluePeriodCharacter {
+            name: String,
+            age: u32,
+            likes_art: bool,
+            friends: Vec<BluePeriodCharacter>,
+        }
+
+        impl crate::serde::de::Deserialize for BluePeriodCharacter {
+            fn deserialize<D: crate::serde::de::Deserializer>(
+                deserializer: D,
+            ) -> Result<Self, crate::serde::de::Error> {
+                struct BluePeriodCharacterVisitor;
+                impl crate::serde::visitor::Visitor for BluePeriodCharacterVisitor {
+                    type Value = BluePeriodCharacter;
+
+                    fn visit_map<Map: crate::serde::visitor::MapAccess>(
+                        self,
+                        mut map: Map,
+                    ) -> Result<Self::Value, crate::serde::de::Error> {
+                        let name: Result<String, crate::serde::de::Error> =
+                            Err(crate::serde::de::Error::custom("missing field 'name'"));
+                        let age: Result<u32, crate::serde::de::Error> =
+                            Err(crate::serde::de::Error::custom("missing field 'age'"));
+                        let likes_art: Result<bool, crate::serde::de::Error> =
+                            Err(crate::serde::de::Error::custom("missing field 'likes_art'"));
+                        let friends: Result<Vec<BluePeriodCharacter>, crate::serde::de::Error> =
+                            Err(crate::serde::de::Error::custom("missing field 'friends'"));
+
+                        // {
+                        //     while let Some((name, value)) = map.next_entry()? {}
+                        // }
+
+                        Ok(BluePeriodCharacter {
+                            name: name?,
+                            age: age?,
+                            likes_art: likes_art?,
+                            friends: friends?,
+                        })
+                    }
+                }
+
+                deserializer.deserialize_map(BluePeriodCharacterVisitor)
+            }
+        }
+
+        let value = from_str::<BluePeriodCharacter>(
+            r#"{
+            "name": "Yatora Yaguchi",
+            "age": 18,
+            "likes_art": true,
+            "friends": [
+                {
+                    "name": "Ryuji Ayukawa",
+                    "age": 18,
+                    "likes_art": false,
+                },
+                {
+                    "name": "Maru Mori",
+                    "age": 21,
+                    "likes_art": true,
+                }
+            ]
+        }"#,
+        )
+        .unwrap();
     }
 }
