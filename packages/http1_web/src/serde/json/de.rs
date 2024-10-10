@@ -913,6 +913,7 @@ mod tests {
 
     #[test]
     fn should_deserialize_to_struct() {
+        #[derive(Debug)]
         struct BluePeriodCharacter {
             name: String,
             age: u32,
@@ -1013,16 +1014,31 @@ mod tests {
                 {
                     "name": "Ryuji Ayukawa",
                     "age": 18,
-                    "likes_art": false
+                    "likes_art": false,
+                    "friends": []
                 },
                 {
                     "name": "Maru Mori",
                     "age": 21,
-                    "likes_art": true
+                    "likes_art": true,
+                    "friends": []
                 }
             ]
         }"#,
         )
         .unwrap();
+
+        assert_eq!(value.name, "Yatora Yaguchi");
+        assert_eq!(value.age, 18);
+        assert_eq!(value.likes_art, true);
+        assert_eq!(value.friends.len(), 2);
+    
+        // Check the friends
+        assert_eq!(value.friends[0].name, "Ryuji Ayukawa");
+        assert_eq!(value.friends[0].age, 18);
+        assert_eq!(value.friends[0].likes_art, false);
+        assert_eq!(value.friends[1].name, "Maru Mori");
+        assert_eq!(value.friends[1].age, 21);
+        assert_eq!(value.friends[1].likes_art, true);
     }
 }
