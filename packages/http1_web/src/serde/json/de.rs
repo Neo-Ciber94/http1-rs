@@ -911,7 +911,7 @@ mod tests {
         assert_eq!(value.select("friends.1.age").unwrap(), &JsonValue::from(21));
     }
 
-    //#[test]
+    #[test]
     fn should_deserialize_to_struct() {
         struct BluePeriodCharacter {
             name: String,
@@ -932,18 +932,64 @@ mod tests {
                         self,
                         mut map: Map,
                     ) -> Result<Self::Value, crate::serde::de::Error> {
-                        let name: Result<String, crate::serde::de::Error> =
+                        let mut name: Result<String, crate::serde::de::Error> =
                             Err(crate::serde::de::Error::custom("missing field 'name'"));
-                        let age: Result<u32, crate::serde::de::Error> =
+                        let mut age: Result<u32, crate::serde::de::Error> =
                             Err(crate::serde::de::Error::custom("missing field 'age'"));
-                        let likes_art: Result<bool, crate::serde::de::Error> =
+                        let mut likes_art: Result<bool, crate::serde::de::Error> =
                             Err(crate::serde::de::Error::custom("missing field 'likes_art'"));
-                        let friends: Result<Vec<BluePeriodCharacter>, crate::serde::de::Error> =
+                        let mut friends: Result<Vec<BluePeriodCharacter>, crate::serde::de::Error> =
                             Err(crate::serde::de::Error::custom("missing field 'friends'"));
 
-                        // {
-                        //     while let Some((name, value)) = map.next_entry()? {}
-                        // }
+                        while let Some(k) = map.next_key::<String>()? {
+                            match k.as_str() {
+                                "name" => {
+                                    name = match map.next_value::<String>()? {
+                                        Some(x) => Ok(x),
+                                        None => {
+                                            return Err(crate::serde::de::Error::custom(
+                                                "missing field 'name'",
+                                            ))
+                                        }
+                                    };
+                                }
+                                "age" => {
+                                    age = match map.next_value::<u32>()? {
+                                        Some(x) => Ok(x),
+                                        None => {
+                                            return Err(crate::serde::de::Error::custom(
+                                                "missing field 'age'",
+                                            ))
+                                        }
+                                    };
+                                }
+                                "likes_art" => {
+                                    likes_art = match map.next_value::<bool>()? {
+                                        Some(x) => Ok(x),
+                                        None => {
+                                            return Err(crate::serde::de::Error::custom(
+                                                "missing field 'likes_art'",
+                                            ))
+                                        }
+                                    };
+                                }
+                                "friends" => {
+                                    friends = match map.next_value::<Vec<BluePeriodCharacter>>()? {
+                                        Some(x) => Ok(x),
+                                        None => {
+                                            return Err(crate::serde::de::Error::custom(
+                                                "missing field 'friends'",
+                                            ))
+                                        }
+                                    };
+                                }
+                                _ => {
+                                    return Err(crate::serde::de::Error::custom(format!(
+                                        "Unknown field '{k}'"
+                                    )));
+                                }
+                            }
+                        }
 
                         Ok(BluePeriodCharacter {
                             name: name?,
@@ -967,12 +1013,12 @@ mod tests {
                 {
                     "name": "Ryuji Ayukawa",
                     "age": 18,
-                    "likes_art": false,
+                    "likes_art": false
                 },
                 {
                     "name": "Maru Mori",
                     "age": 21,
-                    "likes_art": true,
+                    "likes_art": true
                 }
             ]
         }"#,
