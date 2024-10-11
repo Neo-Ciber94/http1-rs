@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
     fmt::Display,
     str::{FromStr, Split},
 };
+
+use crate::common::map::OrderedMap;
 
 use super::uri::InvalidUri;
 
@@ -63,7 +64,7 @@ impl PathAndQuery {
 
     /// Create a map over the query values.
     pub fn query_map(&self) -> QueryMap {
-        let mut map = HashMap::<String, QueryValue>::new();
+        let mut map = OrderedMap::<String, QueryValue>::new();
 
         for (key, value) in self.query_values() {
             if map.contains_key(key) {
@@ -153,7 +154,7 @@ pub enum QueryValue {
 }
 
 #[derive(Debug, Clone)]
-pub struct QueryMap(HashMap<String, QueryValue>);
+pub struct QueryMap(OrderedMap<String, QueryValue>);
 
 impl Display for QueryMap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -211,7 +212,7 @@ impl QueryMap {
     }
 }
 
-pub type IntoIter = std::collections::hash_map::IntoIter<String, QueryValue>;
+pub type IntoIter = crate::common::map::IntoIter<String, QueryValue>;
 
 impl IntoIterator for QueryMap {
     type Item = (String, QueryValue);
@@ -364,5 +365,57 @@ mod tests {
 
         assert_eq!(segments.next(), Some("one"));
         assert_eq!(segments.next(), None);
+    }
+}
+
+#[cfg(test)]
+mod query_map_tests {
+    use super::*;
+
+    #[test]
+    fn should_test_is_empty_and_len() {
+        // Test for an empty QueryMap
+        let empty_map = OrderedMap::new();
+        let query_map = QueryMap(empty_map);
+
+        assert!(query_map.is_empty());
+        assert_eq!(query_map.len(), 0);
+
+        // Test for a non-empty QueryMap
+        let mut non_empty_map = OrderedMap::new();
+        non_empty_map.insert("key".to_string(), QueryValue::One("value".to_string()));
+        let query_map = QueryMap(non_empty_map);
+
+        assert!(!query_map.is_empty());
+        assert_eq!(query_map.len(), 1);
+    }
+
+    #[test]
+    fn should_test_get() {
+        let mut map = OrderedMap::new();
+        map.insert("key1".to_string(), QueryValue::One("value1".to_string()));
+        map.insert("key2".to_string(), QueryValue::List(vec!["value2".to_string(), "value3".to_string()]));
+        let query_map = QueryMap(map);
+
+        // Test retrieving a single value
+        assert_eq!(query_map.get("key1"), Some("value1"));
+
+        // Test retrieving the first value from a list
+        assert_eq!(query_map.get("key2"), Some("value2"));
+
+        // Test retrieving a non-existing key
+        assert_eq!(query_map.get("key3"), None);
+    }
+
+    #[test]
+    fn should_test_to_string() {
+        let mut map = OrderedMap::new();
+        map.insert("key1".to_string(), QueryValue::One("value1".to_string()));
+        map.insert("key2".to_string(), QueryValue::List(vec!["value2".to_string(), "value3".to_string()]));
+        let query_map = QueryMap(map);
+
+        // Test Display implementation
+        let result = query_map.to_string();
+        assert_eq!(result, "key1=value1&key2=value2&key2=value3");
     }
 }
