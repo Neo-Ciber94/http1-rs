@@ -321,7 +321,7 @@ impl<I: Iterator<Item = (String, String)>> SeqAccess for ParamsSeqAccess<I> {
     ) -> Result<Option<D>, crate::serde::de::Error> {
         match self.0.next() {
             Some((_, value)) => {
-                let v = D::deserialize(DeserializeFromStr(value))?;
+                let v = D::deserialize(DeserializeFromStr::Str(value))?;
                 Ok(Some(v))
             }
             None => Ok(None),
@@ -353,7 +353,7 @@ impl<I: Iterator<Item = (String, String)>> MapAccess for ParamsMapAccess<I> {
     ) -> Result<Option<V>, crate::serde::de::Error> {
         match self.value.take() {
             Some(x) => {
-                let value = V::deserialize(DeserializeFromStr(x))?;
+                let value = V::deserialize(DeserializeFromStr::Str(x))?;
                 Ok(Some(value))
             }
             None => Ok(None),

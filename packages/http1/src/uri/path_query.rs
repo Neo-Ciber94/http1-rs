@@ -155,6 +155,33 @@ pub enum QueryValue {
 #[derive(Debug, Clone)]
 pub struct QueryMap(HashMap<String, QueryValue>);
 
+impl Display for QueryMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (idx, (name, entry)) in self.0.iter().enumerate() {
+            match entry {
+                QueryValue::One(x) => {
+                    if idx > 0 {
+                        write!(f, "&")?
+                    }
+
+                    write!(f, "{name}={x}")?
+                }
+                QueryValue::List(vec) => {
+                    for x in vec {
+                        if idx > 0 {
+                            write!(f, "&")?;
+                        }
+
+                        write!(f, "{name}={x}")?
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl QueryMap {
     pub fn len(&self) -> usize {
         self.0.len()
@@ -181,6 +208,17 @@ impl QueryMap {
 
     pub fn contains(&self, key: impl AsRef<str>) -> bool {
         self.0.contains_key(key.as_ref())
+    }
+}
+
+pub type IntoIter = std::collections::hash_map::IntoIter<String, QueryValue>;
+
+impl IntoIterator for QueryMap {
+    type Item = (String, QueryValue);
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
