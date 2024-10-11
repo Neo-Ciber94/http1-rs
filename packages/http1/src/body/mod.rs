@@ -1,4 +1,5 @@
 pub mod http_body;
+pub mod body_reader;
 
 use std::{
     convert::Infallible,
