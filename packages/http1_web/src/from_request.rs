@@ -5,7 +5,7 @@ use http1::{
     request::Request,
     response::Response,
     status::StatusCode,
-    uri::{authority::Authority, scheme::Scheme, uri::Uri},
+    uri::{authority::Authority, path_query::PathAndQuery, scheme::Scheme, uri::Uri},
     version::Version,
 };
 
@@ -78,6 +78,13 @@ impl FromRequestRef for Uri {
     type Rejection = Impossible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.uri().clone())
+    }
+}
+
+impl FromRequestRef for PathAndQuery {
+    type Rejection = Impossible;
+    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+        Ok(req.uri().path_and_query().clone())
     }
 }
 
