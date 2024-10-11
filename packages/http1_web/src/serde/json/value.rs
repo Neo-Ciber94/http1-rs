@@ -3,6 +3,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use http1::common::map::OrderedMap;
+
 use crate::serde::{
     de::{Deserialize, Deserializer, Error},
     expected::Expected,
@@ -10,7 +12,7 @@ use crate::serde::{
     visitor::{MapAccess, SeqAccess, Visitor},
 };
 
-use super::{map::OrderedMap, number::Number, ser::JsonSerializationError};
+use super::{number::Number, ser::JsonSerializationError};
 
 /// A JSON value, which can represent various types of data such as numbers, strings,
 /// booleans, arrays, objects, or null values.
@@ -351,7 +353,7 @@ macro_rules! json {
     ({ $($key:ident : $value:expr),* $(,)?}) => {
         {
             #[allow(unused_mut)]
-           let mut map = $crate::serde::json::map::OrderedMap::<String, $crate::serde::json::value::JsonValue>::new();
+           let mut map = http1::common::map::OrderedMap::<String, $crate::serde::json::value::JsonValue>::new();
            $(
                 map.insert({ stringify!($key) }.into(), $crate::serde::json::value::JsonValue::from($value));
            )*
@@ -1022,7 +1024,9 @@ impl Deserializer for JsonValue {
             JsonValue::String(s) => visitor.visit_string(s),
             JsonValue::Bool(value) => visitor.visit_bool(value),
             JsonValue::Array(vec) => visitor.visit_seq(JsonSeqAccess(vec.into_iter())),
-            JsonValue::Object(ordered_map) => visitor.visit_map(JsonObjectAccess::new(ordered_map.into_iter())),
+            JsonValue::Object(ordered_map) => {
+                visitor.visit_map(JsonObjectAccess::new(ordered_map.into_iter()))
+            }
             JsonValue::Null => visitor.visit_none(),
         }
     }
@@ -1163,7 +1167,9 @@ impl Expected for JsonValue {
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::json::{map::OrderedMap, value::JsonValue};
+    use http1::common::map::OrderedMap;
+
+    use crate::serde::json::value::JsonValue;
 
     #[test]
     fn should_build_json_using_macro() {

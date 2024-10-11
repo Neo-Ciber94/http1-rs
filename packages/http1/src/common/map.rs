@@ -211,7 +211,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::json::map::OrderedMap;
+    use super::OrderedMap;
 
     #[test]
     fn should_get_entries_in_order() {

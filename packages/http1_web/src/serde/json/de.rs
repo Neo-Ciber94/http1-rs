@@ -1,12 +1,13 @@
 use std::io::{BufReader, Read};
 
+use http1::common::map::OrderedMap;
+
 use crate::serde::{
     de::{Deserializer, Error},
     expected::Expected,
 };
 
 use super::{
-    map::OrderedMap,
     number::Number,
     value::{JsonObjectAccess, JsonSeqAccess, JsonValue},
 };

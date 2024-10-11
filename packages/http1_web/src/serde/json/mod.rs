@@ -12,7 +12,6 @@ use super::{
 
 pub mod de;
 pub mod formatter;
-pub mod map;
 pub mod number;
 pub mod ser;
 pub mod value;

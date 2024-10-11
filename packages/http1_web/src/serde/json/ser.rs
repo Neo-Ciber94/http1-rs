@@ -283,9 +283,9 @@ fn map_key_error() -> JsonSerializationError {
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::json::{
-        map::OrderedMap, number::Number, to_pretty_string, to_string, value::JsonValue,
-    };
+    use http1::common::map::OrderedMap;
+
+    use crate::serde::json::{number::Number, to_pretty_string, to_string, value::JsonValue};
 
     #[test]
     fn should_serialize_number() {

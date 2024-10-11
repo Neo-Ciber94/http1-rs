@@ -1,3 +1,4 @@
+pub mod map;
 pub mod any_map;
 pub mod date_time;
 pub mod thread_pool;

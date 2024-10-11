@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::{router::route::RouteSegment, serde::json::map::OrderedMap};
+use http1::common::map::OrderedMap;
+
+use crate::router::route::RouteSegment;
 
 use super::{
     route::{self, get_segments, Route},
