@@ -23,7 +23,7 @@ impl<T> Query<T> {
     }
 }
 
-struct QueryDeserializer(QueryMap);
+pub struct QueryDeserializer(pub QueryMap);
 
 impl Deserializer for QueryDeserializer {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
