@@ -1,9 +1,11 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use crate::serde::visitor::Visitor;
 
 use super::{
     de::{Deserializer, Error},
+    impossible::Impossible,
+    ser::Serializer,
     visitor::SeqAccess,
 };
 
@@ -468,5 +470,64 @@ impl Deserializer for DeserializeOnlyString {
         Err(super::de::Error::custom(
             "cannot deserialize str to `option`",
         ))
+    }
+}
+
+pub struct StringSerializer;
+
+#[derive(Debug)]
+pub struct StringSerializationError;
+impl Display for StringSerializationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to serialize to string")
+    }
+}
+
+impl std::error::Error for StringSerializationError {}
+
+impl Serializer for StringSerializer {
+    type Ok = String;
+    type Err = StringSerializationError;
+    type Seq = Impossible<Self::Ok, Self::Err>;
+    type Map = Impossible<Self::Ok, Self::Err>;
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_i128(self, _value: i128) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_u128(self, _value: u128) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_f32(self, _value: f32) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_bool(self, _value: bool) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Err> {
+        Ok(value.to_owned())
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
+        Err(StringSerializationError)
+    }
+
+    fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        Err(StringSerializationError)
     }
 }

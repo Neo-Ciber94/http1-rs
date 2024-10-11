@@ -187,7 +187,7 @@ where
             .formatter
             .write_object_key_begin(&mut self.serializer.writer, self.count == 0)?;
 
-        key.serialize(MapKeySerializer {
+        key.serialize(KeySerializer {
             serializer: self.serializer,
         })?;
 
@@ -219,11 +219,11 @@ where
     }
 }
 
-struct MapKeySerializer<'a, W, F> {
+pub struct KeySerializer<'a, W, F> {
     serializer: &'a mut JsonSerializer<W, F>,
 }
 
-impl<'a, W: Write, F: Formatter<W>> Serializer for MapKeySerializer<'a, W, F> {
+impl<'a, W: Write, F: Formatter<W>> Serializer for KeySerializer<'a, W, F> {
     type Ok = ();
     type Err = JsonSerializationError;
     type Seq = Impossible<Self::Ok, Self::Err>;

@@ -4,6 +4,8 @@ use std::{
     marker::PhantomData,
 };
 
+use http1::common::map::OrderedMap;
+
 use super::{
     expected::{Expected, TypeMismatchError},
     visitor::Visitor,
@@ -295,6 +297,7 @@ macro_rules! impl_deserialize_map {
 
 impl_deserialize_map!(BTreeMapVisitor => BTreeMap<K, V> => insert where K: Ord);
 impl_deserialize_map!(HashMapVisitor => HashMap<K, V> => insert where K: Eq + std::hash::Hash);
+impl_deserialize_map!(OrderedMapVisitor => OrderedMap<K, V> => insert where K: Clone + Eq + std::hash::Hash);
 
 struct F32Visitor;
 impl Visitor for F32Visitor {

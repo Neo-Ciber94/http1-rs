@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+use http1::common::map::OrderedMap;
+
 pub trait SequenceSerializer {
     type Ok;
     type Err: std::error::Error;
@@ -281,6 +283,22 @@ where
 impl<K, V> Serialize for BTreeMap<K, V>
 where
     K: Serialize,
+    V: Serialize,
+{
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let mut map = serializer.serialize_map()?;
+
+        for (key, value) in self.iter() {
+            map.serialize_entry(key, value)?;
+        }
+
+        map.end()
+    }
+}
+
+impl<K, V> Serialize for OrderedMap<K, V>
+where
+    K: Serialize + std::cmp::Eq + std::hash::Hash,
     V: Serialize,
 {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {

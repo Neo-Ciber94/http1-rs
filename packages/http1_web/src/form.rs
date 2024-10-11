@@ -1,20 +1,29 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use http1::{
     body::http_body::HttpBody,
+    common::map::OrderedMap,
     error::BoxError,
     headers,
+    response::Response,
     status::StatusCode,
     uri::{
         convert::{self, InvalidUriComponent},
-        path_query::PathAndQuery,
+        path_query::{PathAndQuery, QueryMap, QueryValue},
         uri::InvalidUri,
     },
 };
 
 use crate::{
-    from_request::FromRequest, into_response::IntoResponse, query::QueryDeserializer,
-    serde::de::Deserialize,
+    from_request::FromRequest,
+    into_response::IntoResponse,
+    query::QueryDeserializer,
+    serde::{
+        de::Deserialize,
+        impossible::Impossible,
+        ser::{MapSerializer, Serialize, Serializer},
+        string::StringSerializer,
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -99,6 +108,120 @@ impl<T: Deserialize> FromRequest for Form<T> {
                     .map_err(|e| RejectFormError::DeserializationError(e.into()))
             }
             None => Err(RejectFormError::NotContentType),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SerializeFormError;
+
+impl Display for SerializeFormError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to serialize form")
+    }
+}
+
+impl std::error::Error for SerializeFormError {}
+
+struct FormSerializer;
+impl Serializer for FormSerializer {
+    type Ok = OrderedMap<String, QueryValue>;
+    type Err = SerializeFormError;
+    type Seq = Impossible<Self::Ok, Self::Err>;
+    type Map = Impossible<Self::Ok, Self::Err>;
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_i128(self, _value: i128) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_u128(self, _value: u128) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_f32(self, _value: f32) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_bool(self, _value: bool) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_str(self, _value: &str) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        Err(SerializeFormError)
+    }
+}
+
+struct FormMapSerializer(OrderedMap<String, QueryValue>);
+impl MapSerializer for FormMapSerializer {
+    type Ok = OrderedMap<String, QueryValue>;
+    type Err = SerializeFormError;
+
+    fn serialize_entry<K: Serialize, V: Serialize>(
+        &mut self,
+        key: &K,
+        value: &V,
+    ) -> Result<(), Self::Err> {
+        let k = key
+            .serialize(StringSerializer)
+            .map_err(|_| SerializeFormError)?;
+
+        let v = crate::serde::json::to_string(value).map_err(|_| SerializeFormError)?;
+
+        if self.0.contains_key(&k) {
+            let query_value = self.0.get_mut(&k).unwrap();
+            match query_value {
+                QueryValue::One(x) => {
+                    let s = std::mem::take(x);
+                    let _ = std::mem::replace(query_value, QueryValue::List(vec![s, v]));
+                }
+                QueryValue::List(values) => values.push(v),
+            }
+        } else {
+            self.0.insert(k, QueryValue::One(v));
+        }
+
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        Ok(self.0)
+    }
+}
+
+impl<T: Serialize> IntoResponse for Form<T> {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        match self.0.serialize(FormSerializer) {
+            Ok(map) => {
+                let s = QueryMap::new(map).to_string();
+                let body = s.into();
+                Response::builder()
+                    .append_header(headers::CONTENT_TYPE, WWW_FORM_URLENCODED)
+                    .body(body)
+            }
+            Err(err) => {
+                eprintln!("Failed to serialize form: {err}");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
         }
     }
 }

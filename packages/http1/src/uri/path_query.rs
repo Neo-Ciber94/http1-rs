@@ -184,6 +184,10 @@ impl Display for QueryMap {
 }
 
 impl QueryMap {
+    pub fn new(map: OrderedMap<String, QueryValue>) -> Self {
+        QueryMap(map)
+    }
+
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -394,7 +398,10 @@ mod query_map_tests {
     fn should_test_get() {
         let mut map = OrderedMap::new();
         map.insert("key1".to_string(), QueryValue::One("value1".to_string()));
-        map.insert("key2".to_string(), QueryValue::List(vec!["value2".to_string(), "value3".to_string()]));
+        map.insert(
+            "key2".to_string(),
+            QueryValue::List(vec!["value2".to_string(), "value3".to_string()]),
+        );
         let query_map = QueryMap(map);
 
         // Test retrieving a single value
@@ -411,7 +418,10 @@ mod query_map_tests {
     fn should_test_to_string() {
         let mut map = OrderedMap::new();
         map.insert("key1".to_string(), QueryValue::One("value1".to_string()));
-        map.insert("key2".to_string(), QueryValue::List(vec!["value2".to_string(), "value3".to_string()]));
+        map.insert(
+            "key2".to_string(),
+            QueryValue::List(vec!["value2".to_string(), "value3".to_string()]),
+        );
         let query_map = QueryMap(map);
 
         // Test Display implementation
