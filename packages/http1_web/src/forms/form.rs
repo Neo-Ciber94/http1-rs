@@ -39,7 +39,7 @@ const WWW_FORM_URLENCODED: &str = "application/x-www-form-urlencoded";
 
 #[doc(hidden)]
 pub enum RejectFormError {
-    NotContentType,
+    NoContentType,
     InvalidContentType(String),
     FailedReadForm(BoxError),
     Utf8Error(BoxError),
@@ -50,7 +50,7 @@ pub enum RejectFormError {
 impl IntoResponse for RejectFormError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         match self {
-            RejectFormError::NotContentType => {
+            RejectFormError::NoContentType => {
                 eprintln!("No content type: `{WWW_FORM_URLENCODED}`")
             }
             RejectFormError::InvalidContentType(s) => {
@@ -80,7 +80,7 @@ impl<T: Deserialize> FromRequest for Form<T> {
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)
-            .ok_or(RejectFormError::NotContentType)?;
+            .ok_or(RejectFormError::NoContentType)?;
 
         match content_type.as_str().split(";").next() {
             Some(mime) => {
@@ -107,7 +107,7 @@ impl<T: Deserialize> FromRequest for Form<T> {
                     .map(Form)
                     .map_err(|e| RejectFormError::DeserializationError(e.into()))
             }
-            None => Err(RejectFormError::NotContentType),
+            None => Err(RejectFormError::NoContentType),
         }
     }
 }
