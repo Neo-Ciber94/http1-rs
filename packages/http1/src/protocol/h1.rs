@@ -1,11 +1,15 @@
 use std::{
-    io::{BufRead, BufReader, ErrorKind, Read, Write},
+    io::{BufRead, BufReader, ErrorKind, Write},
     net::TcpStream,
     str::FromStr,
 };
 
 use crate::{
-    body::{body_reader::BodyReader, http_body::HttpBody, Body},
+    body::{
+        body_reader::{BodyReader, ChunkedBodyReader},
+        http_body::HttpBody,
+        Body,
+    },
     common::date_time::DateTime,
     handler::RequestHandler,
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
@@ -100,33 +104,13 @@ fn read_request_body(
         return Ok(Body::empty());
     }
 
-    // let bytes = if let Some(length) = content_length {
-    //     // Read body based on Content-Length
-    //     read_fixed_length_body(reader, length)?
-    // } else if let Some(encoding) = transfer_encoding {
-    //     // Read body based on Chunked Transfer-Encoding
-    //     if encoding == "chunked" {
-    //         read_chunked_body(reader)?
-    //     } else {
-    //         return Err(std::io::Error::other(format!(
-    //             "Unknown transfer encoding: {encoding}"
-    //         )));
-    //     }
-    // } else {
-    //     // Read until the connection closes
-    //     read_until_closed_body(reader)?
-    // };
-
-    // Ok(bytes.into())
-
     let body = if let Some(length) = content_length {
         // Read body based on Content-Length
-        // read_fixed_length_body(reader, length)?
         Body::new(BodyReader::new(reader, Some(length)))
     } else if let Some(encoding) = transfer_encoding {
         // Read body based on Chunked Transfer-Encoding
         if encoding == "chunked" {
-            todo!()
+            Body::new(ChunkedBodyReader::new(reader))
         } else {
             return Err(std::io::Error::other(format!(
                 "Unknown transfer encoding: {encoding}"
@@ -137,59 +121,6 @@ fn read_request_body(
         Body::new(BodyReader::new(reader, None))
     };
 
-    Ok(body)
-}
-
-fn read_fixed_length_body<R: Read>(
-    mut reader: BufReader<&mut R>,
-    length: usize,
-) -> std::io::Result<Vec<u8>> {
-    let mut body = vec![0; length];
-    reader.read_exact(&mut body)?;
-    Ok(body)
-}
-
-fn read_chunked_body<R: Read>(mut reader: BufReader<&mut R>) -> std::io::Result<Vec<u8>> {
-    // https://en.wikipedia.org/wiki/Chunked_transfer_encoding#Example
-    let mut body = Vec::new();
-    let mut byte_buf = Vec::new();
-    let mut str_buf = String::new();
-
-    loop {
-        // Cleanup previous data
-        str_buf.clear();
-        byte_buf.clear();
-
-        // Read the chunk size line: {size in hex}\r\n
-        reader.read_line(&mut str_buf)?;
-
-        let chunk_length = usize::from_str_radix(str_buf.trim(), 16).map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk length")
-        })?;
-
-        if chunk_length == 0 {
-            break; // End of chunks
-        }
-
-        // Read the chunk
-        reader.read_exact(&mut byte_buf)?;
-        body.extend_from_slice(&byte_buf);
-
-        // Read the trailing CRLF after the chunk
-        reader.read_line(&mut str_buf)?;
-
-        if str_buf != "\r\n" {
-            return Err(std::io::Error::other(
-                "Invalid body, expected `\r\n` after chunked body chunk",
-            ));
-        }
-    }
-    Ok(body)
-}
-
-fn read_until_closed_body<R: Read>(mut reader: BufReader<&mut R>) -> std::io::Result<Vec<u8>> {
-    let mut body = Vec::new();
-    reader.read_to_end(&mut body)?;
     Ok(body)
 }
 
