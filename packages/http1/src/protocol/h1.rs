@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     body::{
-        body_reader::{BodyReader, ChunkedBodyReader},
+        body_reader::{FixedLengthBodyReader, ChunkedBodyReader},
         http_body::HttpBody,
         Body,
     },
@@ -106,7 +106,7 @@ fn read_request_body(
 
     let body = if let Some(length) = content_length {
         // Read body based on Content-Length
-        Body::new(BodyReader::new(reader, Some(length)))
+        Body::new(FixedLengthBodyReader::new(reader, Some(length)))
     } else if let Some(encoding) = transfer_encoding {
         // Read body based on Chunked Transfer-Encoding
         if encoding == "chunked" {
@@ -118,7 +118,7 @@ fn read_request_body(
         }
     } else {
         // Read until the connection closes
-        Body::new(BodyReader::new(reader, None))
+        Body::new(FixedLengthBodyReader::new(reader, None))
     };
 
     Ok(body)

@@ -4,19 +4,19 @@ use super::http_body::HttpBody;
 
 const BUFFER_SIZE: usize = 4096;
 
-pub struct BodyReader<R> {
+pub struct FixedLengthBodyReader<R> {
     reader: R,
     buffer: Vec<u8>,
     read_bytes: usize,
     content_length: Option<usize>,
 }
 
-impl BodyReader<()> {
-    pub fn new<R>(reader: R, content_length: Option<usize>) -> BodyReader<R>
+impl FixedLengthBodyReader<()> {
+    pub fn new<R>(reader: R, content_length: Option<usize>) -> FixedLengthBodyReader<R>
     where
         R: Read,
     {
-        BodyReader {
+        FixedLengthBodyReader {
             reader,
             read_bytes: 0,
             buffer: vec![0; BUFFER_SIZE],
@@ -25,7 +25,7 @@ impl BodyReader<()> {
     }
 }
 
-impl<R: Read> HttpBody for BodyReader<R> {
+impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
     type Err = std::io::Error;
     type Data = Vec<u8>;
 
