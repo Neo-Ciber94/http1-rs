@@ -1,10 +1,11 @@
 use std::{
     io::{BufRead, BufReader, ErrorKind, Read, Write},
+    net::TcpStream,
     str::FromStr,
 };
 
 use crate::{
-    body::{http_body::HttpBody, Body},
+    body::{body_reader::BodyReader, http_body::HttpBody, Body},
     common::date_time::DateTime,
     handler::RequestHandler,
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
@@ -19,21 +20,22 @@ use crate::{
 /**
  * Handles and send a response to a HTTP1 request.
  */
-pub fn handle_incoming<H: RequestHandler + Send + Sync + 'static, S: Read + Write>(
-    handler: &H,
-    config: &Config,
-    mut stream: S,
-) {
-    let request = read_request(&mut stream).expect("Failed to read request");
+pub fn handle_incoming<H>(handler: &H, config: &Config, stream: TcpStream) -> std::io::Result<()>
+where
+    H: RequestHandler + Send + Sync + 'static,
+{
+    let mut writer = stream.try_clone()?;
+    let request = read_request(stream)?;
     let response = handler.handle(request);
-    match write_response(response, &mut stream, config) {
-        Ok(_) => {}
-        Err(err) if err.kind() == ErrorKind::ConnectionAborted => {}
-        Err(err) => eprintln!("{err}"),
+
+    match write_response(response, &mut writer, config) {
+        Ok(_) => Ok(()),
+        Err(err) if err.kind() == ErrorKind::ConnectionAborted => Ok(()),
+        Err(err) => Err(err),
     }
 }
 
-fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
+fn read_request(stream: TcpStream) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
@@ -83,8 +85,8 @@ fn read_request<R: Read>(stream: &mut R) -> std::io::Result<Request<Body>> {
     Ok(request)
 }
 
-fn read_request_body<R: Read>(
-    reader: BufReader<&mut R>,
+fn read_request_body(
+    reader: BufReader<TcpStream>,
     headers: &Headers,
     can_discard_body: bool,
 ) -> std::io::Result<Body> {
@@ -98,13 +100,33 @@ fn read_request_body<R: Read>(
         return Ok(Body::empty());
     }
 
-    let bytes = if let Some(length) = content_length {
+    // let bytes = if let Some(length) = content_length {
+    //     // Read body based on Content-Length
+    //     read_fixed_length_body(reader, length)?
+    // } else if let Some(encoding) = transfer_encoding {
+    //     // Read body based on Chunked Transfer-Encoding
+    //     if encoding == "chunked" {
+    //         read_chunked_body(reader)?
+    //     } else {
+    //         return Err(std::io::Error::other(format!(
+    //             "Unknown transfer encoding: {encoding}"
+    //         )));
+    //     }
+    // } else {
+    //     // Read until the connection closes
+    //     read_until_closed_body(reader)?
+    // };
+
+    // Ok(bytes.into())
+
+    let body = if let Some(length) = content_length {
         // Read body based on Content-Length
-        read_fixed_length_body(reader, length)?
+        // read_fixed_length_body(reader, length)?
+        Body::new(BodyReader::new(reader, Some(length)))
     } else if let Some(encoding) = transfer_encoding {
         // Read body based on Chunked Transfer-Encoding
         if encoding == "chunked" {
-            read_chunked_body(reader)?
+            todo!()
         } else {
             return Err(std::io::Error::other(format!(
                 "Unknown transfer encoding: {encoding}"
@@ -112,10 +134,10 @@ fn read_request_body<R: Read>(
         }
     } else {
         // Read until the connection closes
-        read_until_closed_body(reader)?
+        Body::new(BodyReader::new(reader, None))
     };
 
-    Ok(bytes.into())
+    Ok(body)
 }
 
 fn read_fixed_length_body<R: Read>(

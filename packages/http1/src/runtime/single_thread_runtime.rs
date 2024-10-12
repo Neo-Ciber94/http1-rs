@@ -17,7 +17,10 @@ impl Runtime for SingleThreadRuntime {
             match stream {
                 Ok(stream) => {
                     let config = config.clone();
-                    handle_incoming(&handler, &config, stream);
+                    match handle_incoming(&handler, &config, stream) {
+                        Ok(_) => {}
+                        Err(err) => eprintln!("{err}"),
+                    }
                 }
                 Err(err) => return Err(err),
             }
