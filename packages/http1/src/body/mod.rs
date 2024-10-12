@@ -1,15 +1,13 @@
-pub mod http_body;
 pub mod body_reader;
+pub mod chunked_body;
+pub mod http_body;
 
 use std::{
     convert::Infallible,
     fmt::Debug,
     fs::File,
-    io::{BufReader, Chain, Cursor, Empty, Read, Take, Write},
-    sync::{
-        mpsc::{channel, Receiver, Sender, TryRecvError},
-        Arc,
-    },
+    io::{BufReader, Chain, Cursor, Empty, Read, Take},
+    sync::Arc,
 };
 
 use crate::error::BoxError;
@@ -234,21 +232,51 @@ impl<T: AsRef<[u8]>> HttpBody for Cursor<T> {
     }
 }
 
-impl HttpBody for &mut Vec<u8> {
-    type Err = ();
+impl HttpBody for Vec<u8> {
+    type Err = Infallible;
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         if self.is_empty() {
             Ok(None)
         } else {
-            let bytes = std::mem::take(*self);
+            let bytes = std::mem::take(self);
             Ok(Some(bytes))
         }
     }
 
     fn size_hint(&self) -> Option<usize> {
         Some(self.len())
+    }
+}
+
+impl HttpBody for String {
+    type Err = Infallible;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        if self.is_empty() {
+            Ok(None)
+        } else {
+            let s = std::mem::take(self);
+            let bytes = s.into_bytes();
+            Ok(Some(bytes))
+        }
+    }
+}
+
+impl<'a> HttpBody for &'a str {
+    type Err = Infallible;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        if self.is_empty() {
+            Ok(None)
+        } else {
+            let s = std::mem::take(self);
+            let bytes = s.as_bytes().to_vec();
+            Ok(Some(bytes))
+        }
     }
 }
 
@@ -261,67 +289,6 @@ fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
     }
 }
 
-pub struct ChunkedBody<T>(Option<Receiver<T>>);
-
-impl<T> ChunkedBody<T> {
-    pub fn new() -> (Self, Sender<T>) {
-        let (sender, recv) = channel();
-
-        let this = ChunkedBody(Some(recv));
-        (this, sender)
-    }
-}
-
-impl<T> HttpBody for ChunkedBody<T>
-where
-    T: AsRef<[u8]> + 'static,
-{
-    type Err = BoxError;
-    type Data = Vec<u8>;
-
-    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        fn send_chunk(chunk: &[u8]) -> Result<Vec<u8>, BoxError> {
-            let size = chunk.len();
-            let mut buf = Vec::with_capacity(size + 10); // 10 bytes for size in hex and CRLF
-
-            write!(buf, "{size:X}\r\n")?;
-
-            // Write the bytes
-            buf.extend_from_slice(chunk);
-            buf.extend_from_slice(b"\r\n");
-
-            Ok(buf)
-        }
-
-        match self.0.as_mut() {
-            Some(rx) => {
-                // Try read the next chunk, if ready sends it
-                match rx.try_recv() {
-                    Ok(chunk) => return send_chunk(chunk.as_ref()).map(Some),
-                    Err(TryRecvError::Disconnected) => {
-                        let _ = self.0.take(); // Drop the receiver if the sender was disconnected
-                        return Ok(Some(b"0\r\n\r\n".to_vec()));
-                    }
-                    Err(_) => {}
-                }
-
-                // Otherwise wait for the next chunk
-                match rx.recv() {
-                    Ok(chunk) => send_chunk(chunk.as_ref()).map(Some),
-                    Err(err) => Err(err.into()),
-                }
-            }
-            None => Ok(None),
-        }
-    }
-}
-
-impl<T: AsRef<[u8]> + Send + 'static> From<ChunkedBody<T>> for Body {
-    fn from(value: ChunkedBody<T>) -> Self {
-        Body::new(value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs::File;
@@ -331,10 +298,9 @@ mod tests {
     use std::sync::Arc;
     use std::time::UNIX_EPOCH;
 
+    use crate::body::chunked_body::ChunkedBody;
     use crate::body::http_body::HttpBody;
     use crate::body::{Body, Bytes};
-
-    use super::ChunkedBody;
 
     fn read_all_body_data(body: &mut Body) -> Vec<u8> {
         let mut all_data = Vec::new();
