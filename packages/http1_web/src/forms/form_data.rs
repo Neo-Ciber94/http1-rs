@@ -286,9 +286,9 @@ impl<'a> Read for FieldReader<'a> {
 
 /// Represents a reference to a field in a form data stream.
 pub struct Field<'a> {
-    name: String,
-    filename: Option<String>,
-    content_type: Option<String>,
+    pub(crate) name: String,
+    pub(crate) filename: Option<String>,
+    pub(crate) content_type: Option<String>,
     form_data: &'a mut FormData,
 }
 
@@ -305,21 +305,15 @@ impl<'a> Field<'a> {
         self.content_type.as_deref()
     }
 
-    pub fn bytes(self) -> Result<Vec<u8>, FieldError> {
+    pub fn bytes(self) -> std::io::Result<Vec<u8>> {
         let mut bytes = Vec::new();
-        self.reader()
-            .read_to_end(&mut bytes)
-            .map_err(FieldError::IO)?;
-
+        self.reader().read_to_end(&mut bytes)?;
         Ok(bytes)
     }
 
-    pub fn text(self) -> Result<String, FieldError> {
+    pub fn text(self) -> std::io::Result<String> {
         let mut buf = String::new();
-        self.reader()
-            .read_to_string(&mut buf)
-            .map_err(FieldError::IO)?;
-
+        self.reader().read_to_string(&mut buf)?;
         Ok(buf)
     }
 
