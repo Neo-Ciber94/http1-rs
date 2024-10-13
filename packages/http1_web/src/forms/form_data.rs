@@ -1,6 +1,6 @@
 use core::str;
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::{BufRead, BufReader, Read},
     str::Utf8Error,
 };
@@ -15,8 +15,11 @@ use crate::{from_request::FromRequest, into_response::IntoResponse};
 
 #[derive(Debug, PartialEq, Eq)]
 enum State {
+    /// Needs to read first field
     First,
+    /// Reading any next fields.
     Next,
+    /// Reached end boundary.
     Done,
 }
 
@@ -61,6 +64,12 @@ pub struct FormData {
     boundary: String,
     bytes_buf: Vec<u8>,
     state: State,
+}
+
+impl Debug for FormData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FormData").finish()
+    }
 }
 
 struct ContentDisposition {
@@ -275,6 +284,7 @@ impl<'a> Read for FieldReader<'a> {
     }
 }
 
+/// Represents a reference to a field in a form data stream.
 pub struct Field<'a> {
     name: String,
     filename: Option<String>,
@@ -315,6 +325,17 @@ impl<'a> Field<'a> {
 
     pub fn reader(self) -> FieldReader<'a> {
         self.form_data.field_reader()
+    }
+}
+
+impl Debug for Field<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Field")
+            .field("name", &self.name)
+            .field("filename", &self.filename)
+            .field("content_type", &self.content_type)
+            .field("form_data", &self.form_data)
+            .finish()
     }
 }
 
