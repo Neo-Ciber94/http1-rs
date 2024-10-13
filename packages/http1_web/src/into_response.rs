@@ -262,6 +262,12 @@ impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8 }
 impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9 }
 impl_into_response_for_tuple! { T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 }
 
+impl IntoResponse for () {
+    fn into_response(self) -> Response<Body> {
+        Response::new(StatusCode::OK, Body::empty())
+    }
+}
+
 enum Void {}
 
 /// A response that can never be constructed.
