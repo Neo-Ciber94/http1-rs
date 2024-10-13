@@ -156,7 +156,7 @@ impl FormData {
             return Err(FieldError::MissingContentType);
         }
 
-        let rest = &self.bytes_buf[b"Content-Type:".len()..];
+        let rest = &self.bytes_buf[b"Content-Type:".len()..].trim_ascii();
         let content_type = std::str::from_utf8(rest).map_err(FieldError::Utf8Error)?;
         Ok(content_type.to_owned())
     }
@@ -441,7 +441,7 @@ mod tests {
     use super::FormData;
 
     #[test]
-    fn read_form_data() {
+    fn should_read_form_data_fields() {
         let boundary = "x-my-boundary";
 
         let mut s = String::new();
@@ -481,6 +481,73 @@ mod tests {
             assert_eq!(field.name(), "file_field");
             assert_eq!(field.filename(), Some("file.txt"));
             assert_eq!(field.text().unwrap(), "This is the content of the file");
+        }
+
+        {
+            let field = form_data.next_field().unwrap();
+            assert!(field.is_none());
+        }
+    }
+
+    #[test]
+    fn should_read_multiple_form_data_fields() {
+        let boundary = "WebKitFormBoundaryDtbT5UpPj83kllfw";
+
+        let mut s = String::new();
+        s.push_str("\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"uploads[]\"; filename=\"somebinary.dat\"\r\n"
+        ));
+        s.push_str("Content-Type: application/octet-stream\r\n\r\n");
+        s.push_str("some binary data...maybe the bits of a image..\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"uploads[]\"; filename=\"sometext.txt\"\r\n"
+        ));
+        s.push_str("Content-Type: text/plain\r\n\r\n");
+        s.push_str("hello how are you\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"input1\"\r\n\r\n"
+        ));
+        s.push_str("value1\r\n");
+        s.push_str(&format!("--{boundary}--\r\n"));
+
+        let req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::new(s))
+            .unwrap();
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "uploads[]");
+            assert_eq!(field.filename(), Some("somebinary.dat"));
+            assert_eq!(field.content_type().unwrap(), "application/octet-stream");
+            assert_eq!(
+                field.text().unwrap(),
+                "some binary data...maybe the bits of a image.."
+            );
+        }
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "uploads[]");
+            assert_eq!(field.filename(), Some("sometext.txt"));
+            assert_eq!(field.content_type().unwrap(), "text/plain");
+            assert_eq!(field.text().unwrap(), "hello how are you");
+        }
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "input1");
+            assert_eq!(field.filename(), None);
+            assert_eq!(field.text().unwrap(), "value1");
         }
 
         {
