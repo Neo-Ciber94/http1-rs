@@ -171,18 +171,25 @@ impl FormData {
         match self.reader.read_until(b'\n', buf) {
             Ok(n) => {
                 if n > 0 {
-                    let s = std::str::from_utf8(&buf).map_err(FieldError::Utf8Error)?;
+                    // remove the delimiter '\n'
+                    buf.pop();
+
+                    if buf.ends_with(b"\r") {
+                        buf.pop();
+                    }
 
                     // Check if is boundary end or a field delimiter
                     if buf.starts_with(self.boundary.as_bytes()) {
-                        //
-                        let len = self.boundary.as_bytes().len();
-                        let rest = &s[..len];
+                        let boundary_len = self.boundary.len();
+                        let rest = &buf[boundary_len..];
+
+                        if rest == b"--" {
+                            self.state = State::Done;
+                        }
+
+                        return Ok(0);
                     }
                 }
-
-                // remove the delimiter '\n'
-                buf.pop();
 
                 Ok(n)
             }
@@ -225,7 +232,36 @@ pub struct FieldReader<'a> {
 
 impl<'a> Read for FieldReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        todo!()
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        let mut pos = 0;
+        let chunk = &mut self.byte_buf;
+
+        while pos < buf.len() {
+            if chunk.is_empty() {
+                let read_bytes = self
+                    .form_data
+                    .next_bytes(chunk)
+                    .map_err(std::io::Error::other)?;
+
+                if read_bytes == 0 {
+                    break;
+                }
+            }
+
+            let left = buf.len() - pos;
+            let len = left.min(chunk.len());
+
+            for (idx, byte) in chunk.drain(..len).enumerate() {
+                buf[pos + idx] = byte;
+            }
+
+            pos += len;
+        }
+
+        Ok(pos)
     }
 }
 
