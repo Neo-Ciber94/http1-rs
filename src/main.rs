@@ -3,7 +3,8 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, handler::BoxedHandler, html, json::Json, path::Path, serde::json::value::JsonValue,
+    app::App, forms::form_data::FormData, handler::BoxedHandler, html, json::Json, path::Path,
+    serde::json::value::JsonValue,
 };
 use std::{collections::HashMap, fs::File};
 
@@ -86,6 +87,22 @@ fn main() -> std::io::Result<()> {
             Json(http1_web::json!({
                param: path.0
             }))
+        })
+        .post("/upload", |mut form: FormData| loop {
+            let next = form.next_field();
+
+            match next {
+                Ok(Some(f)) => {
+                    let name = f.name().to_owned();
+                    let filename = f.filename().map(|s| s.to_owned());
+                    let text = f.text().expect("failed to read text");
+                    println!("name: {name}, filename: {filename:?}, text: {text}");
+                }
+                Ok(None) => break,
+                Err(err) => {
+                    eprintln!("{err}")
+                }
+            }
         });
 
     server
