@@ -118,7 +118,7 @@ impl Request<()> {
     /// let request = Request::builder()
     ///     .method(Method::POST)
     ///     .uri("/submit")
-    ///     .build("body content")
+    ///     .body("body content")
     ///     .unwrap();
     /// ```
     pub fn builder() -> Builder {

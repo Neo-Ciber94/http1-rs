@@ -146,14 +146,20 @@ impl FormData {
     fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
         let read_bytes = read_line(&mut self.reader, buf)?;
 
+        let s = String::from_utf8_lossy(buf);
+        dbg!(s);
+
         // Check if is boundary end or a field delimiter
         if buf.starts_with(self.boundary.as_bytes()) {
+            println!("boundary!!");
             let boundary_len = self.boundary.len();
             let rest = &buf[boundary_len..];
 
             if rest == b"--" {
                 self.state = State::Done;
             }
+
+            buf.clear();
 
             Ok(0)
         } else {
@@ -365,4 +371,56 @@ fn get_quoted<'a>(quote: &'a str, value: &'a str) -> Option<&'a str> {
     }
 
     return None;
+}
+
+#[cfg(test)]
+mod tests {
+    use http1::{body::Body, headers, request::Request};
+
+    use crate::from_request::FromRequest;
+
+    use super::FormData;
+
+    #[test]
+    fn read_form_data() {
+        let boundary = "x-my-boundary";
+
+        let mut s = String::new();
+        s.push_str("\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"text_field\"\r\n\r\n"
+        ));
+        s.push_str("This is the text content\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n"
+        ));
+        s.push_str("This is the content of the file\r\n");
+        s.push_str(&format!("--{boundary}--\r\n"));
+
+        let req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!("multipart/form-data;boundary={boundary}"),
+            )
+            .body(Body::new(s))
+            .unwrap();
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "text_field");
+            assert_eq!(field.filename(), None);
+            assert_eq!(field.text().unwrap(), "This is the text content");
+        }
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "file_field");
+            assert_eq!(field.filename(), Some("file.txt"));
+            assert_eq!(field.text().unwrap(), "This is the content of the file");
+        }
+    }
 }
