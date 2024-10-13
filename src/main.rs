@@ -88,25 +88,21 @@ fn main() -> std::io::Result<()> {
                param: path.0
             }))
         })
-        // .post("/upload", |mut form: FormData| loop {
-        //     let next = form.next_field();
-        //     match next {
-        //         Ok(Some(f)) => {
-        //             let name = f.name().to_owned();
-        //             let filename = f.filename().map(|s| s.to_owned());
-        //             let text = f.text().expect("failed to read text");
-        //             println!("name: {name}, filename: {filename:?}, text: {text}");
-        //         }
-        //         Ok(None) => break,
-        //         Err(err) => {
-        //             eprintln!("{err}");
-        //             break;
-        //         }
-        //     }
-        // });
-        .post("/upload", |mut form: String| {
-            println!("{form}");
-            println!("DONE!");
+        .post("/upload", |mut form: FormData| loop {
+            let next = form.next_field();
+            match next {
+                Ok(Some(f)) => {
+                    let name = f.name().to_owned();
+                    let filename = f.filename().map(|s| s.to_owned());
+                    let text = f.text().expect("failed to read text");
+                    println!("name: {name}, filename: {filename:?}, text: {text}");
+                }
+                Ok(None) => break,
+                Err(err) => {
+                    eprintln!("{err}");
+                    break;
+                }
+            }
         });
 
     server

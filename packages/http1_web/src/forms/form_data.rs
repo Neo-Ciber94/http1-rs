@@ -85,9 +85,6 @@ impl FormData {
     fn parse_newline(&mut self) -> Result<(), FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        let parse_newline = String::from_utf8_lossy(&self.bytes_buf);
-        dbg!(parse_newline);
-
         if !self.bytes_buf.is_empty() {
             return Err(FieldError::Other(format!("expected new line")));
         }
@@ -97,9 +94,6 @@ impl FormData {
 
     fn parse_boundary(&mut self) -> Result<(), FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
-
-        let parse_boundary = String::from_utf8_lossy(&self.bytes_buf);
-        dbg!(parse_boundary);
 
         if &self.bytes_buf != &self.boundary.as_bytes() {
             return Err(FieldError::MissingBoundary(self.boundary.clone()));
@@ -149,9 +143,6 @@ impl FormData {
     fn parse_content_type(&mut self) -> Result<String, FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        let parse_content_type = String::from_utf8_lossy(&self.bytes_buf);
-        dbg!(parse_content_type);
-
         if !self.bytes_buf.starts_with(b"Content-Type:") {
             return Err(FieldError::MissingContentType);
         }
@@ -173,12 +164,8 @@ impl FormData {
     fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
         let read_bytes = read_line(&mut self.reader, buf)?;
 
-        let next_bytes = String::from_utf8_lossy(buf);
-        dbg!(next_bytes);
-
         // Check if is boundary end or a field delimiter
         if buf.starts_with(self.boundary.as_bytes()) {
-            println!("boundary!!");
             let boundary_len = self.boundary.len();
             let rest = &buf[boundary_len..];
 
@@ -203,9 +190,6 @@ impl FormData {
         }
 
         if self.state == State::First {
-            // Read the newline after the last field/boundary
-            self.parse_newline()?;
-
             // We parse the first boundary, next boundaries will be consumed by the `Field`
             self.parse_boundary()?;
             self.state = State::Next;
@@ -431,7 +415,6 @@ mod tests {
         let boundary = "x-my-boundary";
 
         let mut s = String::new();
-        s.push_str("\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
         s.push_str(&format!(
             "Content-Disposition: form-data; name=\"text_field\"\r\n\r\n"
@@ -480,7 +463,6 @@ mod tests {
         let boundary = "WebKitFormBoundaryDtbT5UpPj83kllfw";
 
         let mut s = String::new();
-        s.push_str("\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
         s.push_str(&format!(
             "Content-Disposition: form-data; name=\"uploads[]\"; filename=\"somebinary.dat\"\r\n"
