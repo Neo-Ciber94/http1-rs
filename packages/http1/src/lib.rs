@@ -12,3 +12,4 @@ pub mod server;
 pub mod status;
 pub mod uri;
 pub mod version;
+pub mod rng;
