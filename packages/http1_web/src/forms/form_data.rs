@@ -77,84 +77,62 @@ impl FormData {
         }
     }
 
-    fn read_newline(&mut self) -> Result<(), FieldError> {
-        self.bytes_buf.clear();
-        let buf = &mut self.bytes_buf;
+    fn parse_newline(&mut self) -> Result<(), FieldError> {
+        read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        match self.reader.read_until(b'\n', buf) {
-            Ok(_) => {
-                if buf != b"\n\r" {
-                    return Err(FieldError::Other(format!("expected new line")));
-                }
-            }
-            Err(err) => return Err(FieldError::IO(err)),
+        if !self.bytes_buf.is_empty() {
+            return Err(FieldError::Other(format!("expected new line")));
         }
 
         Ok(())
     }
 
-    fn read_field_boundary(&mut self) -> Result<(), FieldError> {
-        self.bytes_buf.clear();
-        let buf = &mut self.bytes_buf;
+    fn parse_boundary(&mut self) -> Result<(), FieldError> {
+        read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        match self.reader.read_until(b'\n', buf) {
-            Ok(_) => {
-                if buf != &self.boundary.as_bytes() {
-                    return Err(FieldError::MissingBoundary(self.boundary.clone()));
-                }
-            }
-            Err(err) => {
-                return Err(FieldError::IO(err));
-            }
+        if &self.bytes_buf != &self.boundary.as_bytes() {
+            return Err(FieldError::MissingBoundary(self.boundary.clone()));
         }
 
         Ok(())
     }
 
-    fn read_content_disposition(&mut self) -> Result<ContentDisposition, FieldError> {
-        self.bytes_buf.clear();
-        let buf = &mut self.bytes_buf;
+    fn parse_content_disposition(&mut self) -> Result<ContentDisposition, FieldError> {
+        read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        match self.reader.read_until(b'\n', buf) {
-            Ok(_) => {
-                let mut name: Result<String, FieldError> = Err(FieldError::MissingName);
-                let mut filename: Result<Option<String>, FieldError> = Ok(None);
+        let mut name: Result<String, FieldError> = Err(FieldError::MissingName);
+        let mut filename: Result<Option<String>, FieldError> = Ok(None);
 
-                let mut parts = buf.split(|b| *b == b';').map(|s| s.trim_ascii());
+        let mut parts = self.bytes_buf.split(|b| *b == b';').map(|s| s.trim_ascii());
 
-                if Some("Content-Disposition: form-data".as_bytes()) != parts.next() {
-                    return Err(FieldError::MissingContentDisposition);
+        if Some("Content-Disposition: form-data".as_bytes()) != parts.next() {
+            return Err(FieldError::MissingContentDisposition);
+        }
+
+        while let Some(s) = parts.next() {
+            match s {
+                _ if s.starts_with("name=".as_bytes()) => {
+                    let text = str::from_utf8(s).map_err(FieldError::Utf8Error)?;
+                    name = get_quoted("\"", &text[5..])
+                        .map(|s| s.to_owned())
+                        .ok_or(FieldError::MissingName);
                 }
-
-                while let Some(s) = parts.next() {
-                    match s {
-                        _ if s.starts_with("name=".as_bytes()) => {
-                            let text = str::from_utf8(s).map_err(FieldError::Utf8Error)?;
-                            name = get_quoted("\"", &text[5..])
-                                .map(|s| s.to_owned())
-                                .ok_or(FieldError::MissingName);
-                        }
-                        _ if s.starts_with("filename=".as_bytes()) => {
-                            let text = str::from_utf8(s).map_err(FieldError::Utf8Error)?;
-                            filename = get_quoted("\"", &text[9..])
-                                .map(|s| Some(s.to_owned()))
-                                .ok_or(FieldError::MissingFilename);
-                        }
-                        _ => {
-                            // ignore
-                        }
-                    }
+                _ if s.starts_with("filename=".as_bytes()) => {
+                    let text = str::from_utf8(s).map_err(FieldError::Utf8Error)?;
+                    filename = get_quoted("\"", &text[9..])
+                        .map(|s| Some(s.to_owned()))
+                        .ok_or(FieldError::MissingFilename);
                 }
-
-                Ok(ContentDisposition {
-                    name: name?,
-                    filename: filename?,
-                })
-            }
-            Err(err) => {
-                return Err(FieldError::IO(err));
+                _ => {
+                    // ignore
+                }
             }
         }
+
+        Ok(ContentDisposition {
+            name: name?,
+            filename: filename?,
+        })
     }
 
     fn field_reader<'a>(&'a mut self) -> FieldReader<'a> {
@@ -166,34 +144,20 @@ impl FormData {
     }
 
     fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
-        buf.clear();
+        let read_bytes = read_line(&mut self.reader, buf)?;
 
-        match self.reader.read_until(b'\n', buf) {
-            Ok(n) => {
-                if n > 0 {
-                    // remove the delimiter '\n'
-                    buf.pop();
+        // Check if is boundary end or a field delimiter
+        if buf.starts_with(self.boundary.as_bytes()) {
+            let boundary_len = self.boundary.len();
+            let rest = &buf[boundary_len..];
 
-                    if buf.ends_with(b"\r") {
-                        buf.pop();
-                    }
-
-                    // Check if is boundary end or a field delimiter
-                    if buf.starts_with(self.boundary.as_bytes()) {
-                        let boundary_len = self.boundary.len();
-                        let rest = &buf[boundary_len..];
-
-                        if rest == b"--" {
-                            self.state = State::Done;
-                        }
-
-                        return Ok(0);
-                    }
-                }
-
-                Ok(n)
+            if rest == b"--" {
+                self.state = State::Done;
             }
-            Err(err) => Err(FieldError::IO(err)),
+
+            Ok(0)
+        } else {
+            Ok(read_bytes)
         }
     }
 
@@ -204,24 +168,43 @@ impl FormData {
 
         if self.state == State::First {
             // Read the newline after the last field/boundary
-            self.read_newline()?;
+            self.parse_newline()?;
             self.state = State::Next;
         }
 
         // Read the boundary that starts the new field
-        self.read_field_boundary()?;
+        self.parse_boundary()?;
 
         // Read the content disposition to get the field name and filename
-        let ContentDisposition { name, filename } = self.read_content_disposition()?;
+        let ContentDisposition { name, filename } = self.parse_content_disposition()?;
 
         // Read another newline after the headers
-        self.read_newline()?;
+        self.parse_newline()?;
 
         Ok(Some(Field {
             name,
             filename,
             form_data: self,
         }))
+    }
+}
+
+fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
+    buf.clear();
+
+    match reader.read_until(b'\n', buf) {
+        Ok(n) => {
+            // Remove '\n'
+            buf.pop();
+
+            // Remove '\r'
+            if buf.ends_with(b"\r") {
+                buf.pop();
+            }
+
+            Ok(n)
+        }
+        Err(err) => return Err(FieldError::IO(err)),
     }
 }
 

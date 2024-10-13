@@ -100,7 +100,8 @@ fn main() -> std::io::Result<()> {
                 }
                 Ok(None) => break,
                 Err(err) => {
-                    eprintln!("{err}")
+                    eprintln!("{err}");
+                    break;
                 }
             }
         });
