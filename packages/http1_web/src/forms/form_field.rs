@@ -11,6 +11,7 @@ use super::form_data::Field;
 pub trait Storage: Read {}
 
 /// A file in memory storage.
+#[derive(Debug)]
 pub struct Memory(Vec<u8>);
 
 impl Storage for Memory {}
@@ -21,6 +22,7 @@ impl Read for Memory {
 }
 
 /// A file in disk storage.
+#[derive(Debug)]
 pub struct Disk(PathBuf);
 
 impl Storage for Disk {}
@@ -32,6 +34,7 @@ impl Read for Disk {
 }
 
 /// A temporal file storage.
+#[derive(Debug)]
 pub struct TempDisk(TempFile);
 
 impl Storage for TempDisk {}
