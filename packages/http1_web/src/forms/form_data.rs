@@ -183,9 +183,6 @@ impl FormData {
 
     pub fn next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
         if self.state == State::Done {
-            self.parse_newline()?;
-
-            // Rest should be empty
             return Ok(None);
         }
 
