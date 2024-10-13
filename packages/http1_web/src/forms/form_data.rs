@@ -194,25 +194,11 @@ impl FormData {
         }
     }
 
-    pub fn _next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
-        let mut buf = Vec::new();
-        let mut idx = 0;
-        while let Ok(_) = self.reader.read_until(b'\n', &mut buf) {
-            if idx > 10 {
-                break;
-            }
-
-            idx += 1;
-            let cow = String::from_utf8_lossy(&buf);
-            println!("{idx}: {cow}");
-            buf.clear();
-        }
-
-        Err(FieldError::MissingName)
-    }
-
     pub fn next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
         if self.state == State::Done {
+            self.parse_newline()?;
+
+            // Rest should be empty
             return Ok(None);
         }
 
