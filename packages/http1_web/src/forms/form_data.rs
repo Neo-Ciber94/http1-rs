@@ -23,6 +23,7 @@ enum State {
 #[derive(Debug)]
 pub enum FieldError {
     MissingBoundary(String),
+    MissingContentType,
     IO(std::io::Error),
     Other(String),
     Utf8Error(Utf8Error),
@@ -37,6 +38,7 @@ impl Display for FieldError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FieldError::MissingBoundary(boundary) => write!(f, "Missing boundary: {}", boundary),
+            FieldError::MissingContentType => write!(f, "Missing file content-type"),
             FieldError::IO(error) => write!(f, "{error}"),
             FieldError::Other(msg) => write!(f, "{msg}"),
             FieldError::MissingContentDisposition => {
@@ -51,6 +53,9 @@ impl Display for FieldError {
     }
 }
 
+/// Represents multipart/form-data stream.
+///
+/// We parse the file according to: https://datatracker.ietf.org/doc/html/rfc7578
 pub struct FormData {
     reader: BufReader<BodyReader>,
     boundary: String,
@@ -66,12 +71,12 @@ struct ContentDisposition {
 impl FormData {
     pub fn new(boundary: impl Into<String>, body: impl Into<Body>) -> Self {
         let reader = BodyReader::new(body.into());
-        let buf_reader = BufReader::new(reader);
+        let reader = BufReader::new(reader);
         let boundary = format!("--{}", boundary.into());
 
         FormData {
             boundary,
-            reader: buf_reader,
+            reader,
             bytes_buf: Vec::new(),
             state: State::First,
         }
@@ -79,6 +84,9 @@ impl FormData {
 
     fn parse_newline(&mut self) -> Result<(), FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
+
+        let parse_newline = String::from_utf8_lossy(&self.bytes_buf);
+        dbg!(parse_newline);
 
         if !self.bytes_buf.is_empty() {
             return Err(FieldError::Other(format!("expected new line")));
@@ -89,6 +97,9 @@ impl FormData {
 
     fn parse_boundary(&mut self) -> Result<(), FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
+
+        let parse_boundary = String::from_utf8_lossy(&self.bytes_buf);
+        dbg!(parse_boundary);
 
         if &self.bytes_buf != &self.boundary.as_bytes() {
             return Err(FieldError::MissingBoundary(self.boundary.clone()));
@@ -135,19 +146,35 @@ impl FormData {
         })
     }
 
+    fn parse_content_type(&mut self) -> Result<String, FieldError> {
+        read_line(&mut self.reader, &mut self.bytes_buf)?;
+
+        let parse_content_type = String::from_utf8_lossy(&self.bytes_buf);
+        dbg!(parse_content_type);
+
+        if !self.bytes_buf.starts_with(b"Content-Type:") {
+            return Err(FieldError::MissingContentType);
+        }
+
+        let rest = &self.bytes_buf[b"Content-Type:".len()..];
+        let content_type = std::str::from_utf8(rest).map_err(FieldError::Utf8Error)?;
+        Ok(content_type.to_owned())
+    }
+
     fn field_reader<'a>(&'a mut self) -> FieldReader<'a> {
         self.bytes_buf.clear();
         FieldReader {
             form_data: self,
             byte_buf: Vec::new(),
+            is_done: false,
         }
     }
 
     fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
         let read_bytes = read_line(&mut self.reader, buf)?;
 
-        let s = String::from_utf8_lossy(buf);
-        dbg!(s);
+        let next_bytes = String::from_utf8_lossy(buf);
+        dbg!(next_bytes);
 
         // Check if is boundary end or a field delimiter
         if buf.starts_with(self.boundary.as_bytes()) {
@@ -167,6 +194,23 @@ impl FormData {
         }
     }
 
+    pub fn _next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
+        let mut buf = Vec::new();
+        let mut idx = 0;
+        while let Ok(_) = self.reader.read_until(b'\n', &mut buf) {
+            if idx > 10 {
+                break;
+            }
+
+            idx += 1;
+            let cow = String::from_utf8_lossy(&buf);
+            println!("{idx}: {cow}");
+            buf.clear();
+        }
+
+        Err(FieldError::MissingName)
+    }
+
     pub fn next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
         if self.state == State::Done {
             return Ok(None);
@@ -175,14 +219,21 @@ impl FormData {
         if self.state == State::First {
             // Read the newline after the last field/boundary
             self.parse_newline()?;
+
+            // We parse the first boundary, next boundaries will be consumed by the `Field`
+            self.parse_boundary()?;
             self.state = State::Next;
         }
 
-        // Read the boundary that starts the new field
-        self.parse_boundary()?;
-
         // Read the content disposition to get the field name and filename
         let ContentDisposition { name, filename } = self.parse_content_disposition()?;
+
+        // If it's a file parse the content-type
+        let content_type = if filename.is_some() {
+            Some(self.parse_content_type()?)
+        } else {
+            None
+        };
 
         // Read another newline after the headers
         self.parse_newline()?;
@@ -190,6 +241,7 @@ impl FormData {
         Ok(Some(Field {
             name,
             filename,
+            content_type,
             form_data: self,
         }))
     }
@@ -217,11 +269,12 @@ fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<us
 pub struct FieldReader<'a> {
     byte_buf: Vec<u8>,
     form_data: &'a mut FormData,
+    is_done: bool,
 }
 
 impl<'a> Read for FieldReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() {
+        if buf.is_empty() || self.is_done {
             return Ok(0);
         }
 
@@ -236,6 +289,7 @@ impl<'a> Read for FieldReader<'a> {
                     .map_err(std::io::Error::other)?;
 
                 if read_bytes == 0 {
+                    self.is_done = true;
                     break;
                 }
             }
@@ -257,6 +311,7 @@ impl<'a> Read for FieldReader<'a> {
 pub struct Field<'a> {
     name: String,
     filename: Option<String>,
+    content_type: Option<String>,
     form_data: &'a mut FormData,
 }
 
@@ -267,6 +322,10 @@ impl<'a> Field<'a> {
 
     pub fn filename(&self) -> Option<&str> {
         self.filename.as_deref()
+    }
+
+    pub fn content_type(&self) -> Option<&str> {
+        self.content_type.as_deref()
     }
 
     pub fn bytes(self) -> Result<Vec<u8>, FieldError> {
@@ -396,6 +455,7 @@ mod tests {
         s.push_str(&format!(
             "Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n"
         ));
+        s.push_str(&format!("Content-Type: text/plain\r\n\r\n"));
         s.push_str("This is the content of the file\r\n");
         s.push_str(&format!("--{boundary}--\r\n"));
 
@@ -421,6 +481,11 @@ mod tests {
             assert_eq!(field.name(), "file_field");
             assert_eq!(field.filename(), Some("file.txt"));
             assert_eq!(field.text().unwrap(), "This is the content of the file");
+        }
+
+        {
+            let field = form_data.next_field().unwrap();
+            assert!(field.is_none());
         }
     }
 }

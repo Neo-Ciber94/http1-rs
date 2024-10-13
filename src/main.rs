@@ -112,6 +112,6 @@ fn main() -> std::io::Result<()> {
 }
 
 fn middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
-    println!("Request: {req:#?}");
+    //println!("Request: {req:#?}");
     next.call(req)
 }
