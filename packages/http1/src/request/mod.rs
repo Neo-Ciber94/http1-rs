@@ -303,7 +303,7 @@ impl Builder {
     ///
     /// # Returns
     /// A `Request` with the method, version, URL, headers, and body.
-    pub fn build<T>(self, body: T) -> Result<Request<T>, InvalidRequest> {
+    pub fn body<T>(self, body: T) -> Result<Request<T>, InvalidRequest> {
         let inner = self.inner?;
         let Parts {
             headers,

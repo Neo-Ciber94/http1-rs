@@ -83,7 +83,7 @@ fn read_request(stream: TcpStream) -> std::io::Result<Request<Body>> {
     }
 
     let request = builder
-        .build(body.into())
+        .body(body.into())
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     Ok(request)
