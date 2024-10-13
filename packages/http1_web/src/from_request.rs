@@ -1,5 +1,8 @@
+use std::convert::Infallible;
+
 use http1::{
-    body::Body,
+    body::{http_body::HttpBody, Body},
+    error::BoxError,
     headers::Headers,
     method::Method,
     request::Request,
@@ -9,10 +12,7 @@ use http1::{
     version::Version,
 };
 
-use crate::{
-    into_response::{Impossible, IntoResponse},
-    router::params::ParamsMap,
-};
+use crate::{into_response::IntoResponse, router::params::ParamsMap};
 
 pub trait FromRequest: Sized {
     type Rejection: IntoResponse;
@@ -35,21 +35,49 @@ where
 }
 
 impl FromRequest for Request<Body> {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req)
     }
 }
 
 impl FromRequest for Body {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.into_body())
     }
 }
 
+#[doc(hidden)]
+pub struct InvalidBodyError(BoxError);
+impl IntoResponse for InvalidBodyError {
+    fn into_response(self) -> Response<Body> {
+        eprintln!("Failed to read body: {}", self.0);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl FromRequest for Vec<u8> {
+    type Rejection = InvalidBodyError;
+
+    fn from_request(mut req: Request<Body>) -> Result<Self, Self::Rejection> {
+        req.body_mut().read_all_bytes().map_err(InvalidBodyError)
+    }
+}
+
+impl FromRequest for String {
+    type Rejection = InvalidBodyError;
+
+    fn from_request(mut req: Request<Body>) -> Result<Self, Self::Rejection> {
+        req.body_mut()
+            .read_all_bytes()
+            .and_then(|bytes| Ok(String::from_utf8(bytes)?))
+            .map_err(InvalidBodyError)
+    }
+}
+
 impl FromRequestRef for () {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(_: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(())
     }
@@ -75,14 +103,14 @@ impl FromRequestRef for ParamsMap {
 }
 
 impl FromRequestRef for Uri {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.uri().clone())
     }
 }
 
 impl FromRequestRef for PathAndQuery {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.uri().path_and_query().clone())
     }
@@ -121,28 +149,28 @@ impl FromRequestRef for Authority {
 }
 
 impl FromRequestRef for Headers {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.headers().clone())
     }
 }
 
 impl FromRequestRef for Version {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(*req.version())
     }
 }
 
 impl FromRequestRef for Method {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(req.method().clone())
     }
 }
 
 impl<T: FromRequestRef> FromRequestRef for Option<T> {
-    type Rejection = Impossible;
+    type Rejection = Infallible;
     fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
         Ok(T::from_request_ref(req).ok())
     }

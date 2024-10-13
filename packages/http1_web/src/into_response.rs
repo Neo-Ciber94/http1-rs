@@ -268,13 +268,8 @@ impl IntoResponse for () {
     }
 }
 
-enum Void {}
-
-/// A response that can never be constructed.
-pub struct Impossible(Void);
-
-impl IntoResponse for Impossible {
+impl IntoResponse for Infallible {
     fn into_response(self) -> Response<Body> {
-        match self.0 {}
+        unreachable!()
     }
 }
