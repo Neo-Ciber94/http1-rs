@@ -6,7 +6,7 @@ const BUFFER_SIZE: usize = 4096;
 
 pub struct FixedLengthBodyReader<R> {
     reader: R,
-    buffer: Vec<u8>,
+    buffer: [u8; BUFFER_SIZE],
     read_bytes: usize,
     content_length: Option<usize>,
 }
@@ -19,7 +19,7 @@ impl FixedLengthBodyReader<()> {
         FixedLengthBodyReader {
             reader,
             read_bytes: 0,
-            buffer: vec![0; BUFFER_SIZE],
+            buffer: [0; BUFFER_SIZE],
             content_length,
         }
     }
@@ -30,24 +30,52 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        self.buffer.clear();
-
-        if let Some(expected_bytes) = self.content_length {
-            if self.read_bytes > expected_bytes {
+        if let Some(content_length) = self.content_length {
+            if self.read_bytes > content_length {
                 return Ok(None);
             }
         }
 
-        match Read::read(&mut self.reader, &mut self.buffer) {
-            Ok(0) => Ok(None),
-            Ok(n) => {
-                self.read_bytes += n;
-
-                let size = self.content_length.map(|x| x.min(n)).unwrap_or(n);
-                let chunk = &self.buffer;
-                Ok(Some(chunk[0..size].to_vec()))
+        let expected_len = match self.content_length {
+            Some(content_length) => match content_length.checked_sub(self.read_bytes) {
+                Some(n) => n,
+                None => {
+                    // The content length is lower that the actual data length
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "invalid content length",
+                    ));
+                }
+            },
+            None => {
+                // We try to fill the buffer
+                self.buffer.len()
             }
-            Err(err) => Err(err),
+        };
+
+        let buf = &mut self.buffer[..expected_len];
+
+        if expected_len == 0 {
+            return Ok(None);
+        }
+
+        match Read::read(&mut self.reader, buf)? {
+            0 => {
+                if self.content_length.is_none() {
+                    return Ok(None);
+                } else {
+                    // EOF but never read all the body
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        "body incomplete",
+                    ));
+                }
+            }
+            n => {
+                let chunk = self.buffer[..n].to_vec();
+                self.read_bytes += n;
+                Ok(Some(chunk))
+            }
         }
     }
 
