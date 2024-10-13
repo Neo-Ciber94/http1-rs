@@ -315,6 +315,17 @@ pub enum FormDataError {
 
 impl IntoResponse for FormDataError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        match self {
+            FormDataError::NoContentType => {
+                eprintln!("Missing `{MULTIPART_FORM_DATA}` content type")
+            }
+            FormDataError::InvalidContentType(s) => {
+                eprintln!("Invalid content type: `{s}` expected `{MULTIPART_FORM_DATA}`")
+            }
+            FormDataError::BoundaryNoFound => eprintln!("Missing form boundary"),
+            FormDataError::InvalidBoundary(s) => eprintln!("Invalid form boundary: `{s}`"),
+        }
+
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
@@ -354,10 +365,7 @@ fn get_multipart_and_boundary(value: &HeaderValue) -> Result<String, FormDataErr
                 .split_once("boundary=")
                 .ok_or_else(|| FormDataError::BoundaryNoFound)?;
 
-            match get_quoted("\"", boundary) {
-                Some(s) => Ok(s.to_owned()),
-                None => Err(FormDataError::InvalidBoundary(boundary.to_owned())),
-            }
+            Ok(boundary.to_owned())
         }
         None => Err(FormDataError::BoundaryNoFound),
     }
