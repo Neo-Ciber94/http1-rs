@@ -2,6 +2,7 @@ use core::str;
 use std::{
     fmt::{Debug, Display},
     io::{BufRead, BufReader, Read},
+    path::PathBuf,
     str::Utf8Error,
 };
 
@@ -12,6 +13,8 @@ use http1::{
 };
 
 use crate::{from_request::FromRequest, into_response::IntoResponse};
+
+use super::form_field::{Disk, FormField, Memory, TempDisk};
 
 #[derive(Debug, PartialEq, Eq)]
 enum State {
@@ -319,6 +322,18 @@ impl<'a> Field<'a> {
 
     pub fn reader(self) -> FieldReader<'a> {
         self.form_data.field_reader()
+    }
+
+    pub fn to_memory(self) -> std::io::Result<FormField<Memory>> {
+        FormField::memory(self)
+    }
+
+    pub fn to_disk(self, file_path: impl Into<PathBuf>) -> std::io::Result<FormField<Disk>> {
+        FormField::disk(self, file_path)
+    }
+
+    pub fn to_temp_file(self) -> std::io::Result<FormField<TempDisk>> {
+        FormField::temp(self)
     }
 }
 
