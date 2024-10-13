@@ -23,7 +23,6 @@ impl XorShiftRng128 {
         s[2] = (state >> 32) as u32 & 0xFFFFFFFF;
         s[3] = (state & 0xFFFFFFFF) as u32;
 
-        dbg!(&s, state);
         XorShiftRng128(s)
     }
 
