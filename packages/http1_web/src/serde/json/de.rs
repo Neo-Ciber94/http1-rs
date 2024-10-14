@@ -595,7 +595,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         json_value.deserialize_option(visitor)
     }
 
-    fn deserialize_bytes<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    fn deserialize_bytes_buf<V>(mut self, visitor: V) -> Result<V::Value, Error>
     where
         V: crate::serde::visitor::Visitor,
     {
@@ -603,7 +603,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         match json_value {
             JsonValue::String(s) => {
                 let bytes = s.into_bytes();
-                visitor.visit_bytes(bytes)
+                visitor.visit_bytes_buf(bytes)
             }
             _ => Err(Error::mismatch(json_value, "bytes")),
         }

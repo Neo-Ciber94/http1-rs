@@ -312,7 +312,7 @@ impl Deserializer for PathDeserializer {
         })
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {

@@ -167,11 +167,11 @@ impl Deserializer for BytesBufferDeserializer {
         ))
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: Visitor,
     {
-        visitor.visit_bytes(self.0)
+        visitor.visit_bytes_buf(self.0)
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
@@ -352,12 +352,12 @@ impl Deserializer for ByteDeserializer {
         ))
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
+    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
         let b = std::slice::from_ref(&self.0).to_vec();
-        visitor.visit_bytes(b)
+        visitor.visit_bytes_buf(b)
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>

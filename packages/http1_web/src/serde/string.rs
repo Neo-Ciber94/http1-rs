@@ -306,7 +306,7 @@ impl Deserializer for DeserializeFromStr {
         ))
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Error>
+    fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor,
     {
@@ -498,12 +498,12 @@ impl Deserializer for DeserializeOnlyString {
         ))
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
+    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor,
     {
         let bytes = self.0.into_bytes();
-        visitor.visit_bytes(bytes)
+        visitor.visit_bytes_buf(bytes)
     }
 
     fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, Error>

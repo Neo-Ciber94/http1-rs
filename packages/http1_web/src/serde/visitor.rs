@@ -81,7 +81,7 @@ pub trait Visitor: Sized {
         Err(Error::Unexpected(super::de::Unexpected::Seq))
     }
 
-    fn visit_bytes(self, bytes: Vec<u8>) -> Result<Self::Value, Error> {
+    fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, Error> {
         let _ = bytes;
         Err(Error::Unexpected(super::de::Unexpected::Bytes))
     }

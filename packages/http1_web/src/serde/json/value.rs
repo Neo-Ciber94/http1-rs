@@ -1049,14 +1049,14 @@ impl Deserializer for JsonValue {
         }
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
+    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor,
     {
         match self {
             JsonValue::String(s) => {
                 let bytes = s.into_bytes();
-                visitor.visit_bytes(bytes)
+                visitor.visit_bytes_buf(bytes)
             }
             _ => Err(Error::mismatch(self, "bytes")),
         }

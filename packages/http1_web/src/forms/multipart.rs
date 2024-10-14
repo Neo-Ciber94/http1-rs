@@ -100,7 +100,7 @@ impl Deserialize for FormFile {
                 Ok(FormFile(temp_file))
             }
 
-            fn visit_bytes(self, bytes: Vec<u8>) -> Result<Self::Value, crate::serde::de::Error> {
+            fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, crate::serde::de::Error> {
                 let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
@@ -298,7 +298,7 @@ impl Deserializer for MultipartDeserializer {
         ))
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
