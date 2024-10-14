@@ -7,9 +7,7 @@ use std::{
 };
 
 use http1::{
-    body::{body_reader::BodyReader, Body},
-    headers::{self, HeaderValue},
-    status::StatusCode,
+    body::{body_reader::BodyReader, Body}, error::BoxError, headers::{self, HeaderValue}, status::StatusCode
 };
 
 use crate::{from_request::FromRequest, into_response::IntoResponse};
@@ -356,6 +354,7 @@ pub enum FormDataError {
     InvalidContentType(String),
     BoundaryNoFound,
     InvalidBoundary(String),
+    Other(BoxError)
 }
 
 impl IntoResponse for FormDataError {
@@ -369,6 +368,7 @@ impl IntoResponse for FormDataError {
             }
             FormDataError::BoundaryNoFound => eprintln!("Missing form boundary"),
             FormDataError::InvalidBoundary(s) => eprintln!("Invalid form boundary: `{s}`"),
+            FormDataError::Other(err) => eprintln!("{err}"),
         }
 
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
