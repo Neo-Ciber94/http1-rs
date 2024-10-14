@@ -198,9 +198,13 @@ impl Deserializer for BytesBufferDeserializer {
         struct ByteBufferAccess(Vec<u8>);
 
         impl BytesAccess for ByteBufferAccess {
-            fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
-                println!("Write file");
-                std::io::Write::write(&mut self.0, buf).map_err(super::de::Error::error)
+            fn next_bytes<W: std::io::Write>(
+                &mut self,
+                writer: &mut W,
+            ) -> Result<(), super::de::Error> {
+                writer
+                    .write_all(self.0.as_slice())
+                    .map_err(super::de::Error::error)
             }
         }
 
@@ -380,17 +384,16 @@ impl Deserializer for ByteDeserializer {
     {
         struct SingleByteAccess(Option<u8>);
         impl BytesAccess for SingleByteAccess {
-            fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
-                if buf.is_empty() {
-                    return Ok(0);
-                }
-
+            fn next_bytes<W: std::io::Write>(
+                &mut self,
+                writer: &mut W,
+            ) -> Result<(), super::de::Error> {
                 match self.0.take() {
                     Some(b) => {
-                        buf[0] = b;
-                        Ok(1)
+                        let buf = std::slice::from_ref(&b);
+                        writer.write_all(buf).map_err(super::de::Error::error)
                     }
-                    None => Ok(0),
+                    None => Err(super::de::Error::custom("no bytes to write")),
                 }
             }
         }

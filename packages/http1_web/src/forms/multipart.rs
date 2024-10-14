@@ -125,20 +125,7 @@ impl Deserialize for FormFile {
                     .open()
                     .map_err(crate::serde::de::Error::error)?;
 
-                let mut buf = [0; 4096];
-
-                loop {
-                    let read_bytes = bytes
-                        .next_bytes(&mut buf)
-                        .map_err(crate::serde::de::Error::error)?;
-
-                    //dbg!(read_bytes);
-                    if read_bytes == 0 {
-                        break;
-                    }
-
-                    f.write_all(&buf).map_err(crate::serde::de::Error::error)?;
-                }
+                bytes.next_bytes(&mut f)?;
 
                 Ok(FormFile(temp_file))
             }

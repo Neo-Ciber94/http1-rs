@@ -1130,8 +1130,8 @@ impl JsonBytesAccess {
     }
 }
 impl BytesAccess for JsonBytesAccess {
-    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        std::io::Write::write(&mut self.0, buf).map_err(Error::error)
+    fn next_bytes<W: std::io::Write>(&mut self, writer: &mut W) -> Result<(), Error> {
+        writer.write_all(self.0.as_slice()).map_err(Error::error)
     }
 }
 

@@ -117,5 +117,5 @@ pub trait MapAccess {
 }
 
 pub trait BytesAccess {
-    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, Error>;
+    fn next_bytes<W: std::io::Write>(&mut self, writer: &mut W) -> Result<(), Error>;
 }

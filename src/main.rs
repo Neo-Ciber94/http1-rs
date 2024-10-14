@@ -4,7 +4,6 @@ use http1::{
 };
 use http1_web::{
     app::App, forms::{
-        form_data::FormData,
         multipart::{FormFile, Multipart},
     }, handler::BoxedHandler, html, impl_deserialize_struct, json::Json, path::Path, serde::json::value::JsonValue
 };
