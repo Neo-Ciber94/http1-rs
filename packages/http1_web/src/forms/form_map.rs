@@ -17,6 +17,8 @@ use super::{
 #[derive(Debug)]
 pub struct TempFileHandle {
     file: File,
+
+    // This file caries the ownership of the file, when drop the actual file will be deleted
     _temp_file: TempFile,
 }
 
