@@ -127,6 +127,7 @@ struct FormSerializer;
 impl Serializer for FormSerializer {
     type Ok = OrderedMap<String, QueryValue>;
     type Err = SerializeFormError;
+    type Bytes = Impossible<Self::Ok, Self::Err>;
     type Seq = Impossible<Self::Ok, Self::Err>;
     type Map = Impossible<Self::Ok, Self::Err>;
 
@@ -167,6 +168,10 @@ impl Serializer for FormSerializer {
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        Err(SerializeFormError)
+    }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
         Err(SerializeFormError)
     }
 }

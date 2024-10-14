@@ -90,6 +90,11 @@ pub trait Visitor: Sized {
         let _ = map;
         Err(Error::Unexpected(super::de::Unexpected::Map))
     }
+
+    fn visit_bytes_seq<B: BytesAccess>(self, byte: B) -> Result<Self::Value, Error> {
+        let _ = byte;
+        Err(Error::Unexpected(super::de::Unexpected::Bytes))
+    }
 }
 
 pub trait SeqAccess {
@@ -109,4 +114,8 @@ pub trait MapAccess {
 
     fn next_key<K: Deserialize>(&mut self) -> Result<Option<K>, Error>;
     fn next_value<V: Deserialize>(&mut self) -> Result<Option<V>, Error>;
+}
+
+pub trait BytesAccess {
+    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, Error>;
 }

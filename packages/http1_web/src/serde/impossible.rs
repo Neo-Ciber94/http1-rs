@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::ser::{MapSerializer, SequenceSerializer, Serialize, Serializer};
+use super::ser::{BytesSerializer, MapSerializer, SequenceSerializer, Serialize, Serializer};
 
 enum Void {}
 
@@ -15,6 +15,7 @@ where
 {
     type Ok = R;
     type Err = E;
+    type Bytes = Impossible<R, E>;
     type Seq = Impossible<R, E>;
     type Map = Impossible<R, E>;
 
@@ -61,6 +62,10 @@ where
     fn serialize_slice<T: Serialize>(self, _value: &[T]) -> Result<Self::Ok, Self::Err> {
         match self.void {}
     }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
+        match self.void {}
+    }
 }
 
 impl<R, E> MapSerializer for Impossible<R, E>
@@ -91,6 +96,22 @@ where
     type Err = E;
 
     fn serialize_element<T: Serialize>(&mut self, _value: &T) -> Result<(), Self::Err> {
+        match self.void {}
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        match self.void {}
+    }
+}
+
+impl<R, E> BytesSerializer for Impossible<R, E>
+where
+    E: std::error::Error,
+{
+    type Ok = R;
+    type Err = E;
+
+    fn serialize_bytes<T: Serialize>(&mut self, _buf: &[u8]) -> Result<(), Self::Err> {
         match self.void {}
     }
 

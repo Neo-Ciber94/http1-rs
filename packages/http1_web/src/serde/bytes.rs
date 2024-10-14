@@ -1,11 +1,11 @@
 use super::{
     de::{Deserialize, Deserializer},
-    visitor::{SeqAccess, Visitor},
+    visitor::{BytesAccess, SeqAccess, Visitor},
 };
 
-pub struct BytesDeserializer(pub(crate) Vec<u8>);
+pub struct BytesBufferDeserializer(pub(crate) Vec<u8>);
 
-impl Deserializer for BytesDeserializer {
+impl Deserializer for BytesBufferDeserializer {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: Visitor,
@@ -190,9 +190,24 @@ impl Deserializer for BytesDeserializer {
             "failed to deserialize bytes to `option`",
         ))
     }
+
+    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
+    where
+        V: Visitor,
+    {
+        struct ByteBufferAccess(Vec<u8>);
+
+        impl BytesAccess for ByteBufferAccess {
+            fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
+                std::io::Write::write(&mut self.0, buf).map_err(super::de::Error::error)
+            }
+        }
+
+        visitor.visit_bytes_seq(ByteBufferAccess(self.0))
+    }
 }
 
-struct ByteDeserializer(u8);
+struct ByteDeserializer(pub u8);
 impl Deserializer for ByteDeserializer {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
@@ -357,6 +372,30 @@ impl Deserializer for ByteDeserializer {
             "failed to deserialize byte to `option`",
         ))
     }
+
+    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
+    where
+        V: Visitor,
+    {
+        struct SingleByteAccess(Option<u8>);
+        impl BytesAccess for SingleByteAccess {
+            fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
+                if buf.is_empty() {
+                    return Ok(0);
+                }
+
+                match self.0.take() {
+                    Some(b) => {
+                        buf[0] = b;
+                        Ok(1)
+                    }
+                    None => Ok(0),
+                }
+            }
+        }
+
+        visitor.visit_bytes_seq(SingleByteAccess(Some(self.0)))
+    }
 }
 
 struct BytesSeqAccess(std::vec::IntoIter<u8>);
@@ -369,5 +408,12 @@ impl SeqAccess for BytesSeqAccess {
             }
             None => Ok(None),
         }
+    }
+}
+
+struct ByteBufferAccess(pub Vec<u8>);
+impl BytesAccess for ByteBufferAccess {
+    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
+        std::io::Write::write(&mut self.0, buf).map_err(super::de::Error::error)
     }
 }

@@ -15,6 +15,14 @@ pub trait SequenceSerializer {
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
+pub trait BytesSerializer {
+    type Ok;
+    type Err: std::error::Error;
+
+    fn serialize_bytes<T: Serialize>(&mut self, buf: &[u8]) -> Result<(), Self::Err>;
+    fn end(self) -> Result<Self::Ok, Self::Err>;
+}
+
 pub trait MapSerializer {
     type Ok;
     type Err: std::error::Error;
@@ -30,6 +38,7 @@ pub trait MapSerializer {
 pub trait Serializer: Sized {
     type Ok;
     type Err: std::error::Error;
+    type Bytes: BytesSerializer;
     type Seq: SequenceSerializer<Ok = Self::Ok, Err = Self::Err>;
     type Map: MapSerializer<Ok = Self::Ok, Err = Self::Err>;
 
@@ -121,6 +130,8 @@ pub trait Serializer: Sized {
     fn serialize_bytes<T: Serialize>(self, value: &Vec<u8>) -> Result<Self::Ok, Self::Err> {
         self.serialize_slice(value.as_slice())
     }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err>;
 
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err>;
 

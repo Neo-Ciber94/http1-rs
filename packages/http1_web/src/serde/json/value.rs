@@ -9,10 +9,13 @@ use crate::serde::{
     de::{Deserialize, Deserializer, Error},
     expected::Expected,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
-    visitor::{MapAccess, SeqAccess, Visitor},
+    visitor::{BytesAccess, MapAccess, SeqAccess, Visitor},
 };
 
-use super::{number::Number, ser::JsonSerializationError};
+use super::{
+    number::Number,
+    ser::{JsonBytesSerializer, JsonSerializationError},
+};
 
 /// A JSON value, which can represent various types of data such as numbers, strings,
 /// booleans, arrays, objects, or null values.
@@ -672,6 +675,7 @@ pub struct JsonValueSerializer;
 impl Serializer for JsonValueSerializer {
     type Ok = JsonValue;
     type Err = JsonSerializationError;
+    type Bytes = JsonBytesSerializer;
     type Seq = JsonArraySerializer;
     type Map = JsonObjectSerializer;
 
@@ -712,6 +716,10 @@ impl Serializer for JsonValueSerializer {
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
+        Ok(Default::default())
+    }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
         Ok(Default::default())
     }
 }
@@ -1053,6 +1061,19 @@ impl Deserializer for JsonValue {
             _ => Err(Error::mismatch(self, "bytes")),
         }
     }
+
+    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        match self {
+            JsonValue::String(value) => {
+                let bytes = value.into_bytes();
+                visitor.visit_bytes_seq(JsonBytesAccess(bytes))
+            }
+            _ => Err(Error::custom("expected bytes")),
+        }
+    }
 }
 
 pub struct JsonSeqAccess(pub std::vec::IntoIter<JsonValue>);
@@ -1099,6 +1120,18 @@ impl<I: Iterator<Item = (String, JsonValue)>> MapAccess for JsonObjectAccess<I> 
             }
             None => Ok(None),
         }
+    }
+}
+
+pub struct JsonBytesAccess(Vec<u8>);
+impl JsonBytesAccess {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        JsonBytesAccess(bytes)
+    }
+}
+impl BytesAccess for JsonBytesAccess {
+    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        std::io::Write::write(&mut self.0, buf).map_err(Error::error)
     }
 }
 

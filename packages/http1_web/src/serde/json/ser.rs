@@ -2,10 +2,10 @@ use std::{fmt::Display, io::Write};
 
 use crate::serde::{
     impossible::Impossible,
-    ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
+    ser::{BytesSerializer, MapSerializer, SequenceSerializer, Serialize, Serializer},
 };
 
-use super::formatter::Formatter;
+use super::{formatter::Formatter, value::JsonValue};
 
 #[derive(Debug)]
 pub enum JsonSerializationError {
@@ -53,6 +53,7 @@ where
 {
     type Ok = ();
     type Err = JsonSerializationError;
+    type Bytes = JsonBytesSerializer;
     type Seq = JsonSequenceSerializer<'a, W, F>;
     type Map = JsonMapSerializer<'a, W, F>;
 
@@ -124,6 +125,30 @@ where
     fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
         self.formatter.write_null(&mut self.writer)?;
         Ok(())
+    }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
+        Ok(JsonBytesSerializer(vec![]))
+    }
+}
+
+#[derive(Default)]
+pub struct JsonBytesSerializer(pub(crate) Vec<u8>);
+
+impl BytesSerializer for JsonBytesSerializer {
+    type Ok = JsonValue;
+    type Err = JsonSerializationError;
+
+    fn serialize_bytes<T: Serialize>(&mut self, buf: &[u8]) -> Result<(), Self::Err> {
+        self.0.extend_from_slice(buf);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        let s = String::from_utf8(self.0)
+            .map_err(|err| JsonSerializationError::Other(err.to_string()))?;
+
+        Ok(JsonValue::String(s))
     }
 }
 
@@ -226,6 +251,7 @@ pub struct KeySerializer<'a, W, F> {
 impl<'a, W: Write, F: Formatter<W>> Serializer for KeySerializer<'a, W, F> {
     type Ok = ();
     type Err = JsonSerializationError;
+    type Bytes = Impossible<Self::Ok, Self::Err>;
     type Seq = Impossible<Self::Ok, Self::Err>;
     type Map = Impossible<Self::Ok, Self::Err>;
 
@@ -273,6 +299,10 @@ impl<'a, W: Write, F: Formatter<W>> Serializer for KeySerializer<'a, W, F> {
     }
 
     fn serialize_f32(self, _: f32) -> Result<Self::Ok, Self::Err> {
+        Err(map_key_error())
+    }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
         Err(map_key_error())
     }
 }

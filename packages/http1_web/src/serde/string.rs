@@ -1,11 +1,14 @@
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::Display,
+    str::{FromStr, Utf8Error},
+};
 
 use crate::serde::visitor::Visitor;
 
 use super::{
     de::{Deserializer, Error},
     impossible::Impossible,
-    ser::Serializer,
+    ser::{BytesSerializer, Serializer},
     visitor::SeqAccess,
 };
 
@@ -42,7 +45,7 @@ impl Deserializer for DeserializeFromStr {
             DeserializeFromStr::Str(x) => {
                 // TODO: This should be in other deserializer
                 if x == "on" {
-                    return   visitor.visit_bool(true);
+                    return visitor.visit_bool(true);
                 }
 
                 let value = bool::from_str(&x).map_err(Error::error)?;
@@ -311,6 +314,15 @@ impl Deserializer for DeserializeFromStr {
             "cannot deserialize str to `bytes`",
         ))
     }
+
+    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        Err(crate::serde::de::Error::custom(
+            "cannot deserialize str to `bytes`",
+        ))
+    }
 }
 
 struct FromStrSeqAccess(std::vec::IntoIter<String>);
@@ -493,12 +505,25 @@ impl Deserializer for DeserializeOnlyString {
         let bytes = self.0.into_bytes();
         visitor.visit_bytes(bytes)
     }
+
+    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        Err(super::de::Error::custom(
+            "cannot deserialize str to `bytes`",
+        ))
+    }
 }
 
 pub struct StringSerializer;
 
 #[derive(Debug)]
-pub struct StringSerializationError;
+pub enum StringSerializationError {
+    InvalidType,
+    Utf8Error(Utf8Error),
+}
+
 impl Display for StringSerializationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "failed to serialize to string")
@@ -510,31 +535,32 @@ impl std::error::Error for StringSerializationError {}
 impl Serializer for StringSerializer {
     type Ok = String;
     type Err = StringSerializationError;
+    type Bytes = BytesStringSerializer;
     type Seq = Impossible<Self::Ok, Self::Err>;
     type Map = Impossible<Self::Ok, Self::Err>;
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_i128(self, _value: i128) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_u128(self, _value: u128) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_f32(self, _value: f32) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_bool(self, _value: bool) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Err> {
@@ -542,14 +568,35 @@ impl Serializer for StringSerializer {
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
     }
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err> {
-        Err(StringSerializationError)
+        Err(StringSerializationError::InvalidType)
+    }
+
+    fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
+        Ok(BytesStringSerializer(vec![]))
+    }
+}
+
+pub struct BytesStringSerializer(Vec<u8>);
+
+impl BytesSerializer for BytesStringSerializer {
+    type Ok = String;
+    type Err = StringSerializationError;
+
+    fn serialize_bytes<T: super::ser::Serialize>(&mut self, buf: &[u8]) -> Result<(), Self::Err> {
+        self.0.extend_from_slice(buf);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Err> {
+        String::from_utf8(self.0)
+            .map_err(|err| StringSerializationError::Utf8Error(err.utf8_error()))
     }
 }

@@ -9,7 +9,7 @@ use crate::serde::{
 
 use super::{
     number::Number,
-    value::{JsonObjectAccess, JsonSeqAccess, JsonValue},
+    value::{JsonBytesAccess, JsonObjectAccess, JsonSeqAccess, JsonValue},
 };
 
 pub struct JsonDeserializer<R> {
@@ -604,8 +604,22 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
             JsonValue::String(s) => {
                 let bytes = s.into_bytes();
                 visitor.visit_bytes(bytes)
-            },
-            _ => Err(Error::mismatch(json_value, "bytes"))
+            }
+            _ => Err(Error::mismatch(json_value, "bytes")),
+        }
+    }
+
+    fn deserialize_bytes_seq<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: crate::serde::visitor::Visitor,
+    {
+        let json_value = self.parse_json()?;
+        match json_value {
+            JsonValue::String(value) => {
+                let bytes = value.into_bytes();
+                visitor.visit_bytes_seq(JsonBytesAccess::new(bytes))
+            }
+            _ => Err(Error::custom("expected bytes")),
         }
     }
 }

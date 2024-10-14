@@ -290,9 +290,9 @@ impl Deserializer for PathDeserializer {
     where
         V: crate::serde::visitor::Visitor,
     {
-        return Err(crate::serde::de::Error::custom(format!(
+        Err(crate::serde::de::Error::custom(format!(
             "cannot deserialize `path` to option"
-        )));
+        )))
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
@@ -316,9 +316,18 @@ impl Deserializer for PathDeserializer {
     where
         V: crate::serde::visitor::Visitor,
     {
-        return Err(crate::serde::de::Error::custom(format!(
+        Err(crate::serde::de::Error::custom(format!(
             "cannot deserialize `path` to bytes"
-        )));
+        )))
+    }
+
+    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    where
+        V: crate::serde::visitor::Visitor,
+    {
+        Err(crate::serde::de::Error::custom(format!(
+            "cannot deserialize `path` to bytes"
+        )))
     }
 }
 

@@ -155,6 +155,10 @@ pub trait Deserializer {
     where
         V: Visitor;
 
+    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor;
+
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor;

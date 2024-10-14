@@ -9,7 +9,7 @@ use crate::{
     from_request::FromRequest,
     into_response::IntoResponse,
     serde::{
-        bytes::BytesDeserializer,
+        bytes::BytesBufferDeserializer,
         de::{Deserialize, Deserializer},
         string::{DeserializeFromStr, DeserializeOnlyString},
         visitor::{MapAccess, Visitor},
@@ -302,6 +302,13 @@ impl Deserializer for MultipartDeserializer {
             "cannot deserialize form to `option`",
         ))
     }
+
+    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    where
+        V: Visitor,
+    {
+        todo!()
+    }
 }
 
 struct FormMapAccess<I> {
@@ -330,7 +337,7 @@ impl<I: Iterator<Item = (String, FormField<FieldStorage>)>> MapAccess for FormMa
             Some(field) => {
                 if field.filename().is_some() {
                     let s = field.bytes().map_err(crate::serde::de::Error::error)?;
-                    let deserializer = BytesDeserializer(s);
+                    let deserializer = BytesBufferDeserializer(s);
                     let value = V::deserialize(deserializer)?;
                     Ok(Some(value))
                 } else {
