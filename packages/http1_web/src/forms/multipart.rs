@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{fmt::Debug, io::Write};
 
 use http1::{
     common::temp_file::{TempFile, TempFileOpen},
@@ -41,6 +41,12 @@ impl FormFile {
 
     pub fn file(&self) -> TempFileOpen {
         self.0.file()
+    }
+}
+
+impl Debug for FormFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("FormFile").finish()
     }
 }
 
