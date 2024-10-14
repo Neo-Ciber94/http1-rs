@@ -410,10 +410,3 @@ impl SeqAccess for BytesSeqAccess {
         }
     }
 }
-
-struct ByteBufferAccess(pub Vec<u8>);
-impl BytesAccess for ByteBufferAccess {
-    fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
-        std::io::Write::write(&mut self.0, buf).map_err(super::de::Error::error)
-    }
-}

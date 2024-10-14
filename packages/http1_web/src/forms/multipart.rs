@@ -84,9 +84,10 @@ impl Deserialize for FormFile {
                 let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
-                    .read(true)
+                    .write(true)
                     .open()
                     .map_err(crate::serde::de::Error::error)?;
+
                 f.write_all(value.as_bytes())
                     .map_err(crate::serde::de::Error::error)?;
 
@@ -97,7 +98,7 @@ impl Deserialize for FormFile {
                 let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
-                    .read(true)
+                    .write(true)
                     .open()
                     .map_err(crate::serde::de::Error::error)?;
 
@@ -106,9 +107,37 @@ impl Deserialize for FormFile {
 
                 Ok(FormFile(temp_file))
             }
+
+            fn visit_bytes_seq<B: crate::serde::visitor::BytesAccess>(
+                self,
+                mut bytes: B,
+            ) -> Result<Self::Value, crate::serde::de::Error> {
+                let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
+                let mut f = temp_file
+                    .file()
+                    .write(true)
+                    .open()
+                    .map_err(crate::serde::de::Error::error)?;
+
+                let mut buf = [0; 4096];
+
+                loop {
+                    let read_bytes = bytes
+                        .next_bytes(&mut buf)
+                        .map_err(crate::serde::de::Error::error)?;
+
+                    if read_bytes == 0 {
+                        break;
+                    }
+
+                    f.write_all(&buf).map_err(crate::serde::de::Error::error)?;
+                }
+
+                Ok(FormFile(temp_file))
+            }
         }
 
-        deserializer.deserialize_bytes(FormFileVisitor)
+        deserializer.deserialize_bytes_seq(FormFileVisitor)
     }
 }
 
@@ -303,11 +332,13 @@ impl Deserializer for MultipartDeserializer {
         ))
     }
 
-    fn deserialize_bytes_seq<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: Visitor,
     {
-        todo!()
+        Err(crate::serde::de::Error::custom(
+            "cannot deserialize form to `bytes`",
+        ))
     }
 }
 
