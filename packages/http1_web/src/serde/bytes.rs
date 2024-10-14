@@ -199,6 +199,7 @@ impl Deserializer for BytesBufferDeserializer {
 
         impl BytesAccess for ByteBufferAccess {
             fn next_bytes(&mut self, buf: &mut [u8]) -> Result<usize, super::de::Error> {
+                println!("Write file");
                 std::io::Write::write(&mut self.0, buf).map_err(super::de::Error::error)
             }
         }

@@ -46,6 +46,7 @@ impl Read for TempDisk {
 }
 
 /// Represents a form field.
+#[derive(Debug)]
 pub struct FormField<S> {
     name: String,
     filename: Option<String>,

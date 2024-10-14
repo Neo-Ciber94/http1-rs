@@ -3,10 +3,23 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, forms::form_data::FormData, handler::BoxedHandler, html, json::Json, path::Path,
-    serde::json::value::JsonValue,
+    app::App, forms::{
+        form_data::FormData,
+        multipart::{FormFile, Multipart},
+    }, handler::BoxedHandler, html, impl_deserialize_struct, json::Json, path::Path, serde::json::value::JsonValue
 };
 use std::{collections::HashMap, fs::File};
+
+#[derive(Debug)]
+struct Upload {
+    string: String,
+    file: FormFile,
+}
+
+impl_deserialize_struct!(Upload => {
+    string: String,
+    file: FormFile
+});
 
 fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:5000".parse().unwrap();
@@ -88,21 +101,8 @@ fn main() -> std::io::Result<()> {
                param: path.0
             }))
         })
-        .post("/upload", |mut form: FormData| loop {
-            let next = form.next_field();
-            match next {
-                Ok(Some(f)) => {
-                    let name = f.name().to_owned();
-                    let filename = f.filename().map(|s| s.to_owned());
-                    let text = f.text().expect("failed to read text");
-                    println!("name: {name}, filename: {filename:?}, text: {text}");
-                }
-                Ok(None) => break,
-                Err(err) => {
-                    eprintln!("{err}");
-                    break;
-                }
-            }
+        .post("/upload", |form: Multipart<Upload>| {
+            println!("{form:?}");
         });
 
     server

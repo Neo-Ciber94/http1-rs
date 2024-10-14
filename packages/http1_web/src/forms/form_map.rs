@@ -64,6 +64,7 @@ impl Write for FieldStorage {
     }
 }
 
+#[derive(Debug)]
 pub struct FormMap(HashMap<String, FormField<FieldStorage>>);
 
 impl FormMap {
