@@ -66,6 +66,14 @@ impl Write for FieldStorage {
 
 pub struct FormMap(HashMap<String, FormField<FieldStorage>>);
 
+impl FormMap {
+    pub fn into_iter(
+        self,
+    ) -> std::collections::hash_map::IntoIter<String, FormField<FieldStorage>> {
+        self.0.into_iter()
+    }
+}
+
 impl Deref for FormMap {
     type Target = HashMap<String, FormField<FieldStorage>>;
 
@@ -88,14 +96,16 @@ impl FromRequest for FormMap {
                 Ok(Some(field)) => {
                     let is_file = field.filename().is_some();
                     let storage = if is_file {
-                        let handle = TempFileHandle::new().map_err(|err| FormDataError::Other(err.into()))?;
+                        let handle = TempFileHandle::new()
+                            .map_err(|err| FormDataError::Other(err.into()))?;
                         FieldStorage::Temp(handle)
                     } else {
                         FieldStorage::Memory(Vec::new())
                     };
 
                     let name = field.name().to_owned();
-                    let form_field = FormField::new(field, storage).map_err(|err| FormDataError::Other(err.into()))?;
+                    let form_field = FormField::new(field, storage)
+                        .map_err(|err| FormDataError::Other(err.into()))?;
                     map.insert(name, form_field);
                 }
                 Ok(None) => break,

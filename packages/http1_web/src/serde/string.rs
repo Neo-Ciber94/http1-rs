@@ -40,6 +40,11 @@ impl Deserializer for DeserializeFromStr {
     {
         match self {
             DeserializeFromStr::Str(x) => {
+                // TODO: This should be in other deserializer
+                if x == "on" {
+                    return   visitor.visit_bool(true);
+                }
+
                 let value = bool::from_str(&x).map_err(Error::error)?;
                 visitor.visit_bool(value)
             }
