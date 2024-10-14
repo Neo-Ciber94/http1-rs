@@ -81,6 +81,11 @@ pub trait Visitor: Sized {
         Err(Error::Unexpected(super::de::Unexpected::Seq))
     }
 
+    fn visit_bytes(self, bytes: Vec<u8>) -> Result<Self::Value, Error> {
+        let _ = bytes;
+        Err(Error::Unexpected(super::de::Unexpected::Bytes))
+    }
+
     fn visit_map<Map: MapAccess>(self, map: Map) -> Result<Self::Value, Error> {
         let _ = map;
         Err(Error::Unexpected(super::de::Unexpected::Map))

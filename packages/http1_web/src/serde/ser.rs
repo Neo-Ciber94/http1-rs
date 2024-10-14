@@ -118,6 +118,10 @@ pub trait Serializer: Sized {
         self.serialize_slice(value.as_slice())
     }
 
+    fn serialize_bytes<T: Serialize>(self, value: &Vec<u8>) -> Result<Self::Ok, Self::Err> {
+        self.serialize_slice(value.as_slice())
+    }
+
     fn serialize_sequence(self) -> Result<Self::Seq, Self::Err>;
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err>;

@@ -60,6 +60,7 @@ pub enum Unexpected {
     Unit,
     Option,
     Seq,
+    Bytes,
     Map,
 }
 
@@ -74,6 +75,7 @@ impl Display for Unexpected {
             Unexpected::Str(value) => write!(f, "string `{value}`"),
             Unexpected::Unit => write!(f, "unit type"),
             Unexpected::Option => write!(f, "option type"),
+            Unexpected::Bytes => write!(f, "bytes type"),
             Unexpected::Seq => write!(f, "sequence"),
             Unexpected::Map => write!(f, "map"),
         }
@@ -150,6 +152,10 @@ pub trait Deserializer {
         V: Visitor;
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor;
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor;
 

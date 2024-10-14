@@ -169,6 +169,12 @@ impl Deserializer for QueryDeserializer {
     {
         Err(Error::custom("cannot deserialize query params to `option`"))
     }
+    
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Error>
+    where
+        V: crate::serde::visitor::Visitor {
+            Err(Error::custom("cannot deserialize query params to `bytes`"))
+    }
 }
 
 struct QueryMapAccess<I> {

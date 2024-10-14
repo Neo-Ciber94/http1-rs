@@ -1040,6 +1040,19 @@ impl Deserializer for JsonValue {
             s => s.deserialize_any(visitor),
         }
     }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        match self {
+            JsonValue::String(s) => {
+                let bytes = s.into_bytes();
+                visitor.visit_bytes(bytes)
+            }
+            _ => Err(Error::mismatch(self, "bytes")),
+        }
+    }
 }
 
 pub struct JsonSeqAccess(pub std::vec::IntoIter<JsonValue>);

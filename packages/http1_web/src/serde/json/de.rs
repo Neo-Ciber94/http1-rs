@@ -594,6 +594,20 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let json_value = self.parse_json()?;
         json_value.deserialize_option(visitor)
     }
+
+    fn deserialize_bytes<V>(mut self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: crate::serde::visitor::Visitor,
+    {
+        let json_value = self.parse_json()?;
+        match json_value {
+            JsonValue::String(s) => {
+                let bytes = s.into_bytes();
+                visitor.visit_bytes(bytes)
+            },
+            _ => Err(Error::mismatch(json_value, "bytes"))
+        }
+    }
 }
 
 fn type_mismatch_error<T>(this: impl Expected + Send + Sync + 'static) -> Error

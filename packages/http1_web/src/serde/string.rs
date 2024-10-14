@@ -297,6 +297,15 @@ impl Deserializer for DeserializeFromStr {
             "cannot deserialize str to `option`",
         ))
     }
+
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        Err(crate::serde::de::Error::custom(
+            "cannot deserialize str to `bytes`",
+        ))
+    }
 }
 
 struct FromStrSeqAccess(std::vec::IntoIter<String>);
@@ -470,6 +479,14 @@ impl Deserializer for DeserializeOnlyString {
         Err(super::de::Error::custom(
             "cannot deserialize str to `option`",
         ))
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor,
+    {
+        let bytes = self.0.into_bytes();
+        visitor.visit_bytes(bytes)
     }
 }
 
