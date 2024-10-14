@@ -9,6 +9,7 @@ use crate::{
     from_request::FromRequest,
     into_response::IntoResponse,
     serde::{
+        bytes::BytesDeserializer,
         de::{Deserialize, Deserializer},
         string::{DeserializeFromStr, DeserializeOnlyString},
         visitor::{MapAccess, Visitor},
@@ -328,7 +329,10 @@ impl<I: Iterator<Item = (String, FormField<FieldStorage>)>> MapAccess for FormMa
         match self.value.take() {
             Some(field) => {
                 if field.filename().is_some() {
-                    todo!()
+                    let s = field.bytes().map_err(crate::serde::de::Error::error)?;
+                    let deserializer = BytesDeserializer(s);
+                    let value = V::deserialize(deserializer)?;
+                    Ok(Some(value))
                 } else {
                     let s = field.text().map_err(crate::serde::de::Error::error)?;
                     let value = V::deserialize(DeserializeFromStr::Str(s))?;

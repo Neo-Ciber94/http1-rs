@@ -5,3 +5,4 @@ pub mod json;
 pub mod ser;
 pub mod string;
 pub mod visitor;
+pub mod bytes;
