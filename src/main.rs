@@ -3,9 +3,13 @@ use http1::{
     server::Server, status::StatusCode, uri::uri::Uri,
 };
 use http1_web::{
-    app::App, forms::{
-        multipart::{FormFile, Multipart},
-    }, handler::BoxedHandler, html, impl_deserialize_struct, json::Json, path::Path, serde::json::value::JsonValue
+    app::App,
+    forms::multipart::{FormFile, Multipart},
+    handler::BoxedHandler,
+    html, impl_deserialize_struct,
+    json::Json,
+    path::Path,
+    serde::json::value::JsonValue,
 };
 use std::{collections::HashMap, fs::File};
 

@@ -1,4 +1,7 @@
-use std::{fmt::Debug, io::Write};
+use std::{
+    fmt::Debug,
+    io::{Seek, Write},
+};
 
 use http1::{
     common::temp_file::{TempFile, TempFileOpen},
@@ -19,7 +22,7 @@ use crate::{
 use super::{
     form_data::FormDataError,
     form_field::FormField,
-    form_map::{FieldStorage, FormMap},
+    form_map::{Data, FormMap},
 };
 
 pub struct FormFile(TempFile);
@@ -51,7 +54,13 @@ impl Debug for FormFile {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Multipart<T>(T);
+pub struct Multipart<T>(pub T);
+
+impl<T> Multipart<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
 
 #[derive(Debug)]
 pub enum MultipartError {
@@ -74,9 +83,13 @@ impl<T: Deserialize> FromRequest for Multipart<T> {
         let map = FormMap::from_request(req).map_err(MultipartError::FormError)?;
         let deserializer = MultipartDeserializer(map);
 
-        T::deserialize(deserializer)
+        println!("from_request start");
+        let value = T::deserialize(deserializer)
             .map(Multipart)
-            .map_err(MultipartError::DeserializationError)
+            .map_err(MultipartError::DeserializationError);
+        println!("from_request end");
+
+        value
     }
 }
 
@@ -100,7 +113,10 @@ impl Deserialize for FormFile {
                 Ok(FormFile(temp_file))
             }
 
-            fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, crate::serde::de::Error> {
+            fn visit_bytes_buf(
+                self,
+                bytes: Vec<u8>,
+            ) -> Result<Self::Value, crate::serde::de::Error> {
                 let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
@@ -125,7 +141,9 @@ impl Deserialize for FormFile {
                     .open()
                     .map_err(crate::serde::de::Error::error)?;
 
+                println!("start next bytes");
                 bytes.next_bytes(&mut f)?;
+                println!("end next bytes");
 
                 Ok(FormFile(temp_file))
             }
@@ -338,15 +356,16 @@ impl Deserializer for MultipartDeserializer {
 
 struct FormMapAccess<I> {
     iter: I,
-    value: Option<FormField<FieldStorage>>,
+    value: Option<FormField<Data>>,
 }
 
-impl<I: Iterator<Item = (String, FormField<FieldStorage>)>> MapAccess for FormMapAccess<I> {
+impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<I> {
     fn next_key<K: crate::serde::de::Deserialize>(
         &mut self,
     ) -> Result<Option<K>, crate::serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
+                println!("next field: `{k}`");
                 self.value = Some(v);
                 let key = K::deserialize(DeserializeOnlyString(k))?;
                 Ok(Some(key))
@@ -361,9 +380,20 @@ impl<I: Iterator<Item = (String, FormField<FieldStorage>)>> MapAccess for FormMa
         match self.value.take() {
             Some(field) => {
                 if field.filename().is_some() {
-                    let s = field.bytes().map_err(crate::serde::de::Error::error)?;
+                    println!("next field start");
+                    let mut data = field.reader();
+
+                    let mut s = Vec::new();
+                    data.reset();
+
+                    std::io::copy(&mut data, &mut s).expect("failed to write");
+
+                    //let s = field.bytes().map_err(crate::serde::de::Error::error)?;
+
+                    println!("next field end: `{}`", String::from_utf8_lossy(&s));
                     let deserializer = BytesBufferDeserializer(s);
                     let value = V::deserialize(deserializer)?;
+                    println!("deserialized!");
                     Ok(Some(value))
                 } else {
                     let s = field.text().map_err(crate::serde::de::Error::error)?;

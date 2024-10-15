@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     ops::Deref,
 };
 
@@ -32,51 +32,60 @@ impl TempFileHandle {
 
 #[doc(hidden)]
 #[derive(Debug)]
-pub enum FieldStorage {
+pub enum Data {
     Temp(TempFileHandle),
     Memory(Vec<u8>),
 }
 
-impl Storage for FieldStorage {}
+impl Storage for Data {}
 
-impl Read for FieldStorage {
+impl Read for Data {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
-            FieldStorage::Temp(handle) => std::io::Read::read(&mut handle.file, buf),
-            FieldStorage::Memory(vec) => std::io::Read::read(&mut vec.as_slice(), buf),
+            Data::Temp(handle) => std::io::Read::read(&mut handle.file, buf),
+            Data::Memory(vec) => std::io::Read::read(&mut vec.as_slice(), buf),
         }
     }
 }
 
-impl Write for FieldStorage {
+impl Write for Data {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
-            FieldStorage::Temp(handle) => std::io::Write::write(&mut handle.file, buf),
-            FieldStorage::Memory(vec) => std::io::Write::write(vec, buf),
+            Data::Temp(handle) => std::io::Write::write(&mut handle.file, buf),
+            Data::Memory(vec) => std::io::Write::write(vec, buf),
         }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
         match self {
-            FieldStorage::Temp(handle) => std::io::Write::flush(&mut handle.file),
-            FieldStorage::Memory(vec) => std::io::Write::flush(vec),
+            Data::Temp(handle) => std::io::Write::flush(&mut handle.file),
+            Data::Memory(vec) => std::io::Write::flush(vec),
+        }
+    }
+}
+
+impl Data {
+    pub fn reset(&mut self) {
+        match self {
+            Data::Temp(handle) => {
+                handle.file.seek(std::io::SeekFrom::Start(0)).ok();
+            }
+            Data::Memory(vec) => {}
         }
     }
 }
 
 #[derive(Debug)]
-pub struct FormMap(HashMap<String, FormField<FieldStorage>>);
+pub struct FormMap(HashMap<String, FormField<Data>>);
 
 impl FormMap {
-    pub fn into_iter(
-        self,
-    ) -> std::collections::hash_map::IntoIter<String, FormField<FieldStorage>> {
+    pub fn into_iter(self) -> std::collections::hash_map::IntoIter<String, FormField<Data>> {
         self.0.into_iter()
     }
 }
 
 impl Deref for FormMap {
-    type Target = HashMap<String, FormField<FieldStorage>>;
+    type Target = HashMap<String, FormField<Data>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -99,9 +108,9 @@ impl FromRequest for FormMap {
                     let storage = if is_file {
                         let handle = TempFileHandle::new()
                             .map_err(|err| FormDataError::Other(err.into()))?;
-                        FieldStorage::Temp(handle)
+                        Data::Temp(handle)
                     } else {
-                        FieldStorage::Memory(Vec::new())
+                        Data::Memory(Vec::new())
                     };
 
                     let name = field.name().to_owned();
