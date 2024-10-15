@@ -9,6 +9,7 @@ use http1::common::temp_file::TempFile;
 
 use super::form_data::Field;
 
+/// The backing field that stores the data for a form field.
 pub trait Storage: Read {}
 
 /// A file in memory storage.
