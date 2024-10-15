@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     body::{
-        body_reader::{FixedLengthBodyReader, ChunkedBodyReader},
+        body_reader::{ChunkedBodyReader, FixedLengthBodyReader},
         http_body::HttpBody,
         Body,
     },

@@ -183,15 +183,11 @@ impl_from_number!(
 );
 
 impl Expected for Number {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
+    fn expected(&self) -> &'static str {
         match self {
-            Number::Float(n) => write!(f, "expected `{expected}` but was float: {n}"),
-            Number::UInteger(n) => {
-                write!(f, "expected `{expected}` but was unsigned integer: {n}")
-            }
-            Number::Integer(n) => {
-                write!(f, "expected `{expected}` but was signed integer: {n}")
-            }
+            Number::Float(_) => "float",
+            Number::UInteger(_) => "unsigned integer",
+            Number::Integer(_) => "signed integer",
         }
     }
 }

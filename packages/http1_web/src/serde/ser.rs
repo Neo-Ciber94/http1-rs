@@ -47,7 +47,6 @@ pub trait MapSerializer {
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
-
 /// Provides a mechanism for convert a value to other representation.
 pub trait Serializer: Sized {
     type Ok;
@@ -151,7 +150,6 @@ pub trait Serializer: Sized {
 
     fn serialize_map(self) -> Result<Self::Map, Self::Err>;
 }
-
 
 /// Allow a type to be serialize to other.
 pub trait Serialize {

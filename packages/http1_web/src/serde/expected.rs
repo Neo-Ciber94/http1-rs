@@ -1,56 +1,40 @@
 use std::fmt::{Debug, Display};
 
+use super::{de::Unexpected, visitor::Visitor};
+
 /// To display an error when the expected type is different from the current value.
 pub trait Expected {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result;
+    fn expected(&self) -> &'static str;
 }
 
-macro_rules! impl_expected {
-    ($($T:ty),*) => {
-        $(
-            impl Expected for $T {
-                fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
-                    write!(f, "expected `{expected}` but was `{}`", stringify!($T))
-                }
-            }
-        )*
-    };
-}
-
-impl_expected!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, bool, char, String);
-
-impl<'a> Expected for &'a str {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
-        write!(f, "expected `{expected}` but was string \"{}\"", self)
+impl<T> Expected for T
+where
+    T: Visitor + ?Sized,
+{
+    fn expected(&self) -> &'static str {
+        T::expected(self)
     }
 }
 
-impl<'a, T> Expected for &'a [T] {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
-        write!(f, "expected `{expected}` but was slice")
-    }
-}
-
-impl<T> Expected for Vec<T> {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
-        write!(f, "expected `{expected}` but was vec")
+impl Expected for &'static str {
+    fn expected(&self) -> &'static str {
+        self
     }
 }
 
 pub struct TypeMismatchError {
-    this: Box<dyn Expected + Send + Sync + 'static>,
-    expected: String,
+    unexpected: Unexpected,
+    expected: &'static str,
 }
 
 impl TypeMismatchError {
-    pub fn new<E, I>(this: E, expected: I) -> Self
+    pub fn new<T>(unexpected: Unexpected, expected: T) -> Self
     where
-        E: Expected + Send + Sync + 'static,
-        I: Into<String>,
+        T: Expected,
     {
         TypeMismatchError {
-            this: Box::new(this),
-            expected: expected.into(),
+            unexpected,
+            expected: expected.expected(),
         }
     }
 }
@@ -63,6 +47,10 @@ impl Debug for TypeMismatchError {
 
 impl Display for TypeMismatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.this.expected(f, &self.expected)
+        writeln!(
+            f,
+            "unexpected `{}`, expected `{}`",
+            self.unexpected, self.expected
+        )
     }
 }

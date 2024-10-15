@@ -1,4 +1,7 @@
-use std::{io::Write, sync::mpsc::{channel, Receiver, Sender, TryRecvError}};
+use std::{
+    io::Write,
+    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+};
 
 use crate::error::BoxError;
 
@@ -26,7 +29,7 @@ where
         fn send_chunk(chunk: &[u8]) -> Result<Vec<u8>, BoxError> {
             let size = chunk.len();
             let mut buf = Vec::with_capacity(size + 10); // 10 bytes for size in hex and CRLF
-            
+
             write!(buf, "{size:X}\r\n")?;
 
             // Write the bytes

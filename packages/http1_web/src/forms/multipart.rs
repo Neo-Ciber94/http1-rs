@@ -107,6 +107,10 @@ impl Deserialize for FormFile {
         impl Visitor for FormFileVisitor {
             type Value = FormFile;
 
+            fn expected(&self) -> &'static str {
+                "file"
+            }
+
             fn visit_string(self, value: String) -> Result<Self::Value, crate::serde::de::Error> {
                 let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
                 let mut f = temp_file

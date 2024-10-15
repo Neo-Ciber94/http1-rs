@@ -11,10 +11,10 @@ use super::{
     visitor::Visitor,
 };
 
+/// Represents a deserialization error.
 #[derive(Debug)]
 pub enum Error {
     Custom(String),
-    Unexpected(Unexpected),
     Mismatch(TypeMismatchError),
     Other(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
@@ -28,11 +28,11 @@ impl Error {
         Error::Other(error.into())
     }
 
-    pub fn mismatch<T>(this: T, expected: impl Into<String>) -> Self
+    pub fn mismatch<T>(unexpected: Unexpected, expected: T) -> Self
     where
-        T: Expected + Send + Sync + 'static,
+        T: Expected,
     {
-        Error::Mismatch(TypeMismatchError::new(this, expected))
+        Error::Mismatch(TypeMismatchError::new(unexpected, expected))
     }
 }
 
@@ -40,7 +40,6 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::Custom(msg) => write!(f, "{msg}"),
-            Error::Unexpected(unexpected) => write!(f, "unexpected {unexpected}"),
             Error::Other(err) => write!(f, "{err}"),
             Error::Mismatch(mismatch) => write!(f, "{mismatch}"),
         }
@@ -62,6 +61,13 @@ pub enum Unexpected {
     Seq,
     Bytes,
     Map,
+    Other(String),
+}
+
+impl Unexpected {
+    pub fn other<T: Display>(msg: T) -> Self {
+        Unexpected::Other(msg.to_string())
+    }
 }
 
 impl Display for Unexpected {
@@ -78,6 +84,7 @@ impl Display for Unexpected {
             Unexpected::Bytes => write!(f, "bytes type"),
             Unexpected::Seq => write!(f, "sequence"),
             Unexpected::Map => write!(f, "map"),
+            Unexpected::Other(other) => write!(f, "{other}"),
         }
     }
 }
@@ -180,6 +187,10 @@ struct UnitVisitor;
 impl Visitor for UnitVisitor {
     type Value = ();
 
+    fn expected(&self) -> &'static str {
+        "unit"
+    }
+
     fn visit_unit(self) -> Result<Self::Value, Error> {
         Ok(())
     }
@@ -198,6 +209,11 @@ impl Deserialize for () {
 struct BoolVisitor;
 impl Visitor for BoolVisitor {
     type Value = bool;
+
+    fn expected(&self) -> &'static str {
+        "bool"
+    }
+
     fn visit_bool(self, value: bool) -> Result<Self::Value, Error> {
         Ok(value)
     }
@@ -211,6 +227,11 @@ impl Deserialize for bool {
 struct CharVisitor;
 impl Visitor for CharVisitor {
     type Value = char;
+
+    fn expected(&self) -> &'static str {
+        "char"
+    }
+
     fn visit_char(self, value: char) -> Result<Self::Value, Error> {
         Ok(value)
     }
@@ -225,6 +246,11 @@ impl Deserialize for char {
 struct StringVisitor;
 impl Visitor for StringVisitor {
     type Value = String;
+
+    fn expected(&self) -> &'static str {
+        "string"
+    }
+
     fn visit_string(self, value: String) -> Result<Self::Value, Error> {
         Ok(value)
     }
@@ -241,6 +267,10 @@ macro_rules! impl_deserialize_seq {
         struct $visitor<V>(PhantomData<V>);
         impl<V: Deserialize> Visitor for $visitor<V> $(where $($tt)*)* {
             type Value = $T;
+
+            fn expected(&self) -> &'static str {
+               "sequence"
+            }
 
             fn visit_seq<Seq: super::visitor::SeqAccess>(self, mut seq: Seq) -> Result<Self::Value, Error> {
                 let mut collection : $T = Default::default();
@@ -280,6 +310,10 @@ macro_rules! impl_deserialize_map {
         impl<K: Deserialize, V: Deserialize> Visitor for $visitor<K, V> $(where $($tt)*)* {
             type Value = $T;
 
+            fn expected(&self) -> &'static str {
+                "map"
+            }
+
             fn visit_map<Map: super::visitor::MapAccess>(self, mut map: Map) -> Result<Self::Value, Error> {
                 let mut collection : $T = Default::default();
 
@@ -313,6 +347,10 @@ struct F32Visitor;
 impl Visitor for F32Visitor {
     type Value = f32;
 
+    fn expected(&self) -> &'static str {
+        "float"
+    }
+
     fn visit_f32(self, value: f32) -> Result<Self::Value, Error> {
         Ok(value)
     }
@@ -339,6 +377,10 @@ impl Deserialize for f32 {
 struct F64Visitor;
 impl Visitor for F64Visitor {
     type Value = f64;
+
+    fn expected(&self) -> &'static str {
+        "float"
+    }
 
     fn visit_f32(self, value: f32) -> Result<Self::Value, Error> {
         self.visit_f64(value as f64)
@@ -379,6 +421,10 @@ macro_rules! impl_deserialize_number {
 
         impl Visitor for $visitor {
             type Value = $T;
+
+            fn expected(&self) -> &'static str {
+                "number"
+            }
 
             fn $visitor_method(self, value: $T) -> Result<Self::Value, Error> {
                 Ok(value)
@@ -532,6 +578,10 @@ macro_rules! impl_deserialize_tuple {
         impl<$($T),*> Visitor for $visitor<$($T),*> where $($T : Deserialize),* {
             type Value = ($($T),*,);
 
+            fn expected(&self) -> &'static str {
+                "tuple"
+            }
+
             #[allow(non_snake_case)]
             fn visit_seq<Seq: super::visitor::SeqAccess>(self, mut seq: Seq) -> Result<Self::Value, Error> {
                 $(
@@ -574,6 +624,10 @@ impl<T: Deserialize> Deserialize for Option<T> {
         impl<T: Deserialize> Visitor for OptionVisitor<T> {
             type Value = Option<T>;
 
+            fn expected(&self) -> &'static str {
+                "option"
+            }
+
             fn visit_none(self) -> Result<Self::Value, Error> {
                 Ok(None)
             }
@@ -603,6 +657,10 @@ macro_rules! impl_deserialize_struct {
 
                 impl $crate::serde::visitor::Visitor for StructVisitor {
                     type Value = $struct;
+
+                    fn expected(&self) -> &'static str {
+                        "struct"
+                    }
 
                     fn visit_map<Map: $crate::serde::visitor::MapAccess>(
                         self,

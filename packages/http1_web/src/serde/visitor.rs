@@ -3,12 +3,14 @@ use super::de::{Deserialize, Deserializer, Error};
 pub trait Visitor: Sized {
     type Value;
 
+    fn expected(&self) -> &'static str;
+
     fn visit_unit(self) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Unit))
+        Err(Error::mismatch(super::de::Unexpected::Unit, self))
     }
 
     fn visit_bool(self, value: bool) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Bool(value)))
+        Err(Error::mismatch(super::de::Unexpected::Bool(value), self))
     }
 
     fn visit_u8(self, value: u8) -> Result<Self::Value, Error> {
@@ -28,7 +30,10 @@ pub trait Visitor: Sized {
     }
 
     fn visit_u128(self, value: u128) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Unsigned(value)))
+        Err(Error::mismatch(
+            super::de::Unexpected::Unsigned(value),
+            self,
+        ))
     }
 
     fn visit_i8(self, value: i8) -> Result<Self::Value, Error> {
@@ -48,7 +53,7 @@ pub trait Visitor: Sized {
     }
 
     fn visit_i128(self, value: i128) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Signed(value)))
+        Err(Error::mismatch(super::de::Unexpected::Signed(value), self))
     }
 
     fn visit_f32(self, value: f32) -> Result<Self::Value, Error> {
@@ -56,44 +61,44 @@ pub trait Visitor: Sized {
     }
 
     fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Float(value)))
+        Err(Error::mismatch(super::de::Unexpected::Float(value), self))
     }
 
     fn visit_char(self, value: char) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Char(value)))
+        Err(Error::mismatch(super::de::Unexpected::Char(value), self))
     }
 
     fn visit_string(self, value: String) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Str(value)))
+        Err(Error::mismatch(super::de::Unexpected::Str(value), self))
     }
 
     fn visit_none(self) -> Result<Self::Value, Error> {
-        Err(Error::Unexpected(super::de::Unexpected::Option))
+        Err(Error::mismatch(super::de::Unexpected::Option, self))
     }
 
     fn visit_some<D: Deserializer>(self, deserializer: D) -> Result<Self::Value, Error> {
         let _ = deserializer;
-        Err(Error::Unexpected(super::de::Unexpected::Option))
+        Err(Error::mismatch(super::de::Unexpected::Option, self))
     }
 
     fn visit_seq<Seq: SeqAccess>(self, seq: Seq) -> Result<Self::Value, Error> {
         let _ = seq;
-        Err(Error::Unexpected(super::de::Unexpected::Seq))
+        Err(Error::mismatch(super::de::Unexpected::Seq, self))
     }
 
     fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, Error> {
         let _ = bytes;
-        Err(Error::Unexpected(super::de::Unexpected::Bytes))
+        Err(Error::mismatch(super::de::Unexpected::Bytes, self))
     }
 
     fn visit_map<Map: MapAccess>(self, map: Map) -> Result<Self::Value, Error> {
         let _ = map;
-        Err(Error::Unexpected(super::de::Unexpected::Map))
+        Err(Error::mismatch(super::de::Unexpected::Map, self))
     }
 
     fn visit_bytes_seq<B: BytesAccess>(self, bytes: B) -> Result<Self::Value, Error> {
         let _ = bytes;
-        Err(Error::Unexpected(super::de::Unexpected::Bytes))
+        Err(Error::mismatch(super::de::Unexpected::Bytes, self))
     }
 }
 

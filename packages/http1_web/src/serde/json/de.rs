@@ -2,10 +2,7 @@ use std::io::{BufReader, Read};
 
 use http1::common::map::OrderedMap;
 
-use crate::serde::{
-    de::{Deserializer, Error},
-    expected::Expected,
-};
+use crate::serde::de::{Deserializer, Error, Unexpected};
 
 use super::{
     number::Number,
@@ -406,133 +403,159 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_u8()
-            .ok_or_else(|| type_mismatch_error::<u8>(number))?;
+        let value = self.parse_number()?;
 
-        visitor.visit_u8(value)
+        match value.as_u8() {
+            Some(x) => visitor.visit_u8(x),
+            None => Err(Error::mismatch(
+                Unexpected::other(value),
+                "unsigned integer",
+            )),
+        }
     }
 
     fn deserialize_u16<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_u16()
-            .ok_or_else(|| type_mismatch_error::<u16>(number))?;
-        visitor.visit_u16(value)
+        let value = self.parse_number()?;
+
+        match value.as_u16() {
+            Some(x) => visitor.visit_u16(x),
+            None => Err(Error::mismatch(
+                Unexpected::other(value),
+                "unsigned integer",
+            )),
+        }
     }
 
     fn deserialize_u32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_u32()
-            .ok_or_else(|| type_mismatch_error::<u32>(number))?;
-        visitor.visit_u32(value)
+        let value = self.parse_number()?;
+
+        match value.as_u32() {
+            Some(x) => visitor.visit_u32(x),
+            None => Err(Error::mismatch(
+                Unexpected::other(value),
+                "unsigned integer",
+            )),
+        }
     }
 
     fn deserialize_u64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_u64()
-            .ok_or_else(|| type_mismatch_error::<u64>(number))?;
-        visitor.visit_u64(value)
+        let value = self.parse_number()?;
+
+        match value.as_u64() {
+            Some(x) => visitor.visit_u64(x),
+            None => Err(Error::mismatch(
+                Unexpected::other(value),
+                "unsigned integer",
+            )),
+        }
     }
 
     fn deserialize_u128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_u128()
-            .ok_or_else(|| type_mismatch_error::<u128>(number))?;
-        visitor.visit_u128(value)
+        let value = self.parse_number()?;
+
+        match value.as_u128() {
+            Some(x) => visitor.visit_u128(x),
+            None => Err(Error::mismatch(
+                Unexpected::other(value),
+                "unsigned integer",
+            )),
+        }
     }
 
     fn deserialize_i8<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_i8()
-            .ok_or_else(|| type_mismatch_error::<i8>(number))?;
-        visitor.visit_i8(value)
+        let value = self.parse_number()?;
+
+        match value.as_i8() {
+            Some(x) => visitor.visit_i8(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "signed integer")),
+        }
     }
 
     fn deserialize_i16<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_i16()
-            .ok_or_else(|| type_mismatch_error::<i16>(number))?;
-        visitor.visit_i16(value)
+        let value = self.parse_number()?;
+
+        match value.as_i16() {
+            Some(x) => visitor.visit_i16(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "signed integer")),
+        }
     }
 
     fn deserialize_i32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_i32()
-            .ok_or_else(|| type_mismatch_error::<i32>(number))?;
-        visitor.visit_i32(value)
+        let value = self.parse_number()?;
+
+        match value.as_i32() {
+            Some(x) => visitor.visit_i32(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "signed integer")),
+        }
     }
 
     fn deserialize_i64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_i64()
-            .ok_or_else(|| type_mismatch_error::<i64>(number))?;
-        visitor.visit_i64(value)
+        let value = self.parse_number()?;
+
+        match value.as_i64() {
+            Some(x) => visitor.visit_i64(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "signed integer")),
+        }
     }
 
     fn deserialize_i128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_i128()
-            .ok_or_else(|| type_mismatch_error::<i128>(number))?;
-        visitor.visit_i128(value)
+        let value = self.parse_number()?;
+
+        match value.as_i128() {
+            Some(x) => visitor.visit_i128(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "signed integer")),
+        }
     }
 
     fn deserialize_f32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_f32()
-            .ok_or_else(|| type_mismatch_error::<f32>(number))?;
-        visitor.visit_f32(value)
+        let value = self.parse_number()?;
+
+        match value.as_f32() {
+            Some(x) => visitor.visit_f32(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "float")),
+        }
     }
 
     fn deserialize_f64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
     where
         V: crate::serde::visitor::Visitor,
     {
-        let number = self.parse_number()?;
-        let value = number
-            .as_f64()
-            .ok_or_else(|| type_mismatch_error::<f64>(number))?;
-        visitor.visit_f64(value)
+        let value = self.parse_number()?;
+
+        match value.as_f64() {
+            Some(x) => visitor.visit_f64(x),
+            None => Err(Error::mismatch(Unexpected::other(value), "float")),
+        }
     }
 
     fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
@@ -605,7 +628,10 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
                 let bytes = s.into_bytes();
                 visitor.visit_bytes_buf(bytes)
             }
-            _ => Err(Error::mismatch(json_value, "bytes")),
+            _ => Err(Error::mismatch(
+                crate::serde::de::Unexpected::Bytes,
+                "bytes",
+            )),
         }
     }
 
@@ -622,13 +648,6 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
             _ => Err(Error::custom("expected bytes")),
         }
     }
-}
-
-fn type_mismatch_error<T>(this: impl Expected + Send + Sync + 'static) -> Error
-where
-    T: 'static,
-{
-    Error::mismatch(this, std::any::type_name::<T>())
 }
 
 #[cfg(test)]
@@ -960,6 +979,10 @@ mod tests {
                 struct BluePeriodCharacterVisitor;
                 impl crate::serde::visitor::Visitor for BluePeriodCharacterVisitor {
                     type Value = BluePeriodCharacter;
+
+                    fn expected(&self) -> &'static str {
+                        "character"
+                    }
 
                     fn visit_map<Map: crate::serde::visitor::MapAccess>(
                         self,

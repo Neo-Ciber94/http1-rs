@@ -7,7 +7,6 @@ use http1::common::map::OrderedMap;
 
 use crate::serde::{
     de::{Deserialize, Deserializer, Error},
-    expected::Expected,
     ser::{MapSerializer, SequenceSerializer, Serialize, Serializer},
     visitor::{BytesAccess, MapAccess, SeqAccess, Visitor},
 };
@@ -1058,7 +1057,7 @@ impl Deserializer for JsonValue {
                 let bytes = s.into_bytes();
                 visitor.visit_bytes_buf(bytes)
             }
-            _ => Err(Error::mismatch(self, "bytes")),
+            _ => Err(Error::mismatch(crate::serde::de::Unexpected::Bytes, "json")),
         }
     }
 
@@ -1141,6 +1140,10 @@ impl Deserialize for JsonValue {
         impl Visitor for ValueVisitor {
             type Value = JsonValue;
 
+            fn expected(&self) -> &'static str {
+                "json value"
+            }
+
             fn visit_unit(self) -> Result<Self::Value, Error> {
                 Ok(JsonValue::Null)
             }
@@ -1195,19 +1198,6 @@ impl Deserialize for JsonValue {
         }
 
         deserializer.deserialize_any(ValueVisitor)
-    }
-}
-
-impl Expected for JsonValue {
-    fn expected(&self, f: &mut std::fmt::Formatter<'_>, expected: &str) -> std::fmt::Result {
-        match self {
-            JsonValue::Number(number) => number.expected(f, expected),
-            JsonValue::String(value) => value.expected(f, expected),
-            JsonValue::Bool(value) => value.expected(f, expected),
-            JsonValue::Array(vec) => vec.expected(f, expected),
-            JsonValue::Object(_) => write!(f, "expected `{expected}` but was object"),
-            JsonValue::Null => write!(f, "expected `{expected}` but was null"),
-        }
     }
 }
 
