@@ -159,11 +159,11 @@ pub trait Serialize {
 // Implementations
 
 macro_rules! impl_serialize_primitive {
-    ($($name:ident => $method:ident),*) => {
+    ($($name:ident => $method:ident $(as $cast:ty)?),*) => {
         $(
             impl Serialize for $name {
                 fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-                    serializer.$method(*self)
+                    serializer.$method(*self $(as $cast)*)
                 }
             }
         )*
@@ -176,11 +176,13 @@ impl_serialize_primitive!(
     u32 => serialize_u32,
     u64 => serialize_u64,
     u128 => serialize_u128,
+    usize => serialize_u64 as u64,
     i8 => serialize_i8,
     i16 => serialize_i16,
     i32 => serialize_i32,
     i64 => serialize_i64,
     i128 => serialize_i128,
+    isize => serialize_i64 as i64,
     f32 => serialize_f32,
     f64 => serialize_f64,
     char => serialize_char,

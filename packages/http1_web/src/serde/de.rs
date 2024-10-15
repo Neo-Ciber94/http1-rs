@@ -405,7 +405,7 @@ macro_rules! impl_deserialize_to_uint {
             let v = value.try_into().map_err(Error::error)?;
             self.$base_method(v)
         }
-    };
+    }
 }
 
 macro_rules! impl_deserialize_to_int {
@@ -418,24 +418,24 @@ macro_rules! impl_deserialize_to_int {
 }
 
 macro_rules! impl_deserialize_number {
-    ($visitor:ident: $T:ty => $deserialize_method:ident => $visitor_method:ident [$($tt:tt)*]) => {
+    ($visitor:ident: $T:ty as $U:ty => $deserialize_method:ident => $visitor_method:ident [$($tt:tt)*]) => {
         struct $visitor;
 
         impl Visitor for $visitor {
-            type Value = $T;
+            type Value = $U;
 
             fn expected(&self) -> &'static str {
                 "number"
             }
 
             fn $visitor_method(self, value: $T) -> Result<Self::Value, Error> {
-                Ok(value)
+                Ok(value as $U)
             }
 
             $($tt)*
         }
 
-        impl Deserialize for $T {
+        impl Deserialize for $U {
             fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
                 deserializer.$deserialize_method($visitor)
             }
@@ -443,7 +443,7 @@ macro_rules! impl_deserialize_number {
     };
 }
 
-impl_deserialize_number!(U8Visitor: u8 => deserialize_u8 => visit_u8 [
+impl_deserialize_number!(U8Visitor: u8 as u8 => deserialize_u8 => visit_u8 [
     impl_deserialize_to_uint!(u8:visit_u8 => u16:visit_u16);
     impl_deserialize_to_uint!(u8:visit_u8 => u32:visit_u32);
     impl_deserialize_to_uint!(u8:visit_u8 => u64:visit_u64);
@@ -456,7 +456,7 @@ impl_deserialize_number!(U8Visitor: u8 => deserialize_u8 => visit_u8 [
     impl_deserialize_to_int!(u8:visit_u8 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(U16Visitor: u16 => deserialize_u16 => visit_u16 [
+impl_deserialize_number!(U16Visitor: u16 as u16 => deserialize_u16 => visit_u16 [
     impl_deserialize_to_uint!(u16:visit_u16 => u8:visit_u8);
     impl_deserialize_to_uint!(u16:visit_u16 => u32:visit_u32);
     impl_deserialize_to_uint!(u16:visit_u16 => u64:visit_u64);
@@ -469,7 +469,7 @@ impl_deserialize_number!(U16Visitor: u16 => deserialize_u16 => visit_u16 [
     impl_deserialize_to_int!(u16:visit_u16 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(U32Visitor: u32 => deserialize_u32 => visit_u32 [
+impl_deserialize_number!(U32Visitor: u32 as u32 => deserialize_u32 => visit_u32 [
     impl_deserialize_to_uint!(u32:visit_u32 => u8:visit_u8);
     impl_deserialize_to_uint!(u32:visit_u32 => u16:visit_u16);
     impl_deserialize_to_uint!(u32:visit_u32 => u64:visit_u64);
@@ -482,7 +482,7 @@ impl_deserialize_number!(U32Visitor: u32 => deserialize_u32 => visit_u32 [
     impl_deserialize_to_int!(u32:visit_u32 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(U64Visitor: u64 => deserialize_u64 => visit_u64 [
+impl_deserialize_number!(U64Visitor: u64 as u64 => deserialize_u64 => visit_u64 [
     impl_deserialize_to_uint!(u64:visit_u64 => u8:visit_u8);
     impl_deserialize_to_uint!(u64:visit_u64 => u16:visit_u16);
     impl_deserialize_to_uint!(u64:visit_u64 => u32:visit_u32);
@@ -495,7 +495,7 @@ impl_deserialize_number!(U64Visitor: u64 => deserialize_u64 => visit_u64 [
     impl_deserialize_to_int!(u64:visit_u64 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(U128Visitor: u128 => deserialize_u128 => visit_u128 [
+impl_deserialize_number!(U128Visitor: u128 as u128 => deserialize_u128 => visit_u128 [
     impl_deserialize_to_uint!(u128:visit_u128 => u8:visit_u8);
     impl_deserialize_to_uint!(u128:visit_u128 => u16:visit_u16);
     impl_deserialize_to_uint!(u128:visit_u128 => u32:visit_u32);
@@ -508,7 +508,21 @@ impl_deserialize_number!(U128Visitor: u128 => deserialize_u128 => visit_u128 [
     impl_deserialize_to_int!(u128:visit_u128 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(I8Visitor: i8 => deserialize_i8 => visit_i8 [
+impl_deserialize_number!(UsizeVisitor: u64 as usize => deserialize_u64 => visit_u64 [
+    impl_deserialize_to_uint!(usize:visit_u64 => u8:visit_u8);
+    impl_deserialize_to_uint!(usize:visit_u64 => u16:visit_u16);
+    impl_deserialize_to_uint!(usize:visit_u64 => u32:visit_u32);
+    impl_deserialize_to_uint!(usize:visit_u64 => u128:visit_u128);
+
+    impl_deserialize_to_int!(usize:visit_u64 => i8:visit_i8);
+    impl_deserialize_to_int!(usize:visit_u64 => i16:visit_i16);
+    impl_deserialize_to_int!(usize:visit_u64 => i32:visit_i32);
+    impl_deserialize_to_int!(usize:visit_u64 => i64:visit_i64);
+    impl_deserialize_to_int!(usize:visit_u64 => i128:visit_i128);
+]);
+
+
+impl_deserialize_number!(I8Visitor: i8 as i8 => deserialize_i8 => visit_i8 [
     impl_deserialize_to_uint!(i8:visit_i8 => u8:visit_u8);
     impl_deserialize_to_uint!(i8:visit_i8 => u16:visit_u16);
     impl_deserialize_to_uint!(i8:visit_i8 => u32:visit_u32);
@@ -521,7 +535,7 @@ impl_deserialize_number!(I8Visitor: i8 => deserialize_i8 => visit_i8 [
     impl_deserialize_to_int!(i8:visit_i8 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(I16Visitor: i16 => deserialize_i16 => visit_i16 [
+impl_deserialize_number!(I16Visitor: i16 as i16 => deserialize_i16 => visit_i16 [
     impl_deserialize_to_uint!(i16:visit_i16 => u8:visit_u8);
     impl_deserialize_to_uint!(i16:visit_i16 => u16:visit_u16);
     impl_deserialize_to_uint!(i16:visit_i16 => u32:visit_u32);
@@ -534,7 +548,7 @@ impl_deserialize_number!(I16Visitor: i16 => deserialize_i16 => visit_i16 [
     impl_deserialize_to_int!(i16:visit_i16 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(I32Visitor: i32 => deserialize_i32 => visit_i32 [
+impl_deserialize_number!(I32Visitor: i32 as i32 => deserialize_i32 => visit_i32 [
     impl_deserialize_to_uint!(i32:visit_i32 => u8:visit_u8);
     impl_deserialize_to_uint!(i32:visit_i32 => u16:visit_u16);
     impl_deserialize_to_uint!(i32:visit_i32 => u32:visit_u32);
@@ -547,7 +561,7 @@ impl_deserialize_number!(I32Visitor: i32 => deserialize_i32 => visit_i32 [
     impl_deserialize_to_int!(i32:visit_i32 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(I64Visitor: i64 => deserialize_i64 => visit_i64 [
+impl_deserialize_number!(I64Visitor: i64 as i64 => deserialize_i64 => visit_i64 [
     impl_deserialize_to_uint!(i64:visit_i64 => u8:visit_u8);
     impl_deserialize_to_uint!(i64:visit_i64 => u16:visit_u16);
     impl_deserialize_to_uint!(i64:visit_i64 => u32:visit_u32);
@@ -560,7 +574,20 @@ impl_deserialize_number!(I64Visitor: i64 => deserialize_i64 => visit_i64 [
     impl_deserialize_to_int!(i64:visit_i64 => i128:visit_i128);
 ]);
 
-impl_deserialize_number!(I128Visitor: i128 => deserialize_i128 => visit_i128 [
+impl_deserialize_number!(ISizeVisitor: i64 as isize => deserialize_i64 => visit_i64 [
+    impl_deserialize_to_uint!(isize:visit_i64 => u8:visit_u8);
+    impl_deserialize_to_uint!(isize:visit_i64 => u16:visit_u16);
+    impl_deserialize_to_uint!(isize:visit_i64 => u32:visit_u32);
+    impl_deserialize_to_uint!(isize:visit_i64 => u64:visit_u64);
+    impl_deserialize_to_uint!(isize:visit_i64 => u128:visit_u128);
+
+    impl_deserialize_to_int!(isize:visit_i64 => i8:visit_i8);
+    impl_deserialize_to_int!(isize:visit_i64 => i16:visit_i16);
+    impl_deserialize_to_int!(isize:visit_i64 => i32:visit_i32);
+    impl_deserialize_to_int!(isize:visit_i64 => i128:visit_i128);
+]);
+
+impl_deserialize_number!(I128Visitor: i128 as i128 => deserialize_i128 => visit_i128 [
     impl_deserialize_to_uint!(i128:visit_i128 => u8:visit_u8);
     impl_deserialize_to_uint!(i128:visit_i128 => u16:visit_u16);
     impl_deserialize_to_uint!(i128:visit_i128 => u32:visit_u32);
@@ -572,7 +599,6 @@ impl_deserialize_number!(I128Visitor: i128 => deserialize_i128 => visit_i128 [
     impl_deserialize_to_int!(i128:visit_i128 => i32:visit_i32);
     impl_deserialize_to_int!(i128:visit_i128 => i64:visit_i64);
 ]);
-
 
 macro_rules! impl_deserialize_tuple {
     ($visitor:ident => $($T:ident),*) => {
