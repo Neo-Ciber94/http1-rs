@@ -2,6 +2,8 @@ use std::{
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
     fmt::{Debug, Display},
     marker::PhantomData,
+    rc::Rc,
+    sync::Arc,
 };
 
 use http1::common::map::OrderedMap;
@@ -571,6 +573,7 @@ impl_deserialize_number!(I128Visitor: i128 => deserialize_i128 => visit_i128 [
     impl_deserialize_to_int!(i128:visit_i128 => i64:visit_i64);
 ]);
 
+
 macro_rules! impl_deserialize_tuple {
     ($visitor:ident => $($T:ident),*) => {
         struct $visitor<$($T),*>(PhantomData<($($T),*,)>);
@@ -642,5 +645,33 @@ impl<T: Deserialize> Deserialize for Option<T> {
         }
 
         deserializer.deserialize_option(OptionVisitor(PhantomData))
+    }
+}
+
+impl<T: Deserialize> Deserialize for Box<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = T::deserialize(deserializer)?;
+        Ok(Box::new(value))
+    }
+}
+
+impl<T: Deserialize> Deserialize for Box<[T]> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = Vec::<T>::deserialize(deserializer)?;
+        Ok(value.into_boxed_slice())
+    }
+}
+
+impl<T: Deserialize> Deserialize for Rc<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = T::deserialize(deserializer)?;
+        Ok(Rc::new(value))
+    }
+}
+
+impl<T: Deserialize> Deserialize for Arc<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = T::deserialize(deserializer)?;
+        Ok(Arc::new(value))
     }
 }

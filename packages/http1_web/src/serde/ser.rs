@@ -351,6 +351,18 @@ impl<'a, T: Serialize> Serialize for &'a [T] {
     }
 }
 
+impl<T: Serialize> Serialize for Box<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        (**self).serialize(serializer)
+    }
+}
+
+impl<T: Serialize> Serialize for Box<[T]> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        serializer.serialize_slice(&*self)
+    }
+}
+
 impl<T: Serialize> Serialize for Rc<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         (**self).serialize(serializer)
