@@ -7,7 +7,10 @@ use std::{
 };
 
 use http1::{
-    body::{body_reader::BodyReader, Body}, error::BoxError, headers::{self, HeaderValue}, status::StatusCode
+    body::{body_reader::BodyReader, Body},
+    error::BoxError,
+    headers::{self, HeaderValue},
+    status::StatusCode,
 };
 
 use crate::{from_request::FromRequest, into_response::IntoResponse};
@@ -354,7 +357,7 @@ pub enum FormDataError {
     InvalidContentType(String),
     BoundaryNoFound,
     InvalidBoundary(String),
-    Other(BoxError)
+    Other(BoxError),
 }
 
 impl IntoResponse for FormDataError {
@@ -438,7 +441,7 @@ mod tests {
     use super::FormData;
 
     #[test]
-    fn should_read_form_data_fields() {
+    fn should_read_text_and_then_file() {
         let boundary = "x-my-boundary";
 
         let mut s = String::new();
@@ -477,6 +480,55 @@ mod tests {
             assert_eq!(field.name(), "file_field");
             assert_eq!(field.filename(), Some("file.txt"));
             assert_eq!(field.text().unwrap(), "This is the content of the file");
+        }
+
+        {
+            let field = form_data.next_field().unwrap();
+            assert!(field.is_none());
+        }
+    }
+
+    #[test]
+    fn should_read_file_and_then_text() {
+        let boundary = "x-my-boundary";
+
+        let mut s = String::new();
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n"
+        ));
+        s.push_str(&format!("Content-Type: text/plain\r\n\r\n"));
+        s.push_str("This is the content of the file\r\n");
+        s.push_str(&format!("--{boundary}\r\n"));
+        s.push_str(&format!(
+            "Content-Disposition: form-data; name=\"text_field\"\r\n\r\n"
+        ));
+        s.push_str("This is the text content\r\n");
+
+        s.push_str(&format!("--{boundary}--\r\n"));
+
+        let req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!("multipart/form-data;boundary={boundary}"),
+            )
+            .body(Body::new(s))
+            .unwrap();
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "file_field");
+            assert_eq!(field.filename(), Some("file.txt"));
+            assert_eq!(field.text().unwrap(), "This is the content of the file");
+        }
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "text_field");
+            assert_eq!(field.filename(), None);
+            assert_eq!(field.text().unwrap(), "This is the text content");
         }
 
         {
