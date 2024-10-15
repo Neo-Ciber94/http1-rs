@@ -360,20 +360,28 @@ pub enum FormDataError {
     Other(BoxError),
 }
 
-impl IntoResponse for FormDataError {
-    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+impl Display for FormDataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FormDataError::NoContentType => {
-                eprintln!("Missing `{MULTIPART_FORM_DATA}` content type")
+                write!(f, "Missing `{MULTIPART_FORM_DATA}` content type")
             }
             FormDataError::InvalidContentType(s) => {
-                eprintln!("Invalid content type: `{s}` expected `{MULTIPART_FORM_DATA}`")
+                write!(
+                    f,
+                    "Invalid content type: `{s}` expected `{MULTIPART_FORM_DATA}`"
+                )
             }
-            FormDataError::BoundaryNoFound => eprintln!("Missing form boundary"),
-            FormDataError::InvalidBoundary(s) => eprintln!("Invalid form boundary: `{s}`"),
-            FormDataError::Other(err) => eprintln!("{err}"),
+            FormDataError::BoundaryNoFound => write!(f, "Missing form boundary"),
+            FormDataError::InvalidBoundary(s) => write!(f, "Invalid form boundary: `{s}`"),
+            FormDataError::Other(err) => write!(f, "{err}"),
         }
+    }
+}
 
+impl IntoResponse for FormDataError {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        eprintln!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }

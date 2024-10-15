@@ -45,7 +45,9 @@ impl Read for Data {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Data::Temp(handle) => std::io::Read::read(&mut handle.file, buf),
-            Data::Memory(vec) => std::io::Read::read(&mut vec.as_slice(), buf),
+            Data::Memory(vec) => {
+                std::io::Read::read(&mut vec.as_slice(), buf)
+            },
         }
     }
 }

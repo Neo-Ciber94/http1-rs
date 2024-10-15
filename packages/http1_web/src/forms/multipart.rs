@@ -70,6 +70,11 @@ pub enum MultipartError {
 
 impl IntoResponse for MultipartError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        match self {
+            MultipartError::DeserializationError(error) => eprintln!("serialization error: {error}"),
+            MultipartError::FormError(form_error) => eprintln!("form data error: {form_error}"),
+        };
+
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
@@ -365,12 +370,16 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
     ) -> Result<Option<K>, crate::serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
-                println!("next field: `{k}`");
+                println!("next field: `{k}` deserialization");
                 self.value = Some(v);
                 let key = K::deserialize(DeserializeOnlyString(k))?;
+                println!("next field was deserialized");
                 Ok(Some(key))
             }
-            None => Ok(None),
+            None => {
+                println!("No more fields");
+                Ok(None)
+            },
         }
     }
 
@@ -395,7 +404,10 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
                     Ok(Some(value))
                 }
             }
-            None => Ok(None),
+            None => {
+                println!("done!");
+                Ok(None)
+            },
         }
     }
 }

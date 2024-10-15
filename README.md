@@ -15,6 +15,7 @@ A zero dependencies implementation of the HTTP 1.1 protocol in rust.
 ### Misc
 - Web Sockets?
 - Middleware to read static files from a path ***
+- Separate read_request and write_response so only use io::Read and io::Write
 
 ### Fixes
 - FromRequest should return a custom error, by default we just return 500 but some can return 400 like Path
