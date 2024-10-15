@@ -1,11 +1,10 @@
-use std::marker::PhantomData;
+use std::{convert::Infallible, marker::PhantomData};
 
 use super::ser::{BytesSerializer, MapSerializer, SequenceSerializer, Serialize, Serializer};
 
-enum Void {}
-
+/// A helper struct to represent any type that cannot be serialized
 pub struct Impossible<R, E> {
-    void: Void,
+    void: Infallible,
     _marker: PhantomData<(R, E)>,
 }
 
