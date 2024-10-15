@@ -1,4 +1,9 @@
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{
+    fmt::Debug,
+    fs::File,
+    io::{Cursor, Read},
+    path::PathBuf,
+};
 
 use http1::common::temp_file::TempFile;
 
@@ -7,37 +12,71 @@ use super::form_data::Field;
 pub trait Storage: Read {}
 
 /// A file in memory storage.
-#[derive(Debug)]
-pub struct Memory(Vec<u8>);
+pub struct Memory(Cursor<Vec<u8>>);
+impl Debug for Memory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Memory").field(&self.0.get_ref()).finish()
+    }
+}
 
 impl Storage for Memory {}
 impl Read for Memory {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        Read::read(&mut self.0.as_slice(), buf)
+        Read::read(&mut self.0, buf)
     }
 }
 
 /// A file in disk storage.
-#[derive(Debug)]
-pub struct Disk(PathBuf);
+pub struct Disk {
+    path: PathBuf,
+    file: Option<File>,
+}
+
+impl Debug for Disk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Disk").field(&self.path).finish()
+    }
+}
 
 impl Storage for Disk {}
 impl Read for Disk {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut file = File::open(&self.0)?;
-        Read::read(&mut file, buf)
+        let file = match self.file.as_mut() {
+            Some(f) => f,
+            None => {
+                let f = File::open(&self.path)?;
+                self.file.get_or_insert(f)
+            }
+        };
+
+        Read::read(file, buf)
     }
 }
 
 /// A temporal file storage.
-#[derive(Debug)]
-pub struct TempDisk(TempFile);
+pub struct TempDisk {
+    temp_file: TempFile,
+    file: Option<File>,
+}
+
+impl Debug for TempDisk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("TempDisk").field(&self.temp_file).finish()
+    }
+}
 
 impl Storage for TempDisk {}
 impl Read for TempDisk {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut file = self.0.file().open()?;
-        Read::read(&mut file, buf)
+        let file = match self.file.as_mut() {
+            Some(f) => f,
+            None => {
+                let f = self.temp_file.file().read(true).open()?;
+                self.file.get_or_insert(f)
+            }
+        };
+
+        Read::read(file, buf)
     }
 }
 
@@ -73,7 +112,7 @@ impl FormField<()> {
         let filename = field.filename.clone();
         let content_type = field.content_type.clone();
         let bytes = field.bytes()?;
-        let storage = Memory(bytes);
+        let storage = Memory(Cursor::new(bytes));
 
         Ok(FormField {
             name,
@@ -90,14 +129,14 @@ impl FormField<()> {
         let name = field.name.clone();
         let filename = field.filename.clone();
         let content_type = field.content_type.clone();
-        let file_path = file_path.into();
+        let path = file_path.into();
 
         // Write the contents of the file in the given path
-        let mut f = File::create_new(&file_path)?;
+        let mut f = File::create_new(&path)?;
         std::io::copy(&mut field.reader(), &mut f)?;
 
         // Create storage
-        let storage = Disk(file_path);
+        let storage = Disk { path, file: None };
 
         Ok(FormField {
             name,
@@ -111,14 +150,17 @@ impl FormField<()> {
         let name = field.name.clone();
         let filename = field.filename.clone();
         let content_type = field.content_type.clone();
-        let temp = TempFile::random()?;
+        let temp_file = TempFile::random()?;
 
         // Write the contents of the file in the given path
-        let mut f = temp.file().write(true).open()?;
+        let mut f = temp_file.file().write(true).open()?;
         std::io::copy(&mut field.reader(), &mut f)?;
 
         // Create storage
-        let storage = TempDisk(temp);
+        let storage = TempDisk {
+            temp_file,
+            file: None,
+        };
 
         Ok(FormField {
             name,
