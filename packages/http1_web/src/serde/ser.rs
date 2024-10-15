@@ -7,34 +7,48 @@ use std::{
 
 use http1::common::map::OrderedMap;
 
+/// Serialize a sequence of items like a `Vec<T>` or array,
 pub trait SequenceSerializer {
     type Ok;
     type Err: std::error::Error;
 
+    /// Serializes the next element.
     fn serialize_element<T: Serialize>(&mut self, value: &T) -> Result<(), Self::Err>;
+
+    /// Finishes the serialization.
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
+/// Serializes a stream of bytes.
 pub trait BytesSerializer {
     type Ok;
     type Err: std::error::Error;
 
+    /// Serialize the next chunk of bytes.
     fn serialize_bytes<T: Serialize>(&mut self, buf: &[u8]) -> Result<(), Self::Err>;
+
+    /// Finishes the serialization.
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
+/// Serializes a key-value pair collection.
 pub trait MapSerializer {
     type Ok;
     type Err: std::error::Error;
 
+    /// Serializes the key-value pair.
     fn serialize_entry<K: Serialize, V: Serialize>(
         &mut self,
         key: &K,
         value: &V,
     ) -> Result<(), Self::Err>;
+
+    /// Finishes the serialization.
     fn end(self) -> Result<Self::Ok, Self::Err>;
 }
 
+
+/// Provides a mechanism for convert a value to other representation.
 pub trait Serializer: Sized {
     type Ok;
     type Err: std::error::Error;
@@ -138,10 +152,8 @@ pub trait Serializer: Sized {
     fn serialize_map(self) -> Result<Self::Map, Self::Err>;
 }
 
-pub trait MapIterator {
-    fn serialize_element<T>(&mut self, name: &str, value: T) -> bool;
-}
 
+/// Allow a type to be serialize to other.
 pub trait Serialize {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err>;
 }
@@ -176,6 +188,8 @@ impl_serialize_primitive!(
     char => serialize_char,
     bool => serialize_bool
 );
+
+// TODO: We only serialized OWNED types, str or Cow<'a, str> makes no sense here
 
 impl Serialize for () {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
