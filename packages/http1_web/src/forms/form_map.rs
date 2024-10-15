@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fs::File, io::Read, ops::Deref};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{Cursor, Read},
+    ops::Deref,
+};
 
 use http1::common::temp_file::TempFile;
 
@@ -36,7 +41,7 @@ impl TempFileHandle {
 #[derive(Debug)]
 pub enum Data {
     Temp(TempFileHandle),
-    Memory(Vec<u8>),
+    Memory(Cursor<Vec<u8>>),
 }
 
 impl Storage for Data {}
@@ -45,9 +50,7 @@ impl Read for Data {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Data::Temp(handle) => std::io::Read::read(&mut handle.file, buf),
-            Data::Memory(vec) => {
-                std::io::Read::read(&mut vec.as_slice(), buf)
-            },
+            Data::Memory(cursor) => std::io::Read::read(cursor, buf),
         }
     }
 }
@@ -111,7 +114,7 @@ impl FromRequest for FormMap {
                         let bytes = field
                             .bytes()
                             .map_err(|err| FormDataError::Other(err.into()))?;
-                        Data::Memory(bytes)
+                        Data::Memory(Cursor::new(bytes))
                     };
 
                     let form_field =

@@ -1,6 +1,6 @@
 use std::{
-    fmt::Debug,
-    io::{Seek, Write},
+    fmt::{Debug, Display},
+    io::Write,
 };
 
 use http1::{
@@ -68,13 +68,20 @@ pub enum MultipartError {
     FormError(FormDataError),
 }
 
+impl Display for MultipartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MultipartError::DeserializationError(error) => {
+                writeln!(f, "serialization error: {error}")
+            }
+            MultipartError::FormError(form_error) => writeln!(f, "form data error: {form_error}"),
+        }
+    }
+}
+
 impl IntoResponse for MultipartError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        match self {
-            MultipartError::DeserializationError(error) => eprintln!("serialization error: {error}"),
-            MultipartError::FormError(form_error) => eprintln!("form data error: {form_error}"),
-        };
-
+        eprintln!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
@@ -88,13 +95,9 @@ impl<T: Deserialize> FromRequest for Multipart<T> {
         let map = FormMap::from_request(req).map_err(MultipartError::FormError)?;
         let deserializer = MultipartDeserializer(map);
 
-        println!("from_request start");
-        let value = T::deserialize(deserializer)
+        T::deserialize(deserializer)
             .map(Multipart)
-            .map_err(MultipartError::DeserializationError);
-        println!("from_request end");
-
-        value
+            .map_err(MultipartError::DeserializationError)
     }
 }
 
@@ -146,10 +149,7 @@ impl Deserialize for FormFile {
                     .open()
                     .map_err(crate::serde::de::Error::error)?;
 
-                println!("start next bytes");
                 bytes.next_bytes(&mut f)?;
-                println!("end next bytes");
-
                 Ok(FormFile(temp_file))
             }
         }
@@ -370,16 +370,11 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
     ) -> Result<Option<K>, crate::serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
-                println!("next field: `{k}` deserialization");
                 self.value = Some(v);
                 let key = K::deserialize(DeserializeOnlyString(k))?;
-                println!("next field was deserialized");
                 Ok(Some(key))
             }
-            None => {
-                println!("No more fields");
-                Ok(None)
-            },
+            None => Ok(None),
         }
     }
 
@@ -389,14 +384,9 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
         match self.value.take() {
             Some(field) => {
                 if field.filename().is_some() {
-                    println!("next field start");
-
                     let s = field.bytes().map_err(crate::serde::de::Error::error)?;
-
-                    println!("next field end: `{}`", String::from_utf8_lossy(&s));
                     let deserializer = BytesBufferDeserializer(s);
                     let value = V::deserialize(deserializer)?;
-                    println!("deserialized!");
                     Ok(Some(value))
                 } else {
                     let s = field.text().map_err(crate::serde::de::Error::error)?;
@@ -404,10 +394,7 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
                     Ok(Some(value))
                 }
             }
-            None => {
-                println!("done!");
-                Ok(None)
-            },
+            None => Ok(None),
         }
     }
 }
