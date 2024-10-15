@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{Read, Seek, Write},
-    ops::Deref,
-};
+use std::{collections::HashMap, fs::File, io::Read, ops::Deref};
 
 use http1::common::temp_file::TempFile;
 
@@ -23,10 +18,17 @@ pub struct TempFileHandle {
 }
 
 impl TempFileHandle {
-    fn new() -> std::io::Result<Self> {
-        let _temp_file = TempFile::random()?;
-        let file = _temp_file.file().read(true).write(true).open()?;
-        Ok(TempFileHandle { _temp_file, file })
+    pub fn new() -> std::io::Result<Self> {
+        let temp_file = TempFile::random()?;
+        Self::with_tempfile(temp_file)
+    }
+
+    pub fn with_tempfile(temp_file: TempFile) -> std::io::Result<Self> {
+        let file = temp_file.file().read(true).write(true).open()?;
+        Ok(TempFileHandle {
+            _temp_file: temp_file,
+            file,
+        })
     }
 }
 
@@ -44,33 +46,6 @@ impl Read for Data {
         match self {
             Data::Temp(handle) => std::io::Read::read(&mut handle.file, buf),
             Data::Memory(vec) => std::io::Read::read(&mut vec.as_slice(), buf),
-        }
-    }
-}
-
-impl Write for Data {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Data::Temp(handle) => std::io::Write::write(&mut handle.file, buf),
-            Data::Memory(vec) => std::io::Write::write(vec, buf),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Data::Temp(handle) => std::io::Write::flush(&mut handle.file),
-            Data::Memory(vec) => std::io::Write::flush(vec),
-        }
-    }
-}
-
-impl Data {
-    pub fn reset(&mut self) {
-        match self {
-            Data::Temp(handle) => {
-                handle.file.seek(std::io::SeekFrom::Start(0)).ok();
-            }
-            Data::Memory(vec) => {}
         }
     }
 }
@@ -105,17 +80,40 @@ impl FromRequest for FormMap {
             match form_data.next_field() {
                 Ok(Some(field)) => {
                     let is_file = field.filename().is_some();
+                    let name = field.name().to_owned();
+                    let filename = field.filename().map(|s| s.to_owned());
+                    let content_type = field.filename().map(|s| s.to_owned());
+
                     let storage = if is_file {
-                        let handle = TempFileHandle::new()
+                        let temp_file =
+                            TempFile::random().map_err(|err| FormDataError::Other(err.into()))?;
+
+                        let mut file = temp_file
+                            .file()
+                            .write(true)
+                            .open()
                             .map_err(|err| FormDataError::Other(err.into()))?;
+
+                        let bytes = field
+                            .bytes()
+                            .map_err(|err| FormDataError::Other(err.into()))?;
+
+                        std::io::copy(&mut bytes.as_slice(), &mut file)
+                            .map_err(|err| FormDataError::Other(err.into()))?;
+
+                        let handle = TempFileHandle::with_tempfile(temp_file)
+                            .map_err(|err| FormDataError::Other(err.into()))?;
+
                         Data::Temp(handle)
                     } else {
-                        Data::Memory(Vec::new())
+                        let bytes = field
+                            .bytes()
+                            .map_err(|err| FormDataError::Other(err.into()))?;
+                        Data::Memory(bytes)
                     };
 
-                    let name = field.name().to_owned();
-                    let form_field = FormField::new(field, storage)
-                        .map_err(|err| FormDataError::Other(err.into()))?;
+                    let form_field =
+                        FormField::from_parts(name.clone(), filename, content_type, storage);
                     map.insert(name, form_field);
                 }
                 Ok(None) => break,

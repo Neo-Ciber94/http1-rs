@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fs::File, io::Read, path::PathBuf};
 
 use http1::common::temp_file::TempFile;
 
@@ -55,22 +51,21 @@ pub struct FormField<S> {
 }
 
 impl FormField<()> {
-    pub fn new<S>(field: Field<'_>, mut storage: S) -> std::io::Result<FormField<S>>
+    pub fn from_parts<S>(
+        name: String,
+        filename: Option<String>,
+        content_type: Option<String>,
+        storage: S,
+    ) -> FormField<S>
     where
-        S: Storage + Write,
+        S: Storage,
     {
-        let name = field.name.clone();
-        let filename = field.filename.clone();
-        let content_type = field.content_type.clone();
-
-        std::io::copy(&mut field.reader(), &mut storage)?;
-
-        Ok(FormField {
+        FormField {
             name,
             filename,
             content_type,
             storage,
-        })
+        }
     }
 
     pub fn memory(field: Field<'_>) -> std::io::Result<FormField<Memory>> {

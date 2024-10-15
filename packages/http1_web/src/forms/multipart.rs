@@ -381,14 +381,8 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
             Some(field) => {
                 if field.filename().is_some() {
                     println!("next field start");
-                    let mut data = field.reader();
 
-                    let mut s = Vec::new();
-                    data.reset();
-
-                    std::io::copy(&mut data, &mut s).expect("failed to write");
-
-                    //let s = field.bytes().map_err(crate::serde::de::Error::error)?;
+                    let s = field.bytes().map_err(crate::serde::de::Error::error)?;
 
                     println!("next field end: `{}`", String::from_utf8_lossy(&s));
                     let deserializer = BytesBufferDeserializer(s);
