@@ -104,7 +104,7 @@ fn main() -> std::io::Result<()> {
                param: path.0
             }))
         })
-        .post("/upload", |form: Multipart<Upload>| {
+        .post("/upload", |Multipart(form): Multipart<Upload>| {
             println!("{form:?}");
         });
 
