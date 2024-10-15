@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, ErrorKind, Write},
+    io::{BufRead, BufReader, ErrorKind, Read, Write},
     net::TcpStream,
     str::FromStr,
 };
@@ -39,7 +39,7 @@ where
     }
 }
 
-fn read_request(stream: TcpStream) -> std::io::Result<Request<Body>> {
+fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
@@ -89,8 +89,8 @@ fn read_request(stream: TcpStream) -> std::io::Result<Request<Body>> {
     Ok(request)
 }
 
-fn read_request_body(
-    reader: BufReader<TcpStream>,
+fn read_request_body<R: Read + Send + 'static>(
+    reader: BufReader<R>,
     headers: &Headers,
     can_discard_body: bool,
 ) -> std::io::Result<Body> {
