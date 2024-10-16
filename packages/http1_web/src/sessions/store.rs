@@ -4,18 +4,29 @@ use http1::{common::date_time::DateTime, error::BoxError};
 
 use super::session::Session;
 
+/// Configuration used for loading sessions.
+pub struct LoadSessionConfig {
+    /// The duration for a new created session.
+    pub duration: Duration,
+}
+
 /// Provides a way to create, update, read and delete sessions.
 pub trait SessionStore {
-    /// Get or create a session for the given session id.
-    fn load_session(&mut self, session_id: &str) -> Result<Session, BoxError>;
+    /// If a session exists and is valid return it, otherwise create a new session using the given config.
+    fn load_session(
+        &mut self,
+        session_id: &str,
+        config: &LoadSessionConfig,
+    ) -> Result<Session, BoxError>;
 
-    /// Saves a session.
+    /// Adds a session to the store.
     fn save_session(&mut self, session: Session) -> Result<(), BoxError>;
 
-    /// Destroy a session.
+    /// Removes a session from the store.
     fn destroy_session(&mut self, session: Session) -> Result<(), BoxError>;
 }
 
+/// A store that save sessions in memory.
 pub struct MemoryStore(HashMap<Arc<str>, Session>);
 
 impl MemoryStore {
@@ -24,17 +35,29 @@ impl MemoryStore {
     }
 }
 
+impl MemoryStore {
+    fn get_session(&self, session_id: &str) -> Option<&Session> {
+        self.0.get(session_id)
+    }
+
+    fn create_session(&mut self, session_id: &str, config: &LoadSessionConfig) -> Session {
+        let session_id: Arc<str> = session_id.into();
+        let expires_at = DateTime::now_utc() + config.duration;
+        let session = Session::new(session_id.as_ref(), expires_at);
+        self.0.insert(session_id.clone(), session.clone());
+        session
+    }
+}
+
 impl SessionStore for MemoryStore {
-    fn load_session(&mut self, session_id: &str) -> Result<Session, BoxError> {
-        match self.0.get(session_id) {
+    fn load_session(
+        &mut self,
+        session_id: &str,
+        config: &LoadSessionConfig,
+    ) -> Result<Session, BoxError> {
+        match self.get_session(session_id).filter(|x| x.is_valid()) {
             Some(session) => Ok(session.clone()),
-            None => {
-                let session_id: Arc<str> = session_id.into();
-                let expires_at = DateTime::now_utc() + Duration::from_secs(60);
-                let session = Session::new(session_id.as_ref(), expires_at);
-                self.0.insert(session_id.clone(), session.clone());
-                Ok(session)
-            }
+            None => Ok(self.create_session(session_id, config)),
         }
     }
 

@@ -9,9 +9,17 @@ use http1::{
 
 use crate::{
     from_request::FromRequestRef,
+    impl_serde_struct,
     into_response::IntoResponse,
     serde::{de::Deserialize, ser::Serialize},
 };
+
+impl_serde_struct!(Session => {
+    id: String,
+    data: Arc<RwLock<HashMap<String, Box<[u8]>>>>,
+    is_destroyed: Arc<AtomicBool>,
+    expires_at: DateTime,
+});
 
 #[derive(Clone)]
 pub struct Session {
@@ -102,11 +110,18 @@ impl Session {
     pub fn is_destroyed(&self) -> bool {
         self.is_destroyed.load(std::sync::atomic::Ordering::Acquire)
     }
+
+    pub fn is_valid(&self) -> bool {
+        !self.is_expired() && !self.is_destroyed()
+    }
 }
 
+#[derive(Debug)]
 pub struct SessionError;
+
 impl IntoResponse for SessionError {
     fn into_response(self) -> http1::response::Response<Body> {
+        eprintln!("Failed to retrieve session");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use http1::{body::Body, headers, request::Request, rng::random::Alphanumeric, status::StatusCode};
 
@@ -9,7 +12,7 @@ use crate::{
     middleware::Middleware,
 };
 
-use super::store::SessionStore;
+use super::store::{LoadSessionConfig, SessionStore};
 
 pub type IdGenerator = fn(&Request<Body>) -> String;
 
@@ -88,7 +91,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
         let mut store = match self.store.lock() {
             Ok(x) => x,
             Err(_) => {
-                eprintln!("Failed to lock session provider store");
+                eprintln!("Failed to lock session store");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };
@@ -110,7 +113,11 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
             }
         };
 
-        let session = match store.load_session(&session_id) {
+        let config = LoadSessionConfig {
+            duration: Duration::from_secs(self.max_age),
+        };
+
+        let session = match store.load_session(&session_id, &config) {
             Ok(x) => x,
             Err(_) => {
                 eprintln!("Failed to load session");
@@ -141,7 +148,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
                 }
             }
             Err(_) => {
-                eprintln!("Failed to lock session provider store");
+                eprintln!("Failed to lock session store");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };
