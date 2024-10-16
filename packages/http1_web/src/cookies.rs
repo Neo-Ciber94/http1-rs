@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Display};
+use std::{convert::Infallible, fmt::Display, str::FromStr};
 
 use http1::{
     body::Body,
@@ -9,7 +9,10 @@ use http1::{
     uri::convert::{self, CookieCharset},
 };
 
-use crate::into_response::{IntoResponse, IntoResponseParts};
+use crate::{
+    from_request::FromRequestRef,
+    into_response::{IntoResponse, IntoResponseParts},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SameSite {
@@ -28,6 +31,21 @@ impl Display for SameSite {
     }
 }
 
+pub struct SameSiteParseError;
+
+impl FromStr for SameSite {
+    type Err = SameSiteParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            _ if s.eq_ignore_ascii_case("strict") => Ok(SameSite::Strict),
+            _ if s.eq_ignore_ascii_case("lax") => Ok(SameSite::Lax),
+            _ if s.eq_ignore_ascii_case("none") => Ok(SameSite::None),
+            _ => Err(SameSiteParseError),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Cookie {
     name: String,
@@ -37,14 +55,14 @@ pub struct Cookie {
     partitioned: bool,
     path: Option<String>,
     domain: Option<String>,
-    max_age: Option<usize>,
+    max_age: Option<u64>,
     expires: Option<DateTime>,
     same_site: Option<SameSite>,
 }
 
 impl Cookie {
-    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
-        Cookie {
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Builder {
+        Builder(Cookie {
             name: name.into(),
             value: value.into(),
             http_only: false,
@@ -55,7 +73,7 @@ impl Cookie {
             max_age: None,
             expires: None,
             same_site: None,
-        }
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -86,7 +104,7 @@ impl Cookie {
         self.domain.as_deref()
     }
 
-    pub fn max_age(&self) -> Option<usize> {
+    pub fn max_age(&self) -> Option<u64> {
         self.max_age
     }
 
@@ -99,6 +117,52 @@ impl Cookie {
     }
 }
 
+pub struct CookieParseError;
+
+impl FromStr for Cookie {
+    type Err = CookieParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(";").map(|x| x.trim());
+
+        let mut builder = match parts.next().and_then(|x| x.split_once("=")) {
+            Some((name, value)) => Cookie::new(name, value),
+            None => return Err(CookieParseError),
+        };
+
+        for attr in parts {
+            match attr {
+                _ if attr.eq_ignore_ascii_case("httponly") => builder = builder.http_only(true),
+                _ if attr.eq_ignore_ascii_case("secure") => builder = builder.secure(true),
+                _ if attr.eq_ignore_ascii_case("partitioned") => {
+                    builder = builder.partitioned(true)
+                }
+                _ if attr.starts_with("path=") => {
+                    builder = builder.path(&attr[5..]);
+                }
+                _ if attr.starts_with("domain=") => {
+                    builder = builder.domain(&attr[7..]);
+                }
+                _ if attr.starts_with("max-age=") => {
+                    let max_age: u64 = attr[8..].parse().map_err(|_| CookieParseError)?;
+                    builder = builder.max_age(max_age);
+                }
+                _ if attr.starts_with("expires=") => {
+                    let expires =
+                        DateTime::parse_rfc_1123(&attr[8..]).map_err(|_| CookieParseError)?;
+                    builder = builder.expires(expires);
+                }
+                _ if attr.starts_with("samesite=") => {
+                    let same_site: SameSite = attr[9..].parse().map_err(|_| CookieParseError)?;
+                    builder = builder.same_site(same_site);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(builder.build())
+    }
+}
 #[derive(Debug, Clone)]
 pub struct Builder(Cookie);
 
@@ -143,7 +207,7 @@ impl Builder {
         self
     }
 
-    pub fn max_age(mut self, max_age: usize) -> Self {
+    pub fn max_age(mut self, max_age: u64) -> Self {
         self.0.max_age = Some(max_age);
         self
     }
@@ -364,6 +428,29 @@ impl IntoResponse for Cookies {
         let mut response = Response::new(StatusCode::OK, Body::empty());
         response.headers_mut().extend(self);
         response
+    }
+}
+
+impl FromRequestRef for Cookies {
+    type Rejection = Infallible;
+
+    fn from_request_ref(req: &http1::request::Request<Body>) -> Result<Self, Self::Rejection> {
+        let values = req.headers().get_all(headers::COOKIE);
+        let mut cookies = Cookies::new();
+
+        for header_value in values {
+            let raw = header_value.as_str();
+            match Cookie::from_str(raw) {
+                Ok(cookie) => {
+                    cookies.set(cookie);
+                }
+                Err(_) => {
+                    eprintln!("Failed to parse cookie: `{raw}`");
+                }
+            }
+        }
+
+        Ok(cookies)
     }
 }
 

@@ -113,7 +113,8 @@ impl Display for DayOfWeek {
 }
 
 #[derive(Debug)]
-pub struct InvalidMonthIndex;
+#[allow(dead_code)]
+pub struct InvalidMonthIndex(u8);
 
 impl TryFrom<u8> for Month {
     type Error = InvalidMonthIndex;
@@ -132,7 +133,7 @@ impl TryFrom<u8> for Month {
             9 => Ok(Month::October),
             10 => Ok(Month::November),
             11 => Ok(Month::December),
-            _ => Err(InvalidMonthIndex),
+            _ => Err(InvalidMonthIndex(value)),
         }
     }
 }
@@ -311,17 +312,6 @@ impl DateTime {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct DateTimeInfo {
-    pub year: u64,
-    pub month: u8,
-    pub day: u8,
-    pub hours: u8,
-    pub minutes: u8,
-    pub secs: u8,
-    pub millis: u16,
-}
-
 impl DateTime {
     fn fmt_to_iso_8601_string(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let year: u64 = self.year();
@@ -362,25 +352,67 @@ impl DateTime {
 
         format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{secs:02}.{millis:03}Z")
     }
+}
 
-    pub fn map<F: FnOnce(&DateTimeInfo) -> String>(&self, f: F) -> String {
-        let year = self.year();
-        let day = self.day_of_month();
-        let month = self.month().as_u8() + 1;
-        let hours = self.hours();
-        let minutes = self.minutes();
-        let secs = self.secs();
-        let millis = self.millis();
+#[derive(Debug)]
+pub struct DateTimeParseError;
 
-        f(&DateTimeInfo {
-            year,
-            day,
-            month,
-            hours,
-            minutes,
-            secs,
-            millis,
-        })
+impl DateTime {
+    pub fn parse_rfc_1123(s: &str) -> Result<Self, DateTimeParseError> {
+        // Example: "Wed, 09 Jun 2021 10:18:14 GMT"
+        let parts: Vec<&str> = s.trim().split_whitespace().collect();
+        if parts.len() != 6 {
+            return Err(DateTimeParseError);
+        }
+
+        // Parse day of month
+        let day = parts[1].parse::<u8>().map_err(|_| DateTimeParseError)?;
+
+        // Parse month
+        let month_idx = match parts[2].to_lowercase().as_str() {
+            "jan" => 0,
+            "feb" => 1,
+            "mar" => 2,
+            "apr" => 3,
+            "may" => 4,
+            "jun" => 5,
+            "jul" => 6,
+            "aug" => 7,
+            "sep" => 8,
+            "oct" => 9,
+            "nov" => 10,
+            "dec" => 11,
+            _ => return Err(DateTimeParseError),
+        };
+        let month = Month::try_from(month_idx).map_err(|_| DateTimeParseError)?;
+
+        // Parse year
+        let year = parts[3].parse::<u32>().map_err(|_| DateTimeParseError)?;
+
+        // Parse time (HH:MM:SS)
+        let time_parts: Vec<&str> = parts[4].split(':').collect();
+        if time_parts.len() != 3 {
+            return Err(DateTimeParseError);
+        }
+
+        let hours = time_parts[0]
+            .parse::<u8>()
+            .map_err(|_| DateTimeParseError)?;
+        let minutes = time_parts[1]
+            .parse::<u8>()
+            .map_err(|_| DateTimeParseError)?;
+        let secs = time_parts[2]
+            .parse::<u8>()
+            .map_err(|_| DateTimeParseError)?;
+
+        Ok(DateTime::builder()
+            .day(day)
+            .month(month)
+            .year(year)
+            .hours(hours)
+            .minutes(minutes)
+            .secs(secs)
+            .build())
     }
 }
 
