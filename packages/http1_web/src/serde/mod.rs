@@ -91,8 +91,8 @@ macro_rules! impl_serialize_struct {
 #[macro_export]
 macro_rules! impl_serde_struct {
     ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
-        impl_deserialize_struct!($struct => { $($field: $value),* });
-        impl_serialize_struct!($struct => { $($field: $value),* });
+        $crate::impl_deserialize_struct!($struct => { $($field: $value),* });
+        $crate::impl_serialize_struct!($struct => { $($field: $value),* });
     };
 }
 
