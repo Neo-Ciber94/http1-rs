@@ -10,7 +10,7 @@ use http1_web::{
     json::Json,
     path::Path,
     serde::json::value::JsonValue,
-    sessions::{provider::SessionProvider, store::MemoryStore},
+    sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
 };
 use std::{collections::HashMap, fs::File};
 
@@ -108,6 +108,16 @@ fn main() -> std::io::Result<()> {
         })
         .post("/upload", |Multipart(form): Multipart<Upload>| {
             println!("{form:?}");
+        })
+        .get("/session", |mut session: Session| {
+            let key = "count";
+            let count = session.get_or_insert(key, 0).unwrap();
+
+            let html = format!("Count: {count}");
+
+            session.insert(key, count + 1).unwrap();
+
+            html
         });
 
     server

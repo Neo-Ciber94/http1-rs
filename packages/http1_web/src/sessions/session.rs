@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
 use http1::{
@@ -16,9 +16,9 @@ use crate::{
 #[derive(Clone)]
 pub struct Session {
     id: String,
-    data: HashMap<String, Box<[u8]>>,
-    expires_at: DateTime,
+    data: Arc<RwLock<HashMap<String, Box<[u8]>>>>,
     is_destroyed: Arc<AtomicBool>,
+    expires_at: DateTime,
 }
 
 impl Session {
@@ -36,7 +36,8 @@ impl Session {
     }
 
     pub fn get<T: Deserialize>(&self, key: impl AsRef<str>) -> Result<Option<T>, BoxError> {
-        let bytes = match self.data.get(key.as_ref()) {
+        let data = self.data.read().expect("failed to lock session data");
+        let bytes = match data.get(key.as_ref()) {
             Some(x) => x,
             None => return Ok(None),
         };
@@ -50,13 +51,42 @@ impl Session {
         key: impl Into<String>,
         value: T,
     ) -> Result<(), BoxError> {
+        let mut data = self.data.write().expect("failed to lock session data");
         let bytes = crate::serde::json::to_bytes(&value)?;
-        self.data.insert(key.into(), bytes.into_boxed_slice());
+        data.insert(key.into(), bytes.into_boxed_slice());
         Ok(())
     }
 
+    pub fn get_or_insert<T: Serialize + Deserialize>(
+        &mut self,
+        key: impl AsRef<str>,
+        default_value: T,
+    ) -> Result<T, BoxError> {
+        self.get_or_insert_with(key, || default_value)
+    }
+
+    pub fn get_or_insert_with<T: Serialize + Deserialize>(
+        &mut self,
+        key: impl AsRef<str>,
+        f: impl FnOnce() -> T,
+    ) -> Result<T, BoxError> {
+        let mut data = self.data.write().expect("failed to lock session data");
+        if data.contains_key(key.as_ref()) {
+            drop(data);
+            return self.get(key).map(|x| x.expect("value should exists"));
+        }
+
+        let value = f();
+        let bytes = crate::serde::json::to_bytes(&value)?;
+        data.insert(key.as_ref().into(), bytes.into_boxed_slice());
+
+        drop(data);
+        self.get(key).map(|x| x.expect("value should exists"))
+    }
+
     pub fn remove(&mut self, key: impl AsRef<str>) -> Result<(), BoxError> {
-        self.data.remove(key.as_ref());
+        let mut data = self.data.write().expect("failed to lock session data");
+        data.remove(key.as_ref());
         Ok(())
     }
 

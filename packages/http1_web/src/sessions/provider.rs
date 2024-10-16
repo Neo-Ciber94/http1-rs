@@ -125,21 +125,26 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
         // Return the response
         let mut response = next.call(req);
 
-        // Check if the session is expired or destroyed, if so destroy it
-        if session.is_destroyed() || session.is_expired() {
-            match self.store.lock() {
-                Ok(mut store) => {
+        match self.store.lock() {
+            Ok(mut store) => {
+                // Check if the session is expired or destroyed, if so destroy it
+                if session.is_destroyed() || session.is_expired() {
                     if let Err(err) = store.destroy_session(session) {
                         eprintln!("Failed to destroy session: {err}");
                         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                     }
+                } else {
+                    if let Err(err) = store.save_session(session) {
+                        eprintln!("Failed to save session: {err}");
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
                 }
-                Err(_) => {
-                    eprintln!("Failed to lock session provider store");
-                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-                }
-            };
-        }
+            }
+            Err(_) => {
+                eprintln!("Failed to lock session provider store");
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+        };
 
         // Sets the session cookie
         if is_new_session {
