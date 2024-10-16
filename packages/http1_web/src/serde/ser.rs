@@ -2,7 +2,13 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
     rc::Rc,
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        atomic::{
+            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
+            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
+        },
+        Arc, Mutex, RwLock,
+    },
 };
 
 use http1::common::map::OrderedMap;
@@ -170,6 +176,19 @@ macro_rules! impl_serialize_primitive {
     };
 }
 
+macro_rules! impl_serialize_atomic {
+    ($($name:ident => $method:ident $(as $cast:ty)?),*) => {
+        $(
+            impl Serialize for $name {
+                fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+                    let value = self.load(std::sync::atomic::Ordering::Acquire);
+                    serializer.$method(value $(as $cast)*)
+                }
+            }
+        )*
+    };
+}
+
 impl_serialize_primitive!(
     u8 => serialize_u8,
     u16 => serialize_u16,
@@ -187,6 +206,20 @@ impl_serialize_primitive!(
     f64 => serialize_f64,
     char => serialize_char,
     bool => serialize_bool
+);
+
+impl_serialize_atomic!(
+    AtomicU8 => serialize_u8,
+    AtomicU16 => serialize_u16,
+    AtomicU32 => serialize_u32,
+    AtomicU64 => serialize_u64,
+    AtomicUsize => serialize_u64 as u64,
+    AtomicI8 => serialize_i8,
+    AtomicI16 => serialize_i16,
+    AtomicI32 => serialize_i32,
+    AtomicI64 => serialize_i64,
+    AtomicIsize => serialize_i64 as i64,
+    AtomicBool => serialize_bool
 );
 
 // TODO: We only serialized OWNED types, str or Cow<'a, str> makes no sense here
@@ -379,14 +412,18 @@ impl<T: Serialize> Serialize for Arc<T> {
 
 impl<T: Serialize> Serialize for Mutex<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-        let lock = self.lock().expect("failed to lock Mutex<T> for serialization");
+        let lock = self
+            .lock()
+            .expect("failed to lock Mutex<T> for serialization");
         (*lock).serialize(serializer)
     }
 }
 
 impl<T: Serialize> Serialize for RwLock<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-        let lock = self.read().expect("failed to lock RwLock<T> for serialization");
+        let lock = self
+            .read()
+            .expect("failed to lock RwLock<T> for serialization");
         (*lock).serialize(serializer)
     }
 }
