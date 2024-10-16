@@ -15,4 +15,3 @@ pub mod redirect;
 pub mod router;
 pub mod serde;
 pub mod state;
-pub mod sessions;

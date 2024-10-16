@@ -10,7 +10,7 @@ use http1_web::{
     json::Json,
     path::Path,
     serde::json::value::JsonValue,
-    sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
+    middleware::sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
 };
 use std::{collections::HashMap, fs::File};
 
