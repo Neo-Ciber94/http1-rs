@@ -10,7 +10,7 @@ use crate::{
     from_request::FromRequest,
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
-    middleware::BoxedMiddleware,
+    middleware::{BoxedMiddleware, Middleware},
     router::Router,
     state::State,
 };
@@ -46,11 +46,11 @@ impl Default for App<()> {
 }
 
 impl<T> App<T> {
-    pub fn middleware<M>(mut self, handler: M) -> Self
+    pub fn middleware<M>(mut self, middleware: M) -> Self
     where
-        M: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
+        M: Middleware + Send + Sync + 'static,
     {
-        self.middleware.push(BoxedMiddleware::new(handler));
+        self.middleware.push(BoxedMiddleware::new(middleware));
         self
     }
 

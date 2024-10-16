@@ -10,6 +10,7 @@ use http1_web::{
     json::Json,
     path::Path,
     serde::json::value::JsonValue,
+    sessions::{provider::SessionProvider, store::MemoryStore},
 };
 use std::{collections::HashMap, fs::File};
 
@@ -30,6 +31,7 @@ fn main() -> std::io::Result<()> {
 
     let app = App::new()
         .middleware(middleware)
+        .middleware(SessionProvider::new().store(MemoryStore::new()))
         .get("/hello", || Response::new(StatusCode::OK, "Hello World!"))
         .get("/bocchi", |_uri: Uri, _body: Body| {
             let cwd = std::env::current_dir().unwrap();

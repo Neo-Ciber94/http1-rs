@@ -29,7 +29,7 @@ pub struct BoxedMiddleware(
 impl BoxedMiddleware {
     pub fn new<F>(handler: F) -> Self
     where
-        F: Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static,
+        F: Middleware + Send + Sync + 'static,
     {
         BoxedMiddleware(Arc::new(move |req, next| handler.on_request(req, next)))
     }
