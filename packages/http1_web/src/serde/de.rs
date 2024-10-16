@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display},
     marker::PhantomData,
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex, RwLock},
 };
 
 use http1::common::map::OrderedMap;
@@ -699,5 +699,19 @@ impl<T: Deserialize> Deserialize for Arc<T> {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
         let value = T::deserialize(deserializer)?;
         Ok(Arc::new(value))
+    }
+}
+
+impl<T: Deserialize> Deserialize for Mutex<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = T::deserialize(deserializer)?;
+        Ok(Mutex::new(value))
+    }
+}
+
+impl<T: Deserialize> Deserialize for RwLock<T> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = T::deserialize(deserializer)?;
+        Ok(RwLock::new(value))
     }
 }

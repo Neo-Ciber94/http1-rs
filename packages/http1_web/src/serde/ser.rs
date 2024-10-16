@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex, RwLock},
 };
 
 use http1::common::map::OrderedMap;
@@ -374,6 +374,20 @@ impl<T: Serialize> Serialize for Rc<T> {
 impl<T: Serialize> Serialize for Arc<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
         (**self).serialize(serializer)
+    }
+}
+
+impl<T: Serialize> Serialize for Mutex<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let lock = self.lock().expect("failed to lock Mutex<T> for serialization");
+        (*lock).serialize(serializer)
+    }
+}
+
+impl<T: Serialize> Serialize for RwLock<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        let lock = self.read().expect("failed to lock RwLock<T> for serialization");
+        (*lock).serialize(serializer)
     }
 }
 
