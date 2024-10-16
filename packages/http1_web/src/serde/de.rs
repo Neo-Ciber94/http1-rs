@@ -4,12 +4,15 @@ use std::{
     marker::PhantomData,
     rc::Rc,
     sync::{
-        atomic::{AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU64, AtomicU8, AtomicUsize},
+        atomic::{
+            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
+            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
+        },
         Arc, Mutex, RwLock,
     },
 };
 
-use http1::common::map::OrderedMap;
+use http1::common::{date_time::DateTime, map::OrderedMap};
 
 use super::{
     expected::{Expected, TypeMismatchError},
@@ -761,6 +764,13 @@ impl_deserialize_atomic!(AtomicISizeVisitor: i64 as isize, AtomicIsize, AtomicIs
     impl_deserialize_to_int!(isize:visit_i64 => i128:visit_i128);
 ]);
 
+impl Deserialize for AtomicBool {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let value = deserializer.deserialize_bool(BoolVisitor)?;
+        Ok(AtomicBool::new(value))
+    }
+}
+
 // Tuples
 
 macro_rules! impl_deserialize_tuple {
@@ -876,5 +886,12 @@ impl<T: Deserialize> Deserialize for RwLock<T> {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
         let value = T::deserialize(deserializer)?;
         Ok(RwLock::new(value))
+    }
+}
+
+impl Deserialize for DateTime {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
+        let ms = deserializer.deserialize_u128(U128Visitor)?;
+        Ok(DateTime::with_millis(ms))
     }
 }
