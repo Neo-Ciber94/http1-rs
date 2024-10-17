@@ -6,7 +6,8 @@ use crate::handler::Handler;
 
 #[derive(Debug)]
 pub struct ServeDir {
-    from: PathBuf,
+    from: Option<String>,
+    to: PathBuf
 }
 
 impl Handler<Request<Body>> for ServeDir {
