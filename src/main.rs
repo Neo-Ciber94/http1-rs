@@ -4,8 +4,8 @@ use http1::{
 };
 use http1_web::{
     app::App,
-    fs::ServeFile,
     forms::multipart::{FormFile, Multipart},
+    fs::ServeFile,
     handler::BoxedHandler,
     html, impl_deserialize_struct,
     json::Json,
