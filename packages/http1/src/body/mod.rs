@@ -353,7 +353,7 @@ mod tests {
     fn should_read_empty_body() {
         let mut body = Body::new(Empty::default());
 
-        assert_eq!(body.size_hint(), None);
+        assert_eq!(body.size_hint(), Some(0));
         let result = read_all_body_data(&mut body);
         assert_eq!(result.len(), 0);
     }
@@ -362,7 +362,7 @@ mod tests {
     fn should_read_unit_body() {
         let mut body = Body::new(());
 
-        assert_eq!(body.size_hint(), None);
+        assert_eq!(body.size_hint(), Some(0));
         let result = read_all_body_data(&mut body);
         assert_eq!(result.len(), 0);
     }
