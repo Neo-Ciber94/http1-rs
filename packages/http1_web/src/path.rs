@@ -3,7 +3,7 @@ use http1::{error::BoxError, status::StatusCode};
 use crate::{
     from_request::FromRequestRef,
     into_response::IntoResponse,
-    router::params::ParamsMap,
+    routing::params::ParamsMap,
     serde::{
         de::{Deserialize, Deserializer},
         string::{DeserializeFromStr, DeserializeOnlyString},

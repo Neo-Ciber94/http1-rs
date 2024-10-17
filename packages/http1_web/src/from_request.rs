@@ -12,7 +12,7 @@ use http1::{
     version::Version,
 };
 
-use crate::{into_response::IntoResponse, router::params::ParamsMap};
+use crate::{into_response::IntoResponse, routing::params::ParamsMap};
 
 pub trait FromRequest: Sized {
     type Rejection: IntoResponse;

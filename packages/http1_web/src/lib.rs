@@ -14,6 +14,6 @@ pub mod mime;
 pub mod path;
 pub mod query;
 pub mod redirect;
-pub mod router;
+pub mod routing;
 pub mod serde;
 pub mod state;

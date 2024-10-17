@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use http1::common::map::OrderedMap;
 
-use crate::router::route::RouteSegment;
+use crate::routing::route::RouteSegment;
 
 use super::{
     route::{self, get_segments, Route},

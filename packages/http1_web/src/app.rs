@@ -11,7 +11,7 @@ use crate::{
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
     middleware::{BoxedMiddleware, Middleware},
-    router::Router,
+    routing::{method_route::MethodRoute, Router},
     state::State,
 };
 
@@ -69,7 +69,7 @@ impl<T> App<T> {
         self
     }
 
-    pub fn route<H, Args, R>(mut self, method: Method, route: &str, handler: H) -> Self
+    pub fn route<H, Args, R>(mut self, method: MethodRoute, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
@@ -86,7 +86,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::GET, route, handler)
+        self.route(MethodRoute::GET, route, handler)
     }
 
     pub fn post<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -95,7 +95,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::POST, route, handler)
+        self.route(MethodRoute::POST, route, handler)
     }
 
     pub fn put<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -104,7 +104,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::PUT, route, handler)
+        self.route(MethodRoute::PUT, route, handler)
     }
 
     pub fn delete<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -113,7 +113,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::DELETE, route, handler)
+        self.route(MethodRoute::DELETE, route, handler)
     }
 
     pub fn patch<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -122,7 +122,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::PATCH, route, handler)
+        self.route(MethodRoute::PATCH, route, handler)
     }
 
     pub fn options<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -131,7 +131,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::OPTIONS, route, handler)
+        self.route(MethodRoute::OPTIONS, route, handler)
     }
 
     pub fn head<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -140,7 +140,7 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::HEAD, route, handler)
+        self.route(MethodRoute::HEAD, route, handler)
     }
 
     pub fn trace<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -149,9 +149,20 @@ impl<T> App<T> {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::TRACE, route, handler)
+        self.route(MethodRoute::TRACE, route, handler)
+    }
+
+    pub fn any<H, Args, R>(self, route: &str, handler: H) -> Self
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self.route(MethodRoute::any(), route, handler)
     }
 }
+
+
 
 impl<T> RequestHandler for App<T>
 where
@@ -160,7 +171,7 @@ where
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
 
-        let method = req.method().clone();
+        let method =  MethodRoute::from_method(req.method());
         let req_path = req.uri().path_and_query().path().to_owned();
         let route_match = self
             .scope
@@ -191,7 +202,7 @@ where
 
                 match method {
                     // We don't need the body for HEAD requests
-                    Method::HEAD => res.map_body(|_| Body::empty()),
+                    MethodRoute::HEAD => res.map_body(|_| Body::empty()),
                     _ => res,
                 }
             }
@@ -208,7 +219,7 @@ fn not_found_handler(_: Request<Body>) -> Response<Body> {
 }
 
 pub struct Scope {
-    method_router: HashMap<Method, Router<BoxedHandler>>,
+    method_router: HashMap<MethodRoute, Router<BoxedHandler>>,
 }
 
 impl Scope {
@@ -234,7 +245,7 @@ impl Scope {
         }
     }
 
-    fn add_route(&mut self, method: Method, route: &str, handler: BoxedHandler) {
+    fn add_route(&mut self, method: MethodRoute, route: &str, handler: BoxedHandler) {
         match self.method_router.entry(method) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().insert(route, handler);
@@ -252,7 +263,7 @@ impl Scope {
         self
     }
 
-    pub fn route<H, Args, R>(mut self, method: Method, route: &str, handler: H) -> Self
+    pub fn route<H, Args, R>(mut self, method: MethodRoute, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
         H: Handler<Args, Output = R> + Sync + Send + 'static,
@@ -268,7 +279,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::GET, route, handler)
+        self.route(MethodRoute::GET, route, handler)
     }
 
     pub fn post<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -277,7 +288,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::POST, route, handler)
+        self.route(MethodRoute::POST, route, handler)
     }
 
     pub fn put<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -286,7 +297,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::PUT, route, handler)
+        self.route(MethodRoute::PUT, route, handler)
     }
 
     pub fn delete<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -295,7 +306,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::DELETE, route, handler)
+        self.route(MethodRoute::DELETE, route, handler)
     }
 
     pub fn patch<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -304,7 +315,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::PATCH, route, handler)
+        self.route(MethodRoute::PATCH, route, handler)
     }
 
     pub fn options<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -313,7 +324,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::OPTIONS, route, handler)
+        self.route(MethodRoute::OPTIONS, route, handler)
     }
 
     pub fn head<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -322,7 +333,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::HEAD, route, handler)
+        self.route(MethodRoute::HEAD, route, handler)
     }
 
     pub fn trace<H, Args, R>(self, route: &str, handler: H) -> Self
@@ -331,6 +342,15 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.route(Method::TRACE, route, handler)
+        self.route(MethodRoute::TRACE, route, handler)
+    }
+
+    pub fn any<H, Args, R>(self, route: &str, handler: H) -> Self
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self.route(MethodRoute::any(), route, handler)
     }
 }
