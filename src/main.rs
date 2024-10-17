@@ -4,13 +4,14 @@ use http1::{
 };
 use http1_web::{
     app::App,
+    file::ServeFile,
     forms::multipart::{FormFile, Multipart},
     handler::BoxedHandler,
     html, impl_deserialize_struct,
     json::Json,
+    middleware::sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
     path::Path,
     serde::json::value::JsonValue,
-    middleware::sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
 };
 use std::{collections::HashMap, fs::File};
 
@@ -118,7 +119,8 @@ fn main() -> std::io::Result<()> {
             session.insert(key, count + 1).unwrap();
 
             html
-        });
+        })
+        .get("/image.jpg", ServeFile::new("assets/bocchi.jpg"));
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))

@@ -142,6 +142,10 @@ impl HttpBody for Empty {
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         Ok(None)
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(0)
+    }
 }
 
 impl HttpBody for () {
@@ -150,6 +154,10 @@ impl HttpBody for () {
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         Ok(None)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(0)
     }
 }
 
@@ -263,6 +271,10 @@ impl HttpBody for String {
             Ok(Some(bytes))
         }
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
+    }
 }
 
 impl<'a> HttpBody for &'a str {
@@ -277,6 +289,10 @@ impl<'a> HttpBody for &'a str {
             let bytes = s.as_bytes().to_vec();
             Ok(Some(bytes))
         }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
     }
 }
 
