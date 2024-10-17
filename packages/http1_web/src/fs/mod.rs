@@ -1,3 +1,3 @@
-mod file;
+mod serve_file;
 
-pub use file::{InvalidFile, ServeFile};
+pub use serve_file::{InvalidFile, ServeFile};
