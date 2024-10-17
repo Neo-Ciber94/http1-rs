@@ -335,13 +335,13 @@ mod tests {
     #[test]
     fn should_display_mime_as_string_without_parameter() {
         let mime = Mime::new("video", "mp4", None);
-        assert_eq!(format!("{}", mime), "video/mp4\n");
+        assert_eq!(format!("{}", mime), "video/mp4");
     }
 
     #[test]
     fn should_display_mime_as_string_with_parameter() {
         let mime = Mime::new("application", "xml", Some("charset=UTF-8"));
-        assert_eq!(format!("{}", mime), "application/xml;charset=UTF-8\n");
+        assert_eq!(format!("{}", mime), "application/xml;charset=UTF-8");
     }
 
     #[test]
