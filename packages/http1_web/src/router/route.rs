@@ -98,7 +98,7 @@ impl<'a> Iterator for RouteSegmentsIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|part| match part {
-            _ if part == "*" => RouteSegment::CatchAll(String::from("*")),
+            _ if part == "*" => RouteSegment::CatchAll(String::new()),
             _ if part.starts_with(":") => {
                 if part.ends_with("*") {
                     let len = part.len();
@@ -178,6 +178,7 @@ mod tests {
             Route::from("/static/:dynamic/static"),
             Route::from("/:dynamic/static"),
             Route::from("/:catch_all*"),
+            Route::from("/*"),
             Route::from("/static/:catch_all*"),
             Route::from("/static/:dynamic/:catch_all*"),
             Route::from("/static/:dynamic/:dynamic/:catch_all*"),
@@ -196,6 +197,7 @@ mod tests {
                 Route::from("/static/:catch_all*"),
                 Route::from("/:dynamic"),
                 Route::from("/:dynamic/static"),
+                Route::from("/*"),
                 Route::from("/:catch_all*"),
             ]
         )
