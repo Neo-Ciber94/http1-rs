@@ -10,7 +10,7 @@ use crate::{handler::Handler, into_response::IntoResponse, mime::Mime};
 #[derive(Debug)]
 pub enum InvalidFile {
     CurrentDirectoryNotFound,
-    PathIsNotAFile(PathBuf),
+    FileNotFound(PathBuf),
 }
 
 /// Sends a file response.
@@ -23,7 +23,7 @@ impl ServeFile {
         let file_path = cwd.join(path);
 
         if !file_path.is_file() {
-            return Err(InvalidFile::PathIsNotAFile(file_path));
+            return Err(InvalidFile::FileNotFound(file_path));
         }
 
         Ok(ServeFile(file_path))
