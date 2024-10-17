@@ -41,8 +41,14 @@ impl Display for RouteSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RouteSegment::Static(s) => write!(f, "/{s}"),
-            RouteSegment::Dynamic(s) => write!(f, "/{s}"),
-            RouteSegment::CatchAll(s) => write!(f, "/{s}"),
+            RouteSegment::Dynamic(s) => write!(f, "/:{s}"),
+            RouteSegment::CatchAll(s) => {
+                if s.is_empty() {
+                    write!(f, "/:{s}*")
+                } else {
+                    write!(f, "/*")
+                }
+            }
         }
     }
 }
@@ -92,6 +98,7 @@ impl<'a> Iterator for RouteSegmentsIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|part| match part {
+            _ if part == "*" => RouteSegment::CatchAll(String::from("*")),
             _ if part.starts_with(":") => {
                 if part.ends_with("*") {
                     let len = part.len();
