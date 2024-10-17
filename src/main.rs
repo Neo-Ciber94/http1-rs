@@ -120,7 +120,10 @@ fn main() -> std::io::Result<()> {
 
             html
         })
-        .get("/image.jpg", ServeFile::new("assets/bocchi.jpg"));
+        .get(
+            "/image.jpg",
+            ServeFile::new("assets/bocchi.jpg").expect("failed to serve file"),
+        );
 
     server
         .on_ready(|addr| println!("Listening on http://{addr}"))

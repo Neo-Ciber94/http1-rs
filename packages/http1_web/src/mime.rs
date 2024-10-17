@@ -127,9 +127,9 @@ impl FromStr for Mime {
 impl Display for Mime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(param) = self.parameter.as_ref() {
-            writeln!(f, "{}/{};{param}", self.type_, self.subtype)
+            write!(f, "{}/{};{param}", self.type_, self.subtype)
         } else {
-            writeln!(f, "{}/{}", self.type_, self.subtype)
+            write!(f, "{}/{}", self.type_, self.subtype)
         }
     }
 }
