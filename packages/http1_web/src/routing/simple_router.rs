@@ -90,14 +90,31 @@ impl<T> SimpleRouter<T> {
 
 fn find_route<'a>(
     route: &'a Route,
-    path: &'a str,
+    mut path: &'a str,
     params_map: &'a mut OrderedMap<String, String>,
 ) -> Option<&'a Route> {
+    if path.ends_with("/") {
+        path = &path[..path.len() - 1];
+    }
+
     let mut segments = get_segments(path).enumerate().peekable();
     let route_segments = route.iter();
 
     for (index, part) in route_segments.enumerate() {
-        let (_, segment) = segments.next()?;
+        let segment = match segments.next() {
+            Some((_, s)) => s,
+            None => {
+                // If the current segment is a catch-all and we don't have more segments in the path,
+                // the return the route
+                if let route::RouteSegment::CatchAll(param_name) = part {
+                    let rest = get_segments(path).skip(index).collect::<Vec<_>>().join("/");
+                    params_map.insert(param_name.to_string(), rest);
+                    return Some(route);
+                } else {
+                    return None;
+                }
+            }
+        };
 
         match part {
             route::RouteSegment::Static(param) => {
@@ -204,5 +221,15 @@ mod tests {
 
         let match4 = router.find("/some_path*").unwrap();
         assert_eq!(match4.value, &4);
+    }
+
+    #[test]
+    fn should_match_catch_all() {
+        let mut router: SimpleRouter<i32> = SimpleRouter::new();
+        router.insert("/colors/:rest*", 1);
+
+        assert!(router.find("/colors/red").is_some());
+        assert!(router.find("/colors/").is_some());
+        assert!(router.find("/colors").is_some());
     }
 }
