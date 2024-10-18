@@ -182,6 +182,12 @@ impl IntoResponse for ErrorResponse {
     }
 }
 
+impl From<ErrorStatusCode> for ErrorResponse {
+    fn from(value: ErrorStatusCode) -> Self {
+        ErrorResponse::new(value, ())
+    }
+}
+
 impl<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>> From<E> for ErrorResponse {
     fn from(value: E) -> Self {
         fn error_status(
