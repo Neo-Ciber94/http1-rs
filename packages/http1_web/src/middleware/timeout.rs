@@ -30,7 +30,7 @@ impl Middleware for Timeout {
         match receiver.recv_timeout(timeout) {
             Ok(response) => response,
             Err(RecvTimeoutError::Disconnected) => {
-                eprintln!("Timeout sender disconnected");
+                log::error!("Timeout sender disconnected");
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
             Err(RecvTimeoutError::Timeout) => Response::builder()

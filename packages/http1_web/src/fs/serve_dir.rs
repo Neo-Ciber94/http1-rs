@@ -128,7 +128,7 @@ impl Handler<Request<Body>> for ServeDir {
                     .body(Body::new(reader))
             }
             Err(err) => {
-                eprintln!("Failed to open file: {err}");
+                log::error!("Failed to open file: {err}");
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }
@@ -141,7 +141,7 @@ fn list_directory_html(
     dir: &Path,
 ) -> Result<Option<Element>, ErrorResponse> {
     let read_dir = std::fs::read_dir(dir).map_err(|err| {
-        eprintln!("Failed to list directory: {err}");
+        log::error!("Failed to list directory: {err}");
         ErrorResponse::new(ErrorStatusCode::InternalServerError, ())
     })?;
 
@@ -231,7 +231,7 @@ fn list_directory_html(
                                 });
                             }
                             Err(err) => {
-                                eprintln!("Failed to read: {err}")
+                                log::error!("Failed to read: {err}")
                             }
                         }
                     }

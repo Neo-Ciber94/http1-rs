@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use http1::{
     body::{http_body::HttpBody, Body},
     error::BoxError,
@@ -16,10 +18,20 @@ use crate::{
 pub struct Json<T>(pub T);
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct InvalidJsonError(BoxError);
+
+impl Display for InvalidJsonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to parse json: {}", self.0)
+    }
+}
+
+impl std::error::Error for InvalidJsonError {}
+
 impl IntoResponse for InvalidJsonError {
     fn into_response(self) -> Response<Body> {
-        eprintln!("Failed to parse json: {}", self.0);
+        log::error!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
@@ -46,7 +58,7 @@ impl<T: Serialize> IntoResponse for Json<T> {
                 .insert_header(CONTENT_TYPE, "application/json; charset=UTF-8")
                 .body(x.into()),
             Err(err) => {
-                eprintln!("Failed to create JSON response: {err}");
+                log::error!("Failed to create JSON response: {err}");
                 Response::new(StatusCode::UNPROCESSABLE_CONTENT, Body::empty())
             }
         }

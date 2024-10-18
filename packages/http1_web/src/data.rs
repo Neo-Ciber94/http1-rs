@@ -1,4 +1,9 @@
-use std::{fmt::Debug, marker::PhantomData, ops::Deref, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    ops::Deref,
+    sync::Arc,
+};
 
 use http1::{common::any_map::AnyMap, status::StatusCode};
 
@@ -37,14 +42,22 @@ impl<T> Deref for Data<T> {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct DataNotFound<T: 'static>(PhantomData<T>);
-impl<T: 'static> IntoResponse for DataNotFound<T> {
-    fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        eprintln!(
+
+impl<T: 'static> Display for DataNotFound<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "Failed to retrieve `{}` from request",
             std::any::type_name::<T>()
-        );
+        )
+    }
+}
 
+impl<T: 'static> IntoResponse for DataNotFound<T> {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

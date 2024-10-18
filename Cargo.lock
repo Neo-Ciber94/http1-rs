@@ -20,6 +20,7 @@ name = "http1"
 version = "0.1.0"
 dependencies = [
  "datetime",
+ "log",
 ]
 
 [[package]]

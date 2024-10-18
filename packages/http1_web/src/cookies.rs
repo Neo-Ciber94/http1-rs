@@ -446,7 +446,7 @@ impl FromRequestRef for Cookies {
                     cookies.set(cookie);
                 }
                 Err(_) => {
-                    eprintln!("Failed to parse cookie: `{raw}`");
+                    log::warn!("Failed to parse cookie: `{raw}`");
                 }
             }
         }

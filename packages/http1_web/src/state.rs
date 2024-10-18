@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::{fmt::Display, ops::Deref, sync::Arc};
 
 use http1::status::StatusCode;
 
@@ -32,10 +32,18 @@ impl<T> Deref for State<T> {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct AppStateError;
+
+impl Display for AppStateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to extract app state")
+    }
+}
+
 impl IntoResponse for AppStateError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        eprintln!("Failed to extract app state");
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

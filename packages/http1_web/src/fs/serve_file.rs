@@ -62,7 +62,7 @@ fn create_file_response(file_path: &Path) -> Response<Body> {
         }
         Err(err) if err.kind() == ErrorKind::NotFound => StatusCode::NOT_FOUND.into_response(),
         Err(err) => {
-            eprintln!("Error serving file: {err}");
+            log::error!("Error serving file: {err}");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }

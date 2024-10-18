@@ -379,9 +379,11 @@ impl Display for FormDataError {
     }
 }
 
+impl std::error::Error for FormDataError {}
+
 impl IntoResponse for FormDataError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        eprintln!("{self}");
+        log::error!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }

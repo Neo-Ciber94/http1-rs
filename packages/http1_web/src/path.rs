@@ -10,7 +10,7 @@ use crate::{
         visitor::{MapAccess, SeqAccess},
     },
 };
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 /// Represents the path params in a route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -23,22 +23,36 @@ impl<T> Path<T> {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub enum PathRejectionError {
     NotParamsMap,
     DeserializationError(BoxError),
 }
 
+impl Display for PathRejectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PathRejectionError::NotParamsMap => write!(f, "no params found"),
+            PathRejectionError::DeserializationError(error) => {
+                write!(f, "Failed to deserialize path: {error}")
+            }
+        }
+    }
+}
+
 impl IntoResponse for PathRejectionError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        log::error!("{self}");
         match self {
             PathRejectionError::NotParamsMap => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            PathRejectionError::DeserializationError(err) => {
-                eprintln!("Path deserialization error: {err}");
+            PathRejectionError::DeserializationError(_) => {
                 StatusCode::UNPROCESSABLE_CONTENT.into_response()
             }
         }
     }
 }
+
+impl std::error::Error for PathRejectionError {}
 
 impl<T: Deserialize> FromRequestRef for Path<T> {
     type Rejection = PathRejectionError;

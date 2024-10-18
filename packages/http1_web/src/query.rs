@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use http1::{
     status::StatusCode,
     uri::path_query::{QueryMap, QueryValue},
@@ -224,9 +226,18 @@ impl<I: Iterator<Item = (String, QueryValue)>> MapAccess for QueryMapAccess<I> {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct InvalidQueryError;
+
+impl Display for InvalidQueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to parse request query params")
+    }
+}
+
 impl IntoResponse for InvalidQueryError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        log::error!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
@@ -240,7 +251,7 @@ impl<T: Deserialize> FromRequestRef for Query<T> {
         let query_map = req.uri().path_and_query().query_map();
         let deserializer = QueryDeserializer(query_map);
         T::deserialize(deserializer).map(Query).map_err(|err| {
-            eprintln!("{err}");
+            log::error!("Failed to deserialize query: {err}");
             InvalidQueryError
         })
     }

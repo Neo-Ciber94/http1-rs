@@ -236,7 +236,7 @@ macro_rules! impl_into_response_for_tuple {
                     let res = match $T.into_response_parts(res) {
                         Ok(res) => res,
                         Err(err) => {
-                            eprintln!(
+                            log::error!(
                                 "Failed to convert '{}' into response parts: {err}",
                                 std::any::type_name::<$T>()
                             );

@@ -1,7 +1,6 @@
 use std::{
     fmt::Arguments,
     sync::{atomic::AtomicI8, OnceLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use datetime::DateTime;
@@ -101,19 +100,13 @@ impl Logger for ConsoleLogger {
         };
 
         let dt = DateTime::now_utc();
-        let time_str: String = colorize(&format!("{dt}"), "90");      // Light gray for time
-        let module_str = colorize(record.module_path, "36");         // Light gray for module
+        let time_str: String = colorize(&format!("{dt}"), "90"); // Light gray for time
+        let module_str = colorize(record.module_path, "36"); // Light gray for module
 
         if level != LogLevel::Error {
-            println!(
-                "{level_str} [{time_str}] [{module_str}]: {}",
-                record.args
-            );
+            println!("{level_str} [{time_str}] [{module_str}]: {}", record.args);
         } else {
-            eprintln!(
-                "{level_str} [{time_str}] [{module_str}]: {}",
-                record.args
-            );
+            eprintln!("{level_str} [{time_str}] [{module_str}]: {}", record.args);
         }
     }
 }

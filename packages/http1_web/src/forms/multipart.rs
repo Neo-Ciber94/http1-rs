@@ -72,16 +72,18 @@ impl Display for MultipartError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MultipartError::DeserializationError(error) => {
-                writeln!(f, "serialization error: {error}")
+                write!(f, "serialization error: {error}")
             }
-            MultipartError::FormError(form_error) => writeln!(f, "form data error: {form_error}"),
+            MultipartError::FormError(form_error) => write!(f, "form data error: {form_error}"),
         }
     }
 }
 
+impl std::error::Error for MultipartError {}
+
 impl IntoResponse for MultipartError {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        eprintln!("{self}");
+        log::error!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }

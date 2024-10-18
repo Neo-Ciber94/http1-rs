@@ -29,11 +29,6 @@ impl_deserialize_struct!(Upload => {
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    log::debug!("This is a message");
-    log::info!("This is a message");
-    log::warn!("This is a message");
-    log::error!("This is a message");
-
     let addr = "127.0.0.1:5000".parse().unwrap();
     let server = Server::new(addr);
 

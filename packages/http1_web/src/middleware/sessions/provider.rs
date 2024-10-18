@@ -91,7 +91,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
         let mut store = match self.store.lock() {
             Ok(x) => x,
             Err(_) => {
-                eprintln!("Failed to lock session store");
+                log::error!("Failed to lock session store");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };
@@ -99,7 +99,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
         let cookies = match Cookies::from_request_ref(&req) {
             Ok(x) => x,
             Err(_) => {
-                eprintln!("Failed to parse cookies");
+                log::error!("Failed to parse cookies");
                 Cookies::default()
             }
         };
@@ -120,7 +120,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
         let session = match store.load_session(&session_id, &config) {
             Ok(x) => x,
             Err(_) => {
-                eprintln!("Failed to load session");
+                log::error!("Failed to load session");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };
@@ -137,18 +137,18 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
                 // Check if the session is expired or destroyed, if so destroy it
                 if session.is_destroyed() || session.is_expired() {
                     if let Err(err) = store.destroy_session(session) {
-                        eprintln!("Failed to destroy session: {err}");
+                        log::error!("Failed to destroy session: {err}");
                         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                     }
                 } else {
                     if let Err(err) = store.save_session(session) {
-                        eprintln!("Failed to save session: {err}");
+                        log::error!("Failed to save session: {err}");
                         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                     }
                 }
             }
             Err(_) => {
-                eprintln!("Failed to lock session store");
+                log::error!("Failed to lock session store");
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         };

@@ -38,6 +38,7 @@ impl<T> Form<T> {
 const WWW_FORM_URLENCODED: &str = "application/x-www-form-urlencoded";
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub enum RejectFormError {
     NoContentType,
     InvalidContentType(String),
@@ -47,29 +48,40 @@ pub enum RejectFormError {
     InvalidUri(InvalidUri),
     DeserializationError(BoxError),
 }
-impl IntoResponse for RejectFormError {
-    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+
+impl Display for RejectFormError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RejectFormError::NoContentType => {
-                eprintln!("No content type: `{WWW_FORM_URLENCODED}`")
+                write!(f, "No content type: `{WWW_FORM_URLENCODED}`")
             }
             RejectFormError::InvalidContentType(s) => {
-                eprintln!("Invalid content type `{s}` expected `{WWW_FORM_URLENCODED}`")
+                write!(
+                    f,
+                    "Invalid content type `{s}` expected `{WWW_FORM_URLENCODED}`"
+                )
             }
-            RejectFormError::FailedReadForm(error) => eprintln!("Failed to read form: {error}"),
-            RejectFormError::Utf8Error(error) => eprintln!("Failed to read uf8 form {error}"),
-            RejectFormError::InvalidUriComponent(_) => eprintln!("Failed to decode form"),
+            RejectFormError::FailedReadForm(error) => write!(f, "Failed to read form: {error}"),
+            RejectFormError::Utf8Error(error) => write!(f, "Failed to read uf8 form {error}"),
+            RejectFormError::InvalidUriComponent(_) => write!(f, "Failed to decode form"),
             RejectFormError::InvalidUri(invalid_uri) => {
-                eprintln!("Failed to decode uri from form: {invalid_uri}")
+                write!(f, "Failed to decode uri from form: {invalid_uri}")
             }
             RejectFormError::DeserializationError(error) => {
-                eprintln!("Failed to deserialize form: {error}")
+                write!(f, "Failed to deserialize form: {error}")
             }
         }
+    }
+}
 
+impl IntoResponse for RejectFormError {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        log::error!("{self}");
         StatusCode::UNPROCESSABLE_CONTENT.into_response()
     }
 }
+
+impl std::error::Error for RejectFormError {}
 
 impl<T: Deserialize> FromRequest for Form<T> {
     type Rejection = RejectFormError;
@@ -224,7 +236,7 @@ impl<T: Serialize> IntoResponse for Form<T> {
                     .body(body)
             }
             Err(err) => {
-                eprintln!("Failed to serialize form: {err}");
+                log::error!("Failed to serialize form: {err}");
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }

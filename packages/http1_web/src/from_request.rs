@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, fmt::Display};
 
 use http1::{
     body::{http_body::HttpBody, Body},
@@ -49,10 +49,18 @@ impl FromRequest for Body {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct InvalidBodyError(BoxError);
+
+impl Display for InvalidBodyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to read body: {}", self.0)
+    }
+}
+
 impl IntoResponse for InvalidBodyError {
     fn into_response(self) -> Response<Body> {
-        eprintln!("Failed to read body: {}", self.0);
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
@@ -84,10 +92,18 @@ impl FromRequestRef for () {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct ParamsNotFound;
+
+impl Display for ParamsNotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ParamsMap not found")
+    }
+}
+
 impl IntoResponse for ParamsNotFound {
     fn into_response(self) -> http1::response::Response<Body> {
-        eprintln!("ParamsMap not found");
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
@@ -117,10 +133,18 @@ impl FromRequestRef for PathAndQuery {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct SchemeNotFound;
+
+impl Display for SchemeNotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "request scheme not found")
+    }
+}
+
 impl IntoResponse for SchemeNotFound {
     fn into_response(self) -> http1::response::Response<Body> {
-        eprintln!("request scheme not found");
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
@@ -133,10 +157,18 @@ impl FromRequestRef for Scheme {
 }
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct AuthorityNotFound;
+
+impl Display for AuthorityNotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "request uri authority not found")
+    }
+}
+
 impl IntoResponse for AuthorityNotFound {
     fn into_response(self) -> http1::response::Response<Body> {
-        eprintln!("request uri authority not found");
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

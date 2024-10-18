@@ -1,10 +1,11 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
-use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 use datetime::DateTime;
+use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 
 use crate::{
     from_request::FromRequestRef,
@@ -118,9 +119,17 @@ impl Session {
 #[derive(Debug)]
 pub struct SessionError;
 
+impl Display for SessionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to retrieve session")
+    }
+}
+
+impl std::error::Error for SessionError {}
+
 impl IntoResponse for SessionError {
     fn into_response(self) -> http1::response::Response<Body> {
-        eprintln!("Failed to retrieve session");
+        log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }

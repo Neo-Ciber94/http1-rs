@@ -42,7 +42,7 @@ impl Runtime for ThreadPooledRuntime {
                     thread_pool.execute(move || {
                         match handle_incoming(&request_handler, &config, stream) {
                             Ok(_) => {}
-                            Err(err) => eprintln!("{err}"),
+                            Err(err) => log::error!("{err}"),
                         }
                     })?;
                 }
