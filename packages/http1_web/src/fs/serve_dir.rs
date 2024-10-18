@@ -28,6 +28,11 @@ pub struct ServeDir {
 }
 
 impl ServeDir {
+    /// Constructs a new `ServeDir`
+    /// 
+    /// # Parameters
+    /// - `from_route` the route to match.
+    /// - `to_dir` to directory in the file system relative to the `cwd` to serve the files from.
     pub fn new(from_route: impl Into<String>, to_dir: impl Into<PathBuf>) -> Self {
         let cwd = std::env::current_dir().expect("unable to get current directory");
         let to = cwd.join(to_dir.into());
