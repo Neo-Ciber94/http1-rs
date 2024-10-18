@@ -8,6 +8,7 @@ version = "0.0.0"
 dependencies = [
  "http1",
  "http1_web",
+ "log",
 ]
 
 [[package]]
@@ -19,4 +20,9 @@ name = "http1_web"
 version = "0.1.0"
 dependencies = [
  "http1",
+ "log",
 ]
+
+[[package]]
+name = "log"
+version = "0.1.0"

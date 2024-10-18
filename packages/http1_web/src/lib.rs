@@ -17,4 +17,3 @@ pub mod redirect;
 pub mod routing;
 pub mod serde;
 pub mod state;
-pub mod log;
