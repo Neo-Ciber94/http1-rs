@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mime {
     type_: Cow<'static, str>,
     subtype: Cow<'static, str>,

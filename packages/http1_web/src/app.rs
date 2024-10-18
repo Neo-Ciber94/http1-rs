@@ -162,8 +162,6 @@ impl<T> App<T> {
     }
 }
 
-
-
 impl<T> RequestHandler for App<T>
 where
     T: Send + Sync + 'static,

@@ -5,7 +5,7 @@ use http1::{
 use http1_web::{
     app::App,
     forms::multipart::{FormFile, Multipart},
-    fs::ServeFile,
+    fs::{ServeDir, ServeFile},
     handler::BoxedHandler,
     html, impl_deserialize_struct,
     json::Json,
@@ -123,6 +123,10 @@ fn main() -> std::io::Result<()> {
         .get(
             "/image.jpg",
             ServeFile::new("assets/bocchi.jpg").expect("failed to serve file"),
+        )
+        .get(
+            "/public/*",
+            ServeDir::new("/public", "assets").list_directory(true),
         );
 
     server
