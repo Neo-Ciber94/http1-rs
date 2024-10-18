@@ -2,12 +2,13 @@ use std::{convert::Infallible, fmt::Display, str::FromStr};
 
 use http1::{
     body::Body,
-    common::date_time::DateTime,
     headers::{self, Headers},
     response::Response,
     status::StatusCode,
     uri::convert::{self, CookieCharset},
 };
+
+use datetime::DateTime;
 
 use crate::{
     from_request::FromRequestRef,
@@ -457,7 +458,7 @@ impl FromRequestRef for Cookies {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http1::common::date_time::Month;
+    use datetime::Month;
 
     #[test]
     fn should_create_new_cookie_with_name_and_value() {

@@ -12,7 +12,8 @@ use std::{
     },
 };
 
-use http1::common::{date_time::DateTime, map::OrderedMap};
+use datetime::DateTime;
+use http1::common::map::OrderedMap;
 
 use super::{
     expected::{Expected, TypeMismatchError},

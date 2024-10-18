@@ -3,9 +3,8 @@ use std::{
     sync::{atomic::AtomicBool, Arc, RwLock},
 };
 
-use http1::{
-    body::Body, common::date_time::DateTime, error::BoxError, request::Request, status::StatusCode,
-};
+use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
+use datetime::DateTime;
 
 use crate::{
     from_request::FromRequestRef,

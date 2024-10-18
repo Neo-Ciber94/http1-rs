@@ -1,6 +1,7 @@
 use std::{
     fmt::Arguments,
     sync::{atomic::AtomicI8, OnceLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 #[repr(u8)]
@@ -84,24 +85,37 @@ pub fn __log(level: LogLevel, record: Record<'_>) {
 pub struct ConsoleLogger;
 
 impl Logger for ConsoleLogger {
-    #[rustfmt::skip]
     fn log(&self, level: LogLevel, record: &Record<'_>) {
         fn colorize(text: &str, color_code: &str) -> String {
             format!("\x1b[{}m{}\x1b[0m", color_code, text)
         }
 
+        #[rustfmt::skip]
         let level_str = match level {
             LogLevel::Debug => colorize("DEBUG", "37"),  // White
             LogLevel::Info  => colorize("INFO ", "34"),   // Blue
             LogLevel::Warn  => colorize("WARN ", "33"),   // Yellow
             LogLevel::Error => colorize("ERROR", "31"),  // Red
         };
-        
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let ms = now.as_millis();
+
+        let time_str: String = colorize(&format!("{:03}ms", ms), "90");      // Light gray for time
+        let module_str = colorize(record.module_path, "36");         // Light gray for module
+
         if level != LogLevel::Error {
-            println!("{} [{}]: {}", level_str, record.module_path, record.args);
-        }
-        else {
-            eprintln!("{} [{}]: {}", level_str, record.module_path, record.args);
+            println!(
+                "{level_str} [{time_str}] [{module_str}]: {}",
+                record.args
+            );
+        } else {
+            eprintln!(
+                "{level_str} [{time_str}] [{module_str}]: {}",
+                record.args
+            );
         }
     }
 }

@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use http1::{common::date_time::DateTime, error::BoxError};
-
 use super::session::Session;
+use datetime::DateTime;
+use http1::error::BoxError;
 
 /// Configuration used for loading sessions.
 pub struct LoadSessionConfig {

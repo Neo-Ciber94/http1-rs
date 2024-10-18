@@ -12,13 +12,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "datetime"
+version = "0.1.0"
+
+[[package]]
 name = "http1"
 version = "0.1.0"
+dependencies = [
+ "datetime",
+]
 
 [[package]]
 name = "http1_web"
 version = "0.1.0"
 dependencies = [
+ "datetime",
  "http1",
  "log",
 ]

@@ -10,7 +10,6 @@ use crate::{
         http_body::HttpBody,
         Body,
     },
-    common::date_time::DateTime,
     handler::RequestHandler,
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
     method::Method,
@@ -20,6 +19,7 @@ use crate::{
     uri::uri::Uri,
     version::Version,
 };
+use datetime::DateTime;
 
 /**
  * Handles and send a response to a HTTP1 request.

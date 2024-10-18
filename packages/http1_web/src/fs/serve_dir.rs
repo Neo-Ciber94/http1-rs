@@ -5,11 +5,6 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use http1::{
-    body::Body, common::date_time::DateTime, headers, request::Request, response::Response,
-    status::StatusCode,
-};
-
 use crate::{
     error_response::{ErrorResponse, ErrorStatusCode},
     handler::Handler,
@@ -17,6 +12,8 @@ use crate::{
     into_response::IntoResponse,
     mime::Mime,
 };
+use datetime::DateTime;
+use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};
 
 /// A handler to serve static files from a path.
 #[derive(Debug)]
