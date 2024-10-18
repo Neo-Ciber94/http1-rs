@@ -1,8 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use http1::{
-    body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
-    status::StatusCode,
+    body::Body, handler::RequestHandler, request::Request, response::Response, status::StatusCode,
 };
 
 use crate::{
@@ -169,7 +168,7 @@ where
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
 
-        let method =  MethodRoute::from_method(req.method());
+        let method = MethodRoute::from_method(req.method());
         let req_path = req.uri().path_and_query().path().to_owned();
         let route_match = self
             .scope

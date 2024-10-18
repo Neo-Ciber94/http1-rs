@@ -148,6 +148,32 @@ fn list_directory_html(
                         html::th("Modification Date");
                         html::th("File Size (Bytes)");
                     });
+
+                    html::meta(|| {
+                        html::attr("charset", "UTF-8");
+                        html::attr("content", "width=device-width, initial-scale=1.0");
+                    });
+
+                    html::style(
+                        r#"
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 20px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    th, td {
+                        border: 1px solid #ddd;
+                        padding: 8px;
+                        text-align: left;
+                    }
+                    th {
+                        background-color: #f2f2f2;
+                    }
+                    "#,
+                    );
                 });
 
                 html::tbody(|| {
