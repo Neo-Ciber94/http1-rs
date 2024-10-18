@@ -4,6 +4,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use datetime::DateTime;
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LogLevel {
@@ -98,12 +100,8 @@ impl Logger for ConsoleLogger {
             LogLevel::Error => colorize("ERROR", "31"),  // Red
         };
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-        let ms = now.as_millis();
-
-        let time_str: String = colorize(&format!("{:03}ms", ms), "90");      // Light gray for time
+        let dt = DateTime::now_utc();
+        let time_str: String = colorize(&format!("{dt}"), "90");      // Light gray for time
         let module_str = colorize(record.module_path, "36");         // Light gray for module
 
         if level != LogLevel::Error {
