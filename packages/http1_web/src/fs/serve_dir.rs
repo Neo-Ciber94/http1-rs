@@ -18,6 +18,7 @@ use crate::{
     mime::Mime,
 };
 
+/// A handler to serve static files from a path.
 #[derive(Debug)]
 pub struct ServeDir {
     from: String,
@@ -44,11 +45,16 @@ impl ServeDir {
         }
     }
 
+    /// Whether if try to send `/index.html` files from request with not file extension. By default is `true`.
+    /// 
+    /// # Example
+    /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
     pub fn index_html(mut self, index_html: bool) -> Self {
         self.index_html = index_html;
         self
     }
 
+    /// Enables directory listing. By default is `false`.
     pub fn list_directory(mut self, list_directory: bool) -> Self {
         self.list_directory = list_directory;
         self
