@@ -29,7 +29,7 @@ pub struct ServeDir {
 
 impl ServeDir {
     /// Constructs a new `ServeDir`
-    /// 
+    ///
     /// # Parameters
     /// - `from_route` the route to match.
     /// - `to_dir` to directory in the file system relative to the `cwd` to serve the files from.
@@ -51,7 +51,7 @@ impl ServeDir {
     }
 
     /// Whether if try to send `/index.html` files from request with not file extension. By default is `true`.
-    /// 
+    ///
     /// # Example
     /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
     pub fn index_html(mut self, index_html: bool) -> Self {
@@ -79,19 +79,25 @@ impl Handler<Request<Body>> for ServeDir {
         }
 
         let rest = &path[from.len()..];
-        let file_exists = Path::new(rest).exists();
         let has_extension = rest.split("/").last().filter(|x| x.contains(".")).is_some();
         let base_dir = &self.to;
 
         // If the request its to a path without extension and there is not a file there, we try to get the /index.html for that path
-        let file_path = if !file_exists && !has_extension && self.index_html {
-            let index = format!("{rest}/index.html");
-            let index_file = base_dir.join(index.trim_start_matches("/"));
+        let file_path = if !has_extension && self.index_html {
+            let index_html = format!("{rest}/index.html");
+            let index_file = base_dir.join(index_html.trim_start_matches("/"));
 
             if index_file.exists() {
                 index_file
             } else {
-                base_dir.join(rest.trim_start_matches("/"))
+                let page_html = format!("{rest}.html");
+                let index_file = base_dir.join(page_html.trim_start_matches("/"));
+
+                if index_file.exists() {
+                    index_file
+                } else {
+                    base_dir.join(rest.trim_start_matches("/"))
+                }
             }
         } else {
             base_dir.join(rest.trim_start_matches("/"))
