@@ -2,17 +2,17 @@ use std::fmt::{Debug, Display};
 
 /// A structure representing a UUID (Universally Unique Identifier).
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UUID([u32; 4]);
+pub struct Uuid([u32; 4]);
 
-impl UUID {
+impl Uuid {
     /// Returns a nil (all zeros) UUID.
     pub fn nil() -> Self {
-        UUID([0, 0, 0, 0])
+        Uuid([0, 0, 0, 0])
     }
 
     /// Creates a new UUID from 4 parts represented as an array of `u32`.
     pub fn from_parts(value: [u32; 4]) -> Self {
-        UUID(value)
+        Uuid(value)
     }
 
     /// Converts a `u128` value into a UUID by splitting it into four `u32` parts.
@@ -22,12 +22,12 @@ impl UUID {
         let c = ((value >> 32) & 0xFFFFFFFF) as u32;
         let d = (value & 0xFFFFFFFF) as u32;
 
-        UUID::from_parts([a, b, c, d])
+        Uuid::from_parts([a, b, c, d])
     }
 
     /// Generates a new random UUID following version 4 (random).
     pub fn new_v4() -> Self {
-        UUID::from_u128(
+        Uuid::from_u128(
             crate::rng::random::<u128>() & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF
                 | 0x40008000000000000000,
         )
@@ -71,13 +71,13 @@ impl UUID {
     }
 }
 
-impl Debug for UUID {
+impl Debug for Uuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.as_hyphened(f)
     }
 }
 
-impl Display for UUID {
+impl Display for Uuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.as_hyphened(f)
     }
@@ -85,11 +85,11 @@ impl Display for UUID {
 
 #[cfg(test)]
 mod tests {
-    use super::UUID;
+    use super::Uuid;
 
     #[test]
     fn should_display_nil_uuid() {
-        let v = UUID::nil();
+        let v = Uuid::nil();
         let mut hyphened_str = String::new();
         v.as_hyphened(&mut hyphened_str).unwrap();
         assert_eq!(hyphened_str, "00000000-0000-0000-0000-000000000000");
@@ -98,20 +98,20 @@ mod tests {
     #[test]
     fn should_create_uuid_from_u128() {
         let value: u128 = 0x1234567890ABCDEF1234567890ABCDEF;
-        let uuid = UUID::from_u128(value);
+        let uuid = Uuid::from_u128(value);
         assert_eq!(uuid.as_u128(), value);
     }
 
     #[test]
     fn should_convert_uuid_to_u128() {
-        let uuid = UUID::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let uuid = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
         let expected_value: u128 = 0x1234567890ABCDEF1234567890ABCDEF;
         assert_eq!(uuid.as_u128(), expected_value);
     }
 
     #[test]
     fn should_display_hyphened_uuid() {
-        let uuid = UUID::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let uuid = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
         let mut hyphened_str = String::new();
         uuid.as_hyphened(&mut hyphened_str).unwrap();
         assert_eq!(hyphened_str, "12345678-90ab-cdef-1234-567890abcdef");
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn should_display_simple_uuid() {
-        let uuid = UUID::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let uuid = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
         let mut simple_str = String::new();
         uuid.as_simple(&mut simple_str).unwrap();
         assert_eq!(simple_str, "1234567890abcdef1234567890abcdef");
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn should_create_and_format_new_v4_uuid() {
-        let uuid = UUID::new_v4();
+        let uuid = Uuid::new_v4();
         let mut hyphened_str = String::new();
         uuid.as_hyphened(&mut hyphened_str).unwrap();
         assert!(
@@ -138,9 +138,9 @@ mod tests {
 
     #[test]
     fn should_compare_uuids_correctly() {
-        let uuid1 = UUID::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
-        let uuid2 = UUID::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
-        let uuid3 = UUID::from_parts([0x11111111, 0x22222222, 0x33333333, 0x44444444]);
+        let uuid1 = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let uuid2 = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let uuid3 = Uuid::from_parts([0x11111111, 0x22222222, 0x33333333, 0x44444444]);
 
         assert_eq!(uuid1, uuid2);
         assert_ne!(uuid1, uuid3);
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn should_handle_nil_uuid_as_u128() {
-        let nil_uuid = UUID::nil();
+        let nil_uuid = Uuid::nil();
         assert_eq!(nil_uuid.as_u128(), 0);
     }
 }
