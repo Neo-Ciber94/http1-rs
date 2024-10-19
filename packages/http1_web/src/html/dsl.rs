@@ -62,6 +62,26 @@ impl<'a> IntoChildren for Cow<'a, str> {
     }
 }
 
+macro_rules! impl_into_children_to_display {
+    ($($T:ident),*) => {
+        $(
+            impl IntoChildren for $T {
+                fn into_children(self) -> Children {
+                    Children::Node(Node::Text(self.to_string()))
+                }
+            }
+        )*
+    };
+}
+
+impl_into_children_to_display!(
+    u8, u16, u32, u64, u128, 
+    i8, i16, i32, i64, i128, 
+    usize, isize,
+    f32, f64, 
+    bool, char
+);
+
 impl IntoChildren for () {
     fn into_children(self) -> Children {
         Children::None
