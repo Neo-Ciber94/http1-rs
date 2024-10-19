@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-/// A structure representing a UUID (Universally Unique Identifier) composed of 4 `u32` parts.
+/// A structure representing a UUID (Universally Unique Identifier).
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UUID([u32; 4]);
 
