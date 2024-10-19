@@ -252,7 +252,7 @@ impl Deserialize for char {
     }
 }
 
-struct StringVisitor;
+pub struct StringVisitor;
 impl Visitor for StringVisitor {
     type Value = String;
 

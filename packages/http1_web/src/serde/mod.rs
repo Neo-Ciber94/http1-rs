@@ -96,6 +96,69 @@ macro_rules! impl_serde_struct {
     };
 }
 
+/// Implement `Serialize` for a enum with unit variants.
+#[macro_export]
+macro_rules! impl_serialize_enum_str {
+    ($enum:ident => { $($variant:ident),* $(,)? }) => {
+        impl crate::serde::ser::Serialize for $enum {
+            fn serialize<S: $crate::serde::ser::Serializer>(
+                &self,
+                serializer: S,
+            ) -> Result<S::Ok, S::Err> {
+                match self {
+                    $(
+                        $enum :: $variant => {
+                            serializer.serialize_str(stringify!($variant))
+                        }
+                    )*
+                }
+            }
+        }
+    };
+}
+
+/// Implement `Deserialize` for an enum with unit variants.
+#[macro_export]
+macro_rules! impl_deserialize_enum_str {
+    ($enum:ident => { $($variant:ident),* $(,)? }) => {
+        impl $crate::serde::de::Deserialize for $enum {
+            fn deserialize<D: $crate::serde::de::Deserializer>(
+                deserializer: D,
+            ) -> Result<Self, $crate::serde::de::Error> {
+                static KNOWN_VARIANTS: &[&str] = &[
+                    $(
+                        stringify!($variant)
+                    ),*
+                ];
+
+                let variant = deserializer.deserialize_string($crate::serde::de::StringVisitor)?;
+
+                match variant.as_str() {
+                    $(
+                        stringify!(stringify!($variant)) => Ok($enum :: $variant),
+                    )*
+                    v => {
+                        let unknown_variant = format!("{}::{v}", stringify!($enum));
+
+                        Err($crate::serde::de::Error::custom(format!(
+                            "Unknown enum variant `{unknown_variant}`, valid variants: {KNOWN_VARIANTS:?}"
+                        )))
+                    },
+                }
+            }
+        }
+    };
+}
+
+/// Helper for implementing both `Serialize` and `Deserialize` for an enum.
+#[macro_export]
+macro_rules! impl_serde_enum_str {
+    ($enum:ident => { $($variant:ident),* $(,)? }) => {
+        $crate::impl_serialize_enum_str!($enum => { $($variant),* });
+        $crate::impl_deserialize_enum_str!($enum => { $($variant),* });
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -149,4 +212,26 @@ mod tests {
         items: Vec<MyStruct>,
         map: HashMap<String, MyStruct>
     });
+
+    enum Color {
+        Red,
+        Blue,
+        Green,
+    }
+
+    impl_serialize_enum_str!(Color => {
+        Red, Blue, Green
+    });
+
+    impl_deserialize_enum_str!(Color => {
+        Red, Blue, Green
+    });
+
+    enum Fruits {
+        Apple,
+        Pear,
+        Grape,
+    }
+
+    impl_serde_enum_str!(Fruits => { Apple, Pear, Grape });
 }
