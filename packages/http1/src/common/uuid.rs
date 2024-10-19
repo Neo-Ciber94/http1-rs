@@ -59,6 +59,17 @@ impl Uuid {
         write!(f, "{a:08x}-{b:04x}-{c:04x}-{d:04x}-{e:012x}")
     }
 
+    /// Formats the UUID within parentheses string (e.g., `{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}`).
+    pub fn as_parentheses(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        let a = self.0[0];
+        let b = (self.0[1] >> 16) & 0xFFFF;
+        let c = self.0[1] & 0xFFFF;
+        let d = (self.0[2] >> 16) & 0xFFFF;
+        let e = ((self.0[2] & 0xFFFF) as u64) << 32 | self.0[3] as u64;
+
+        write!(f, "{{{a:08x}-{b:04x}-{c:04x}-{d:04x}-{e:012x}}}")
+    }
+
     /// Formats the UUID as a simple string without hyphens (e.g., `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`).
     pub fn as_simple(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         let a = self.0[0];
@@ -73,7 +84,7 @@ impl Uuid {
 
 impl Debug for Uuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_hyphened(f)
+        self.as_parentheses(f)
     }
 }
 
@@ -124,6 +135,15 @@ mod tests {
         uuid.as_simple(&mut simple_str).unwrap();
         assert_eq!(simple_str, "1234567890abcdef1234567890abcdef");
     }
+
+    #[test]
+    fn should_display_parentheses_uuid() {
+        let uuid = Uuid::from_parts([0x12345678, 0x90ABCDEF, 0x12345678, 0x90ABCDEF]);
+        let mut s = String::new();
+        uuid.as_parentheses(&mut s).unwrap();
+        assert_eq!(s, "{12345678-90ab-cdef-1234-567890abcdef}");
+    }
+
 
     #[test]
     fn should_create_and_format_new_v4_uuid() {
