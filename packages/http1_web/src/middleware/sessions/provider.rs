@@ -7,12 +7,16 @@ use http1::{body::Body, headers, request::Request, rng::random::Alphanumeric, st
 
 use crate::{
     cookies::{Cookie, Cookies},
+    error_response::{ErrorResponse, ErrorStatusCode},
     from_request::FromRequestRef,
     into_response::IntoResponse,
     middleware::Middleware,
 };
 
-use super::store::{LoadSessionConfig, SessionStore};
+use super::{
+    session::{Session, SessionStatus},
+    store::{LoadSessionConfig, SessionStore},
+};
 
 pub type IdGenerator = fn(&Request<Body>) -> String;
 
@@ -82,27 +86,14 @@ impl Builder {
     }
 }
 
-impl<S: SessionStore> Middleware for SessionProvider<S> {
-    fn on_request(
-        &self,
-        mut req: Request<Body>,
-        next: &crate::handler::BoxedHandler,
-    ) -> http1::response::Response<Body> {
-        let mut store = match self.store.lock() {
-            Ok(x) => x,
-            Err(_) => {
-                log::error!("Failed to lock session store");
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-            }
-        };
+impl<S: SessionStore> SessionProvider<S> {
+    fn get_or_create_session(&self, req: &Request<Body>) -> Result<(Session, bool), ErrorResponse> {
+        let mut store = self.store.lock().map_err(|_| {
+            log::error!("Failed to lock session store");
+            ErrorResponse::from(ErrorStatusCode::InternalServerError)
+        })?;
 
-        let cookies = match Cookies::from_request_ref(&req) {
-            Ok(x) => x,
-            Err(_) => {
-                log::error!("Failed to parse cookies");
-                Cookies::default()
-            }
-        };
+        let cookies = Cookies::from_request_ref(&req).unwrap_or_default();
 
         let mut is_new_session = false;
         let session_id = match cookies.get(&self.cookie_name) {
@@ -117,45 +108,37 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
             duration: Duration::from_secs(self.max_age),
         };
 
-        let session = match store.load_session(&session_id, &config) {
-            Ok(x) => x,
-            Err(_) => {
-                log::error!("Failed to load session");
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        let session = store.load_session(&session_id, &config).map_err(|err| {
+            log::error!("Failed to load session: {err}");
+            ErrorResponse::from(ErrorStatusCode::InternalServerError)
+        })?;
+
+        Ok((session, is_new_session))
+    }
+}
+
+impl<S: SessionStore> Middleware for SessionProvider<S> {
+    fn on_request(
+        &self,
+        mut req: Request<Body>,
+        next: &crate::handler::BoxedHandler,
+    ) -> http1::response::Response<Body> {
+        let (mut session, is_new_session) = match self.get_or_create_session(&req) {
+            Ok(s) => s,
+            Err(err) => {
+                return err.into_response();
             }
         };
 
         // Add the session to extensions
         req.extensions_mut().insert(session.clone());
-        drop(store);
 
-        // Return the response
+        // Get the response
         let mut response = next.call(req);
 
-        match self.store.lock() {
-            Ok(mut store) => {
-                // Check if the session is expired or destroyed, if so destroy it
-                if session.is_destroyed() || session.is_expired() {
-                    if let Err(err) = store.destroy_session(session) {
-                        log::error!("Failed to destroy session: {err}");
-                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-                    }
-                } else {
-                    if let Err(err) = store.save_session(session) {
-                        log::error!("Failed to save session: {err}");
-                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-                    }
-                }
-            }
-            Err(_) => {
-                log::error!("Failed to lock session store");
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-            }
-        };
-
-        // Sets the session cookie
+        // Sets the session cookie for new sessions
         if is_new_session {
-            let cookie = Cookie::new(self.cookie_name.as_str(), session_id)
+            let cookie = Cookie::new(self.cookie_name.as_str(), session.id())
                 .path(self.path.as_str())
                 .http_only(self.is_http_only)
                 .max_age(self.max_age)
@@ -166,6 +149,43 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
                 .append(headers::SET_COOKIE, cookie.to_string());
         }
 
+        // If the session is destroyed or expired, destroy it
+        if session.is_expired() || session.is_destroyed() {
+            if session.is_expired() || session.is_destroyed() {
+                let mut store = match self.store.lock() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        log::error!("Failed to lock session store");
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
+                };
+
+                if let Err(err) = store.destroy_session(session) {
+                    log::error!("Failed to destroy session: {err}");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+            }
+        }
+        // If modified save the new session
+        else if session.status() == SessionStatus::Modified {
+            let mut store = match self.store.lock() {
+                Ok(s) => s,
+                Err(_) => {
+                    log::error!("Failed to lock session store");
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+            };
+
+            // Refresh the session status before saving it
+            session.refresh_status();
+
+            if let Err(err) = store.save_session(session) {
+                log::error!("Failed to save session: {err}");
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+        }
+
+        // Returns the response
         response
     }
 }

@@ -9,22 +9,47 @@ use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 
 use crate::{
     from_request::FromRequestRef,
-    impl_serde_struct,
+    impl_serde_enum_str, impl_serde_struct,
     into_response::IntoResponse,
     serde::{de::Deserialize, ser::Serialize},
 };
 
 impl_serde_struct!(Session => {
     id: String,
-    data: Arc<RwLock<HashMap<String, Box<[u8]>>>>,
+    inner: Arc<RwLock<SessionInner>>,
     is_destroyed: Arc<AtomicBool>,
     expires_at: DateTime,
+});
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionStatus {
+    New,
+    None,
+    Modified,
+    Destroyed,
+}
+
+impl_serde_enum_str!(SessionStatus => {
+    New,
+    None,
+    Modified,
+    Destroyed
+});
+
+struct SessionInner {
+    data: HashMap<String, Box<[u8]>>,
+    status: SessionStatus,
+}
+
+impl_serde_struct!(SessionInner => {
+    data: HashMap<String, Box<[u8]>>,
+    status: SessionStatus,
 });
 
 #[derive(Clone)]
 pub struct Session {
     id: String,
-    data: Arc<RwLock<HashMap<String, Box<[u8]>>>>,
+    inner: Arc<RwLock<SessionInner>>,
     is_destroyed: Arc<AtomicBool>,
     expires_at: DateTime,
 }
@@ -33,9 +58,12 @@ impl Session {
     pub fn new(id: impl Into<String>, expires_at: DateTime) -> Self {
         Session {
             id: id.into(),
-            data: Default::default(),
             expires_at,
             is_destroyed: Arc::new(AtomicBool::new(false)),
+            inner: Arc::new(RwLock::new(SessionInner {
+                data: Default::default(),
+                status: SessionStatus::New,
+            })),
         }
     }
 
@@ -43,9 +71,14 @@ impl Session {
         self.id.as_ref()
     }
 
+    pub fn status(&self) -> SessionStatus {
+        let inner = self.inner.read().expect("failed to lock session data");
+        inner.status
+    }
+
     pub fn get<T: Deserialize>(&self, key: impl AsRef<str>) -> Result<Option<T>, BoxError> {
-        let data = self.data.read().expect("failed to lock session data");
-        let bytes = match data.get(key.as_ref()) {
+        let inner = self.inner.read().expect("failed to lock session data");
+        let bytes = match inner.data.get(key.as_ref()) {
             Some(x) => x,
             None => return Ok(None),
         };
@@ -54,14 +87,31 @@ impl Session {
         Ok(Some(value))
     }
 
+    pub fn contains_key(&self, key: impl AsRef<str>) -> bool {
+        let inner = self.inner.read().expect("failed to lock session data");
+        inner.data.contains_key(key.as_ref())
+    }
+
+    pub fn refresh_status(&mut self) {
+        let mut inner = self.inner.write().expect("failed to lock session data");
+
+        assert!(
+            !matches!(inner.status, SessionStatus::Destroyed),
+            "cannot refresh the status of a destroyed session"
+        );
+
+        inner.status = SessionStatus::None;
+    }
+
     pub fn insert<T: Serialize>(
         &mut self,
         key: impl Into<String>,
         value: T,
     ) -> Result<(), BoxError> {
-        let mut data = self.data.write().expect("failed to lock session data");
+        let mut inner = self.inner.write().expect("failed to lock session data");
         let bytes = crate::serde::json::to_bytes(&value)?;
-        data.insert(key.into(), bytes.into_boxed_slice());
+        inner.data.insert(key.into(), bytes.into_boxed_slice());
+        inner.status = SessionStatus::Modified;
         Ok(())
     }
 
@@ -78,23 +128,29 @@ impl Session {
         key: impl AsRef<str>,
         f: impl FnOnce() -> T,
     ) -> Result<T, BoxError> {
-        let mut data = self.data.write().expect("failed to lock session data");
-        if data.contains_key(key.as_ref()) {
-            drop(data);
+        if self.contains_key(key.as_ref()) {
             return self.get(key).map(|x| x.expect("value should exists"));
         }
 
-        let value = f();
-        let bytes = crate::serde::json::to_bytes(&value)?;
-        data.insert(key.as_ref().into(), bytes.into_boxed_slice());
+        {
+            let mut inner = self.inner.write().expect("failed to lock session data");
+            let value = f();
+            let bytes = crate::serde::json::to_bytes(&value)?;
 
-        drop(data);
+            inner
+                .data
+                .insert(key.as_ref().into(), bytes.into_boxed_slice());
+
+            inner.status = SessionStatus::Modified;
+        }
+
         self.get(key).map(|x| x.expect("value should exists"))
     }
 
     pub fn remove(&mut self, key: impl AsRef<str>) -> Result<(), BoxError> {
-        let mut data = self.data.write().expect("failed to lock session data");
-        data.remove(key.as_ref());
+        let mut inner = self.inner.write().expect("failed to lock session data");
+        inner.data.remove(key.as_ref());
+        inner.status = SessionStatus::Modified;
         Ok(())
     }
 

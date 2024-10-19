@@ -37,7 +37,7 @@ impl MemoryStore {
 
 impl MemoryStore {
     fn get_session(&self, session_id: &str) -> Option<&Session> {
-        self.0.get(session_id)
+        self.0.get(session_id).filter(|x| x.is_valid())
     }
 
     fn create_session(&mut self, session_id: &str, config: &LoadSessionConfig) -> Session {
@@ -55,7 +55,7 @@ impl SessionStore for MemoryStore {
         session_id: &str,
         config: &LoadSessionConfig,
     ) -> Result<Session, BoxError> {
-        match self.get_session(session_id).filter(|x| x.is_valid()) {
+        match self.get_session(session_id) {
             Some(session) => Ok(session.clone()),
             None => Ok(self.create_session(session_id, config)),
         }
