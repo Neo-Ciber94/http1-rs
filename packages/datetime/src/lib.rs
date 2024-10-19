@@ -591,11 +591,10 @@ impl Default for Builder {
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        DateTime, {DayOfWeek, Month},
+    };
     use std::time::Duration;
-
-    use crate::common::date_time::{DayOfWeek, Month};
-
-    use super::DateTime;
 
     #[test]
     fn should_create_date_with_builder() {
