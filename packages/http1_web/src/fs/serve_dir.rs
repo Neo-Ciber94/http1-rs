@@ -70,57 +70,60 @@ impl Handler<Request<Body>> for ServeDir {
         let path = req.uri().path_and_query().path();
         let from = &self.from;
 
-        println!("request path: {path}");
         if !path.starts_with(from) {
             return StatusCode::NOT_FOUND.into_response();
         }
 
-        let rest = &path[from.len()..];
-        let has_extension = rest.split("/").last().filter(|x| x.contains(".")).is_some();
+        let route = &path[from.len()..];
+        let has_extension = route
+            .split("/")
+            .last()
+            .filter(|x| x.contains("."))
+            .is_some();
         let base_dir = &self.to;
 
         // If the request its to a path without extension and there is not a file there, we try to get the /index.html for that path
-        let file_path = if !has_extension && self.index_html {
-            let index_html = format!("{rest}/index.html");
+        let serve_path = if !has_extension && self.index_html {
+            let index_html = format!("{route}/index.html");
             let index_file = base_dir.join(index_html.trim_start_matches("/"));
 
             if index_file.exists() {
                 index_file
             } else {
-                let page_html = format!("{rest}.html");
+                let page_html = format!("{route}.html");
                 let index_file = base_dir.join(page_html.trim_start_matches("/"));
 
                 if index_file.exists() {
                     index_file
                 } else {
-                    base_dir.join(rest.trim_start_matches("/"))
+                    base_dir.join(route.trim_start_matches("/"))
                 }
             }
         } else {
-            base_dir.join(rest.trim_start_matches("/"))
+            base_dir.join(route.trim_start_matches("/"))
         };
 
-        println!("file_path: {file_path:?} - base_dir: {base_dir:?} - path: {path} - rest: {rest}");
+        log::debug!("try serve path: {serve_path:?}");
 
-        if !file_path.exists() {
+        if !serve_path.exists() {
             return StatusCode::NOT_FOUND.into_response();
         }
 
-        let mime = file_path
+        let mime = serve_path
             .extension()
             .and_then(|x| x.to_str())
             .and_then(|ext| Mime::from_extension(ext).ok())
             .unwrap_or(Mime::APPLICATION_OCTET_STREAM);
 
-        if file_path.is_dir() {
+        if serve_path.is_dir() {
             if self.list_directory {
-                return list_directory_html(&self.from, rest, &file_path).into_response();
+                return list_directory_html(&self.from, route, &serve_path).into_response();
             } else {
                 return StatusCode::NOT_FOUND.into_response();
             }
         }
 
-        match File::open(&file_path) {
+        match File::open(&serve_path) {
             Ok(file) => {
                 let reader = BufReader::new(file);
                 Response::builder()
@@ -137,7 +140,7 @@ impl Handler<Request<Body>> for ServeDir {
 
 fn list_directory_html(
     base_dir: &str,
-    route: &str,
+    mut route: &str,
     dir: &Path,
 ) -> Result<Option<Element>, ErrorResponse> {
     let read_dir = std::fs::read_dir(dir).map_err(|err| {
@@ -145,11 +148,42 @@ fn list_directory_html(
         ErrorResponse::new(ErrorStatusCode::InternalServerError, ())
     })?;
 
-    let dir_name = format!("{base_dir}{}", if route.is_empty() { "/" } else { route });
+    route = route.trim_end_matches("/");
+    let dir_name = if route.is_empty() {
+        format!("{base_dir}")
+    } else {
+        format!("{base_dir}{route}")
+    };
 
     Ok(html::html(|| {
         html::head(|| {
             html::title(dir_name.clone());
+
+            html::meta(|| {
+                html::attr("charset", "UTF-8");
+                html::attr("content", "width=device-width, initial-scale=1.0");
+            });
+
+            html::style(
+                r#"
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            th, td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+            th {
+                background-color: #f2f2f2;
+            }
+            "#,
+            );
         });
 
         html::body(|| {
@@ -162,35 +196,23 @@ fn list_directory_html(
                         html::th("Modification Date");
                         html::th("File Size (Bytes)");
                     });
-
-                    html::meta(|| {
-                        html::attr("charset", "UTF-8");
-                        html::attr("content", "width=device-width, initial-scale=1.0");
-                    });
-
-                    html::style(
-                        r#"
-                    body {
-                        font-family: Arial, sans-serif;
-                        margin: 20px;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                    }
-                    th, td {
-                        border: 1px solid #ddd;
-                        padding: 8px;
-                        text-align: left;
-                    }
-                    th {
-                        background-color: #f2f2f2;
-                    }
-                    "#,
-                    );
                 });
 
                 html::tbody(|| {
+                    if !route.is_empty() {
+                        html::tr(|| {
+                            html::td(|| {
+                                html::a(|| {
+                                    html::attr("href", format!("{dir_name}/.."));
+                                    html::content("../");
+                                });
+                            });
+
+                            html::td("-");
+                            html::td("-");
+                        });
+                    }
+
                     for dir_entry in read_dir {
                         match dir_entry {
                             Ok(entry) => {
@@ -198,6 +220,7 @@ fn list_directory_html(
 
                                 let f = entry.file_name();
                                 let filename = f.to_string_lossy();
+
                                 let modification_date = entry
                                     .metadata()
                                     .ok()
@@ -220,13 +243,13 @@ fn list_directory_html(
                                     html::td(
                                         modification_date
                                             .map(|x| x.to_iso_8601_string())
-                                            .unwrap_or_default(),
+                                            .unwrap_or_else(|| String::from("-")),
                                     );
 
                                     html::td(
                                         byte_size
                                             .map(|size| format!("{size} bytes"))
-                                            .unwrap_or_default(),
+                                            .unwrap_or_else(|| String::from("-")),
                                     );
                                 });
                             }

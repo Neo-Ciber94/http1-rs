@@ -18,7 +18,7 @@ pub enum LogLevel {
 pub struct Record<'a> {
     module_path: &'static str,
     file: &'static str,
-    line: &'static str,
+    line: u32,
     args: Arguments<'a>,
 }
 
@@ -26,7 +26,7 @@ impl<'a> Record<'a> {
     pub fn new(
         module_path: &'static str,
         file: &'static str,
-        line: &'static str,
+        line: u32,
         args: Arguments<'a>,
     ) -> Self {
         Record {
@@ -45,7 +45,7 @@ impl<'a> Record<'a> {
         self.file
     }
 
-    pub fn line(&self) -> &'static str {
+    pub fn line(&self) -> u32 {
         self.line
     }
 
@@ -134,7 +134,7 @@ impl Logger for ConsoleLogger {
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($arg:tt)*) => {
-        $crate::__log($level, $crate::Record::new(module_path!(), file!(), line!(), format_args!($($arg)*)));
+        $crate::__log($level, $crate::Record::new(module_path!(), file!(), line!(), format_args!($($arg)*)))
     };
 }
 
