@@ -13,13 +13,21 @@ impl Middleware for Logging {
         let uri = req.uri().to_string();
         let now = DateTime::now_utc();
 
-        log::info!("{method} {uri}");
+        log::info!("Request: {method} {uri}");
 
         let response = next.call(req);
         let status_code = response.status();
         let duration_ms = DateTime::now_utc().millis_since(now);
 
-        log::info!("{status_code} - {duration_ms}ms");
+        let level = if status_code.is_client_error() {
+            log::LogLevel::Warn
+        } else if status_code.is_server_error() {
+            log::LogLevel::Error
+        } else {
+            log::LogLevel::Info
+        };
+
+        log::log!(level, "Response: {status_code} - {duration_ms}ms");
 
         response
     }
