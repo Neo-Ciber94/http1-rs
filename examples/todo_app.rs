@@ -26,6 +26,7 @@ mod db {
     pub enum Table {
         User,
         Todo,
+        Session,
     }
 
     struct Id(AtomicU64);
@@ -54,14 +55,27 @@ mod db {
         pub user_id: u64,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct Session {
+        pub id: String,
+        pub user_id: u64,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    enum Key {
+        Number(u64),
+        String(String),
+    }
+
     #[derive(Clone)]
-    pub struct DB(Arc<RwLock<HashMap<Table, HashMap<u64, Box<dyn Any + Send + Sync>>>>>);
+    pub struct DB(Arc<RwLock<HashMap<Table, HashMap<Key, Box<dyn Any + Send + Sync>>>>>);
 
     impl DB {
         pub fn new() -> Self {
             let tables = HashMap::from_iter([
                 (Table::User, Default::default()),
                 (Table::Todo, Default::default()),
+                (Table::Session, Default::default()),
             ]);
 
             DB(Arc::new(RwLock::new(tables)))
@@ -77,69 +91,202 @@ mod db {
         FailedToWrite,
     }
 
-    pub fn insert_user(db: DB, username: String) -> Result<User, DBError> {
+    pub fn insert_user(db: &DB, username: String) -> Result<User, DBError> {
         let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
-        let users = lock
+        let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
 
-        let id = NEXT_TODO_ID.next();
+        let id = NEXT_USER_ID.next();
         let user = User { id, username };
-        users.insert(id, Box::new(user.clone()));
+        records.insert(Key::Number(id), Box::new(user.clone()));
         Ok(user)
     }
 
-    pub fn update_user(db: DB, id: u64, username: String) -> Result<Option<User>, DBError> {
+    pub fn update_user(db: &DB, user: User) -> Result<Option<User>, DBError> {
         let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
-        let users = lock
+        let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
 
-        match users.get_mut(&id).and_then(|x| x.downcast_mut::<User>()) {
+        match records
+            .get_mut(&Key::Number(user.id))
+            .and_then(|x| x.downcast_mut::<User>())
+        {
             Some(user_to_update) => {
-                user_to_update.username = username;
+                user_to_update.username = user.username;
                 Ok(Some(user_to_update.clone()))
             }
             None => Ok(None),
         }
     }
 
-    pub fn delete_user(db: DB, id: u64) -> Result<Option<User>, DBError> {
+    pub fn delete_user(db: &DB, id: u64) -> Result<Option<User>, DBError> {
         let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
-        let users = lock
+        let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
 
-        let deleted_user = users
-            .remove(&id)
+        let deleted = records
+            .remove(&Key::Number(id))
             .and_then(|x| x.downcast::<User>().ok())
             .map(|x| *x);
 
-        Ok(deleted_user)
+        Ok(deleted)
     }
 
-    pub fn get_user(db: DB, id: u64) -> Result<Option<User>, DBError> {
+    pub fn get_user(db: &DB, id: u64) -> Result<Option<User>, DBError> {
         let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
-        let users = lock.get(&Table::User).expect("user table should exists");
+        let records = lock.get(&Table::User).expect("user table should exists");
 
-        users
-            .get(&id)
+        records
+            .get(&Key::Number(id))
             .and_then(|x| x.downcast_ref::<User>())
             .cloned()
             .map(Ok)
             .transpose()
     }
 
-    pub fn get_all_user(db: DB) -> Result<Vec<User>, DBError> {
+    pub fn get_all_user(db: &DB) -> Result<Vec<User>, DBError> {
         let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
-        let users = lock.get(&Table::User).expect("user table should exists");
+        let records = lock.get(&Table::User).expect("user table should exists");
 
-        let users = users
+        let users = records
             .values()
             .filter_map(|x| x.downcast_ref::<User>())
             .cloned()
             .collect::<Vec<_>>();
 
         Ok(users)
+    }
+
+    pub fn insert_todo(
+        db: &DB,
+        title: String,
+        description: Option<String>,
+        user_id: u64,
+    ) -> Result<Todo, DBError> {
+        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+        let records = lock
+            .get_mut(&Table::Todo)
+            .expect("todos table should exists");
+
+        let id = NEXT_TODO_ID.next();
+        let todo: Todo = Todo {
+            id,
+            title,
+            description,
+            is_done: false,
+            user_id,
+        };
+        records.insert(Key::Number(id), Box::new(todo.clone()));
+        Ok(todo)
+    }
+
+    pub fn update_todo(db: &DB, todo: Todo) -> Result<Option<Todo>, DBError> {
+        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+        let records = lock
+            .get_mut(&Table::Todo)
+            .expect("todo table should exists");
+
+        match records
+            .get_mut(&Key::Number(todo.id))
+            .and_then(|x| x.downcast_mut::<Todo>())
+        {
+            Some(to_update) => {
+                *to_update = todo;
+                Ok(Some(to_update.clone()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn delete_todo(db: &DB, id: u64) -> Result<Option<Todo>, DBError> {
+        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+        let records = lock
+            .get_mut(&Table::Todo)
+            .expect("todos table should exists");
+
+        let deleted = records
+            .remove(&Key::Number(id))
+            .and_then(|x| x.downcast::<Todo>().ok())
+            .map(|x| *x);
+
+        Ok(deleted)
+    }
+
+    pub fn get_todo(db: &DB, id: u64) -> Result<Option<Todo>, DBError> {
+        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+        let todos = lock.get(&Table::Todo).expect("todos table should exists");
+
+        todos
+            .get(&Key::Number(id))
+            .and_then(|x| x.downcast_ref::<Todo>())
+            .cloned()
+            .map(Ok)
+            .transpose()
+    }
+
+    pub fn get_all_todos(db: &DB) -> Result<Vec<Todo>, DBError> {
+        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+        let todos = lock.get(&Table::Todo).expect("todos table should exists");
+
+        let todos = todos
+            .values()
+            .filter_map(|x| x.downcast_ref::<Todo>())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        Ok(todos)
+    }
+
+    pub fn create_session(db: &DB, user_id: u64) -> Result<Session, DBError> {
+        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+        let records = lock
+            .get_mut(&Table::Session)
+            .expect("sessions table should exists");
+
+        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
+            .take(32)
+            .collect::<String>();
+        let session = Session {
+            id: id.clone(),
+            user_id,
+        };
+        records.insert(Key::String(id), Box::new(session.clone()));
+        Ok(session)
+    }
+
+    pub fn get_session_by_id(db: &DB, session_id: String) -> Result<Option<Session>, DBError> {
+        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+        let sessions = lock
+            .get(&Table::Session)
+            .expect("sessions table should exists");
+
+        sessions
+            .get(&Key::String(session_id))
+            .and_then(|x| x.downcast_ref::<Session>())
+            .cloned()
+            .map(Ok)
+            .transpose()
+    }
+
+    pub fn get_session_user(db: &DB, session_id: String) -> Result<Option<User>, DBError> {
+        let session = match get_session_by_id(db, session_id)? {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        get_user(db, session.user_id)
+    }
+
+    pub fn remove_session(db: &DB, session_id: String) -> Result<(), DBError> {
+        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+        let records = lock
+            .get_mut(&Table::Session)
+            .expect("sessions table should exists");
+
+        records.remove(&Key::String(session_id));
+        Ok(())
     }
 }
