@@ -31,6 +31,20 @@ impl MethodRoute {
     pub fn contains(&self, other: MethodRoute) -> bool {
         (self.0 & other.0) != 0
     }
+
+    pub fn all() -> [MethodRoute; 9] {
+        [
+            MethodRoute::GET,
+            MethodRoute::POST,
+            MethodRoute::PUT,
+            MethodRoute::DELETE,
+            MethodRoute::PATCH,
+            MethodRoute::OPTIONS,
+            MethodRoute::HEAD,
+            MethodRoute::TRACE,
+            MethodRoute::CONNECT,
+        ]
+    }
 }
 
 #[derive(Debug)]
@@ -60,6 +74,38 @@ impl<'a> TryFrom<&'a Method> for MethodRoute {
             Method::TRACE => Ok(MethodRoute::TRACE),
             Method::ExtensionMethod(s) => Err(InvalidMethodRoute(s.clone())),
         }
+    }
+}
+
+impl Display for MethodRoute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let methods: [MethodRoute; 9] = MethodRoute::all();
+        for (idx, method) in methods.iter().enumerate() {
+            if self.contains(*method) {
+                write_method(f, *self)?;
+
+                if idx < methods.len() - 1 {
+                    write!(f, " ")?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn write_method(f: &mut std::fmt::Formatter<'_>, method: MethodRoute) -> std::fmt::Result {
+    match method {
+        _ if MethodRoute::GET == method => write!(f, "GET"),
+        _ if MethodRoute::POST == method => write!(f, "POST"),
+        _ if MethodRoute::PUT == method => write!(f, "PUT"),
+        _ if MethodRoute::DELETE == method => write!(f, "DELETE"),
+        _ if MethodRoute::PATCH == method => write!(f, "PATCH"),
+        _ if MethodRoute::OPTIONS == method => write!(f, "OPTIONS"),
+        _ if MethodRoute::HEAD == method => write!(f, "HEAD"),
+        _ if MethodRoute::TRACE == method => write!(f, "TRACE"),
+        _ if MethodRoute::CONNECT == method => write!(f, "CONNECT"),
+        _ => panic!("Unable to determine method: {method:?}"),
     }
 }
 
