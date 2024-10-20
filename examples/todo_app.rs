@@ -14,8 +14,6 @@ fn main() -> std::io::Result<()> {
         .scope("/api", api_routes())
         .scope("/", home_routes());
 
-    log::debug!("{app:?}");
-
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
         .start(app)
@@ -59,6 +57,7 @@ mod routes {
             let session_cookie = cookies
                 .get(super::COOKIE_SESSION_NAME)
                 .ok_or_else(|| ErrorStatusCode::Unauthorized)?;
+
             match crate::db::get_session_user(&db, session_cookie.value().to_owned()) {
                 Ok(Some(user)) => Ok(AuthenticatedUser(user)),
                 _ => Err(ErrorStatusCode::Unauthorized),
@@ -87,8 +86,10 @@ mod routes {
                 log::info!("User created: {user:?}");
 
                 Ok((
-                    Redirect::temporary_redirect("/me"),
-                    Cookie::new(COOKIE_SESSION_NAME, session.id.clone()).build(),
+                    Redirect::see_other("/me"),
+                    Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
+                        .path("/")
+                        .build(),
                 )
                     .into_response())
             },
