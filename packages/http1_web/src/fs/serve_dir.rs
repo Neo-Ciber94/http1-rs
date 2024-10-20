@@ -8,7 +8,7 @@ use std::{
 use crate::{
     error_response::{ErrorResponse, ErrorStatusCode},
     handler::Handler,
-    html::{self, element::Element},
+    html::{self, element::HTMLElement},
     into_response::IntoResponse,
     mime::Mime,
 };
@@ -142,7 +142,7 @@ fn list_directory_html(
     base_dir: &str,
     mut route: &str,
     dir: &Path,
-) -> Result<Option<Element>, ErrorResponse> {
+) -> Result<HTMLElement, ErrorResponse> {
     let read_dir = std::fs::read_dir(dir).map_err(|err| {
         log::error!("Failed to list directory: {err}");
         ErrorResponse::new(ErrorStatusCode::InternalServerError, ())

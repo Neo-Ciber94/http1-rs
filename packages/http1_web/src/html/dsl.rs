@@ -1,4 +1,4 @@
-use super::element::{Attribute, Element, Node};
+use super::element::{Attribute, Element, HTMLElement, Node};
 use std::{borrow::Cow, cell::RefCell};
 
 pub enum AttrValue {
@@ -207,7 +207,7 @@ fn __html_element<T: IntoChildren>(
     tag: impl Into<String>,
     is_void: bool,
     content: T,
-) -> Option<Element> {
+) -> HTMLElement {
     CONTEXT.with_borrow_mut(move |ctx: &mut Context| {
         ctx.elements
             .push(Element::builder(tag).is_void(is_void).build());
@@ -215,7 +215,7 @@ fn __html_element<T: IntoChildren>(
 
     let children = content.into_children();
 
-    CONTEXT.with_borrow_mut(|ctx: &mut Context| {
+    let result = CONTEXT.with_borrow_mut(|ctx: &mut Context| {
         // Insert the current children in the last node
         if let Some(parent) = ctx.elements.last_mut() {
             match children {
@@ -240,16 +240,18 @@ fn __html_element<T: IntoChildren>(
 
         // Return the last node
         ctx.elements.pop()
-    })
+    });
+
+    result.into()
 }
 
 /// Declare a `html` element.
-pub fn html_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> Option<Element> {
+pub fn html_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> HTMLElement {
     __html_element(tag, false, content)
 }
 
 /// Declare a void `html` element.
-pub fn html_void_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> Option<Element> {
+pub fn html_void_element<T: IntoChildren>(tag: impl Into<String>, content: T) -> HTMLElement {
     __html_element(tag, true, content)
 }
 
@@ -309,7 +311,7 @@ pub fn styles(value: impl IntoAttrValue) {
 macro_rules! define_html_element_fn {
     ($($tag:ident),*) => {
        $(
-            pub fn $tag<T: IntoChildren>(content: T) -> Option<Element> {
+            pub fn $tag<T: IntoChildren>(content: T) -> HTMLElement {
                 html_element(stringify!($tag), content)
             }
        )*
@@ -319,7 +321,7 @@ macro_rules! define_html_element_fn {
 macro_rules! define_html_void_element_fn {
     ($($tag:ident),*) => {
        $(
-            pub fn $tag<T: IntoChildren>(content: T) -> Option<Element> {
+            pub fn $tag<T: IntoChildren>(content: T) -> HTMLElement {
                 html_void_element(stringify!($tag), content)
             }
        )*
@@ -327,7 +329,7 @@ macro_rules! define_html_void_element_fn {
 }
 
 #[doc = concat!("Declares a `<")]
-pub fn hello<T: IntoChildren>(content: T) -> Option<Element> {
+pub fn hello<T: IntoChildren>(content: T) -> HTMLElement {
     html_element(stringify!(hello), content)
 }
 
@@ -373,7 +375,7 @@ mod tests {
 
     #[test]
     fn should_build_1_level_html() {
-        let html = html_element("html", || {}).unwrap();
+        let html = html_element("html", || {}).into_element().unwrap();
         assert_eq!(html.tag(), "html");
     }
 
@@ -381,8 +383,7 @@ mod tests {
     fn should_build_2_level_html() {
         let html = html_element("html", || {
             html_element("body", || {});
-        })
-        .unwrap();
+        }).into_element().unwrap();
 
         assert_eq!(html.tag(), "html");
         assert_eq!(html.children().len(), 1);
@@ -408,8 +409,7 @@ mod tests {
                     html_void_element("hr", || {});
                 });
             });
-        })
-        .expect("no html nodes");
+        }).into_element().unwrap();
 
         assert_eq!(
             html.to_string(),

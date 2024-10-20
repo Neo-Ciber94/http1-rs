@@ -55,6 +55,7 @@ impl Attribute {
     }
 }
 
+/// An html DOM node.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Node {
     Element(Element),
@@ -138,6 +139,7 @@ impl From<Builder> for Node {
     }
 }
 
+/// An DOM element, eg: `<html>`, `<body>`, `<div>`, etc.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Element {
     tag: String,
@@ -190,6 +192,51 @@ impl IntoResponse for Element {
 impl Display for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write_element(self, f, 0)
+    }
+}
+
+/// An html element or empty.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HTMLElement {
+    Element(Element),
+    None,
+}
+
+impl HTMLElement {
+    pub fn into_element(self) -> Option<Element> {
+        match self {
+            HTMLElement::Element(element) => Some(element),
+            HTMLElement::None => None,
+        }
+    }
+}
+
+impl From<Element> for HTMLElement {
+    fn from(value: Element) -> Self {
+        HTMLElement::Element(value)
+    }
+}
+
+impl From<Option<Element>> for HTMLElement {
+    fn from(value: Option<Element>) -> Self {
+        match value {
+            Some(e) => HTMLElement::Element(e),
+            None => HTMLElement::None,
+        }
+    }
+}
+
+impl IntoResponse for HTMLElement {
+    fn into_response(self) -> http1::response::Response<http1::body::Body> {
+        let html = match self {
+            HTMLElement::Element(element) => element.to_string(),
+            HTMLElement::None => {
+                log::warn!("DOM element was empty");
+                String::new()
+            }
+        };
+
+        Html(html).into_response()
     }
 }
 
