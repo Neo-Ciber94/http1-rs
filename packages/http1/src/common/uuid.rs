@@ -144,7 +144,6 @@ mod tests {
         assert_eq!(s, "{12345678-90ab-cdef-1234-567890abcdef}");
     }
 
-
     #[test]
     fn should_create_and_format_new_v4_uuid() {
         let uuid = Uuid::new_v4();

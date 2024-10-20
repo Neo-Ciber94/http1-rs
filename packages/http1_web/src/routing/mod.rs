@@ -1,8 +1,8 @@
 use params::ParamsMap;
 use route::Route;
 
-pub mod params;
 pub mod method_route;
+pub mod params;
 mod route;
 mod simple_router;
 

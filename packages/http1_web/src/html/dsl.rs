@@ -75,11 +75,7 @@ macro_rules! impl_into_children_to_display {
 }
 
 impl_into_children_to_display!(
-    u8, u16, u32, u64, u128, 
-    i8, i16, i32, i64, i128, 
-    usize, isize,
-    f32, f64, 
-    bool, char
+    u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, f32, f64, bool, char
 );
 
 impl IntoChildren for () {
@@ -383,7 +379,9 @@ mod tests {
     fn should_build_2_level_html() {
         let html = html_element("html", || {
             html_element("body", || {});
-        }).into_element().unwrap();
+        })
+        .into_element()
+        .unwrap();
 
         assert_eq!(html.tag(), "html");
         assert_eq!(html.children().len(), 1);
@@ -409,7 +407,9 @@ mod tests {
                     html_void_element("hr", || {});
                 });
             });
-        }).into_element().unwrap();
+        })
+        .into_element()
+        .unwrap();
 
         assert_eq!(
             html.to_string(),
