@@ -71,7 +71,7 @@ macro_rules! impl_deserialize_struct {
 #[macro_export]
 macro_rules! impl_serialize_struct {
     ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
-        impl crate::serde::ser::Serialize for $struct {
+        impl $crate::serde::ser::Serialize for $struct {
             fn serialize<S: $crate::serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
                 use $crate::serde::ser::MapSerializer;
 
