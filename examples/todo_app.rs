@@ -1,24 +1,185 @@
+use db::DB;
 use http1::server::Server;
-use http1_web::{app::App, into_response::IntoResponse};
+use http1_web::{app::App, middleware::logging::Logging};
+use routes::{api_routes, auth_routes, home_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
     let addr = "127.0.0.1:5000".parse().unwrap();
 
+    let app = App::new()
+        .state(DB::new())
+        .middleware(Logging)
+        .scope("/api", api_routes())
+        .scope("/", home_routes())
+        .scope("/auth", auth_routes());
+
     Server::new(addr)
-        .on_ready(|addr| log::debug!("Listening on http://{addr}"))
-        .start(App::new().get("/", hello))
+        .on_ready(|addr| log::info!("Listening on http://{addr}"))
+        .start(app)
 }
 
-fn hello() -> impl IntoResponse {
-    "Hello World!"
+const COOKIE_SESSION_NAME: &str = "auth-session-id";
+
+mod routes {
+    use http1::{body::Body, response::Response};
+    use http1_web::{
+        app::Scope,
+        cookies::{Cookie, Cookies},
+        error_response::{ErrorResponse, ErrorStatusCode},
+        forms::form::Form,
+        from_request::FromRequestRef,
+        html::{self, element::HTMLElement},
+        impl_serde_struct,
+        into_response::IntoResponse,
+        redirect::Redirect,
+        state::State,
+    };
+
+    use crate::{
+        components::Title,
+        db::{User, DB},
+        COOKIE_SESSION_NAME,
+    };
+
+    #[derive(Debug)]
+    struct AuthenticatedUser(pub User);
+
+    impl FromRequestRef for AuthenticatedUser {
+        type Rejection = ErrorStatusCode;
+
+        fn from_request_ref(
+            req: &http1::request::Request<http1::body::Body>,
+        ) -> Result<Self, Self::Rejection> {
+            let State(db) = State::<DB>::from_request_ref(req)
+                .map_err(|_| ErrorStatusCode::InternalServerError)?;
+            let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+            let session_cookie = cookies
+                .get(super::COOKIE_SESSION_NAME)
+                .ok_or_else(|| ErrorStatusCode::Unauthorized)?;
+            match crate::db::get_session_user(&db, session_cookie.value().to_owned()) {
+                Ok(Some(user)) => Ok(AuthenticatedUser(user)),
+                _ => Err(ErrorStatusCode::Unauthorized),
+            }
+        }
+    }
+
+    pub fn home_routes() -> Scope {
+        Scope::new().get("/", || "Hello World!")
+    }
+
+    pub fn api_routes() -> Scope {
+        #[derive(Debug)]
+        struct LoginUser {
+            pub username: String,
+        }
+
+        impl_serde_struct!(LoginUser => {
+             username: String
+        });
+
+        Scope::new().post(
+            "/login",
+            |State(db): State<DB>,
+             input: Form<LoginUser>|
+             -> Result<Response<Body>, ErrorResponse> {
+                let user = crate::db::insert_user(&db, input.into_inner().username)?;
+                let session = crate::db::create_session(&db, user.id)?;
+
+                log::info!("User created: {user:?}");
+
+                Ok((
+                    Redirect::temporary_redirect("/me"),
+                    Cookie::new(COOKIE_SESSION_NAME, session.id.clone()).build(),
+                )
+                    .into_response())
+            },
+        )
+    }
+
+    pub fn auth_routes() -> Scope {
+        Scope::new()
+            .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
+
+                if auth.is_some() {
+                    return Err(Redirect::see_other("/"));
+                }
+
+                Ok(html::html(|| {
+                    Title("TodoApp | Login", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::h1(|| {
+                                html::content("Login to TodoApp");
+                                html::class("text-2xl font-bold text-center text-blue-600");
+                            });
+    
+                            html::form(|| {
+                                html::attr("method", "post");
+                                html::attr("action", "/api/login");
+
+                                html::input(|| {
+                                    html::attr("type", "text");
+                                    html::attr("placeholder", "Username");
+                                    html::attr("name", "username");
+                                    html::class("mt-4 p-2 border border-gray-300 rounded w-full");
+                                });
+    
+                                html::button(|| {
+                                    html::content("Login");
+                                    html::class("mt-4 p-2 bg-green-500 text-white rounded w-full hover:bg-green-600");
+                                });
+                            });
+                        });
+                    });
+                }))
+            })
+            .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
+                html::html(|| {
+                    Title("TodoApp | Me", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::h1(|| {
+                                html::content(format!("Welcome, {}!", user.username));
+                                html::class("text-2xl font-bold text-center text-blue-600");
+                            });
+    
+                            html::p(|| {
+                                html::content(format!("User ID: {}", user.id));
+                                html::class("mt-4 text-gray-600 text-center");
+                            });
+                        });
+                    });
+                })
+            })
+    }
+}
+
+#[allow(non_snake_case)]
+mod components {
+    use http1_web::html::{self, element::HTMLElement, IntoChildren};
+
+    pub fn Title(title: impl Into<String>, content: impl IntoChildren) -> HTMLElement {
+        html::head(|| {
+            html::title(title.into());
+            html::meta(|| html::attr("charset", "UTF-8"));
+            html::script(|| {
+                html::attr("src", "https://cdn.tailwindcss.com");
+            });
+
+            content.into_children();
+        })
+    }
 }
 
 mod db {
     use std::{
         any::Any,
         collections::HashMap,
+        fmt::Display,
         sync::{atomic::AtomicU64, Arc, RwLock},
     };
 
@@ -89,6 +250,17 @@ mod db {
     pub enum DBError {
         FailedToRead,
         FailedToWrite,
+    }
+
+    impl std::error::Error for DBError {}
+
+    impl Display for DBError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                DBError::FailedToRead => write!(f, "failed to open database to read"),
+                DBError::FailedToWrite => write!(f, "failed to open database to write"),
+            }
+        }
     }
 
     pub fn insert_user(db: &DB, username: String) -> Result<User, DBError> {

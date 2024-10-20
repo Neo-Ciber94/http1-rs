@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
+    sync::Arc,
 };
 
 use http1::{common::any_map::AnyMap, status::StatusCode};
@@ -72,7 +73,7 @@ impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
         req: &http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
         req.extensions()
-            .get::<AppState>()
+            .get::<Arc<AppState>>()
             .and_then(|x| x.get::<T>())
             .cloned()
             .map(State)

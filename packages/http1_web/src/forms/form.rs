@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use http1::{
     body::http_body::HttpBody,
@@ -9,7 +9,7 @@ use http1::{
     status::StatusCode,
     uri::{
         convert::{self, InvalidUriComponent},
-        path_query::{PathAndQuery, QueryMap, QueryValue},
+        path_query::{QueryMap, QueryValue},
         uri::InvalidUri,
     },
 };
@@ -96,7 +96,7 @@ impl<T: Deserialize> FromRequest for Form<T> {
 
         match content_type.as_str().split(";").next() {
             Some(mime) => {
-                if mime == WWW_FORM_URLENCODED {
+                if mime != WWW_FORM_URLENCODED {
                     return Err(RejectFormError::InvalidContentType(mime.to_owned()));
                 }
 
@@ -108,13 +108,11 @@ impl<T: Deserialize> FromRequest for Form<T> {
                 let s =
                     String::from_utf8(bytes).map_err(|e| RejectFormError::Utf8Error(e.into()))?;
 
-                let q = convert::decode_uri_component(s)
+                let q = convert::decode_uri_component(&s)
                     .map_err(RejectFormError::InvalidUriComponent)?;
 
-                let path_and_query =
-                    PathAndQuery::from_str(&q).map_err(RejectFormError::InvalidUri)?;
+                let query_map = QueryMap::from_query_str(&q);
 
-                let query_map = path_and_query.query_map();
                 T::deserialize(QueryDeserializer(query_map))
                     .map(Form)
                     .map_err(|e| RejectFormError::DeserializationError(e.into()))

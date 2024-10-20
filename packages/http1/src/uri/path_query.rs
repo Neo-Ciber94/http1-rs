@@ -184,6 +184,31 @@ impl Display for QueryMap {
 }
 
 impl QueryMap {
+    pub fn from_query_str(value: &str) -> Self {
+        let query_values = QueryValues::Values {
+            iter: value.split("&"),
+        };
+        let mut map = OrderedMap::<String, QueryValue>::new();
+
+        for (key, value) in query_values {
+            if map.contains_key(key) {
+                let entry = map.get_mut(key).unwrap();
+                match entry {
+                    QueryValue::One(s) => {
+                        let cur = std::mem::take(s);
+                        let list = vec![cur, value.to_owned()];
+                        *entry = QueryValue::List(list);
+                    }
+                    QueryValue::List(list) => list.push(value.to_owned()),
+                }
+            } else {
+                map.insert(key.to_owned(), QueryValue::One(value.to_string()));
+            }
+        }
+
+        QueryMap(map)
+    }
+
     pub fn new(map: OrderedMap<String, QueryValue>) -> Self {
         QueryMap(map)
     }

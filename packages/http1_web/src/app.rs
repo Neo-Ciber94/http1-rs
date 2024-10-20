@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+};
 
 use http1::{
     body::Body, handler::RequestHandler, request::Request, response::Response, status::StatusCode,
@@ -9,7 +12,7 @@ use crate::{
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
     middleware::{BoxedMiddleware, Middleware},
-    routing::{method_route::MethodRoute, Router},
+    routing::{method_route::MethodRoute, params::ParamsMap, Match, Router},
     state::AppState,
 };
 
@@ -154,54 +157,63 @@ impl App {
     }
 }
 
+static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> = LazyLock::new(|| BoxedHandler::new(NotFound));
+
 impl RequestHandler for App {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
 
+        let fallback = self
+            .fallback
+            .as_ref()
+            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+
         let method = MethodRoute::from_method(req.method());
         let req_path = req.uri().path_and_query().path().to_owned();
-        let route_match = self
+        let mtch = self
             .scope
             .method_router
             .get(&method)
-            .and_then(|router| router.find(&req_path));
+            .and_then(|router| router.find(&req_path))
+            .unwrap_or_else(|| Match {
+                params: ParamsMap::default(),
+                value: fallback,
+            });
 
-        match route_match {
-            Some(mtch) => {
-                // Add any additional extensions
-                req.extensions_mut().insert(mtch.params.clone());
-                req.extensions_mut().insert(self.app_state.clone());
+        // Add any additional extensions
+        req.extensions_mut().insert(mtch.params.clone());
+        req.extensions_mut().insert(self.app_state.clone());
 
-                // Handle the request
-                let res = if middlewares.is_empty() {
-                    mtch.value.call(req)
-                } else {
-                    let handler = middlewares
-                        .iter()
-                        .cloned()
-                        .fold(mtch.value.clone(), |cur, next| {
-                            BoxedHandler::new(move |r| next.on_request(r, &cur))
-                        });
+        // Handle the request
+        let res = if middlewares.is_empty() {
+            mtch.value.call(req)
+        } else {
+            let handler = middlewares
+                .iter()
+                .cloned()
+                .fold(mtch.value.clone(), |cur, next| {
+                    BoxedHandler::new(move |r| next.on_request(r, &cur))
+                });
 
-                    handler.call(req)
-                };
+            handler.call(req)
+        };
 
-                match method {
-                    // We don't need the body for HEAD requests
-                    MethodRoute::HEAD => res.map_body(|_| Body::empty()),
-                    _ => res,
-                }
-            }
-            None => match &self.fallback {
-                Some(fallback) => fallback.call(req),
-                None => not_found_handler(req),
-            },
+        match method {
+            // We don't need the body for HEAD requests
+            MethodRoute::HEAD => res.map_body(|_| Body::empty()),
+            _ => res,
         }
     }
 }
 
-fn not_found_handler(_: Request<Body>) -> Response<Body> {
-    Response::new(StatusCode::NOT_FOUND, Body::empty())
+struct NotFound;
+
+impl Handler<Request<Body>> for NotFound {
+    type Output = Response<Body>;
+
+    fn call(&self, _: Request<Body>) -> Self::Output {
+        Response::new(StatusCode::NOT_FOUND, Body::empty())
+    }
 }
 
 pub struct Scope {
@@ -232,6 +244,8 @@ impl Scope {
     }
 
     fn add_route(&mut self, method: MethodRoute, route: &str, handler: BoxedHandler) {
+        log::debug!("Adding route: {method} => {route}");
+
         match self.method_router.entry(method) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().insert(route, handler);
