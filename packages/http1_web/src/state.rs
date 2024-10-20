@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     ops::{Deref, DerefMut},
     sync::Arc,
 };
@@ -34,6 +34,12 @@ impl<T> Deref for State<T> {
 
 #[derive(Default)]
 pub struct AppState(AnyMap);
+
+impl Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("AppState").finish()
+    }
+}
 
 impl Deref for AppState {
     type Target = AnyMap;

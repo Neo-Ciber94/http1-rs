@@ -1,7 +1,7 @@
 use db::DB;
 use http1::server::Server;
 use http1_web::{app::App, middleware::logging::Logging};
-use routes::{api_routes, auth_routes, home_routes};
+use routes::{api_routes, home_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -12,8 +12,9 @@ fn main() -> std::io::Result<()> {
         .state(DB::new())
         .middleware(Logging)
         .scope("/api", api_routes())
-        .scope("/", home_routes())
-        .scope("/auth", auth_routes());
+        .scope("/", home_routes());
+
+    log::debug!("{app:?}");
 
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
@@ -65,10 +66,6 @@ mod routes {
         }
     }
 
-    pub fn home_routes() -> Scope {
-        Scope::new().get("/", || "Hello World!")
-    }
-
     pub fn api_routes() -> Scope {
         #[derive(Debug)]
         struct LoginUser {
@@ -98,63 +95,64 @@ mod routes {
         )
     }
 
-    pub fn auth_routes() -> Scope {
+    pub fn home_routes() -> Scope {
         Scope::new()
-            .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
+        .get("/", || "Hello World!")     
+        .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
 
-                if auth.is_some() {
-                    return Err(Redirect::see_other("/"));
-                }
+            if auth.is_some() {
+                return Err(Redirect::see_other("/"));
+            }
 
-                Ok(html::html(|| {
-                    Title("TodoApp | Login", ());
-    
-                    html::body(|| {
-                        html::div(|| {
-                            html::h1(|| {
-                                html::content("Login to TodoApp");
-                                html::class("text-2xl font-bold text-center text-blue-600");
+            Ok(html::html(|| {
+                Title("TodoApp | Login", ());
+
+                html::body(|| {
+                    html::div(|| {
+                        html::h1(|| {
+                            html::content("Login to TodoApp");
+                            html::class("text-2xl font-bold text-center text-blue-600");
+                        });
+
+                        html::form(|| {
+                            html::attr("method", "post");
+                            html::attr("action", "/api/login");
+
+                            html::input(|| {
+                                html::attr("type", "text");
+                                html::attr("placeholder", "Username");
+                                html::attr("name", "username");
+                                html::class("mt-4 p-2 border border-gray-300 rounded w-full");
                             });
-    
-                            html::form(|| {
-                                html::attr("method", "post");
-                                html::attr("action", "/api/login");
 
-                                html::input(|| {
-                                    html::attr("type", "text");
-                                    html::attr("placeholder", "Username");
-                                    html::attr("name", "username");
-                                    html::class("mt-4 p-2 border border-gray-300 rounded w-full");
-                                });
-    
-                                html::button(|| {
-                                    html::content("Login");
-                                    html::class("mt-4 p-2 bg-green-500 text-white rounded w-full hover:bg-green-600");
-                                });
+                            html::button(|| {
+                                html::content("Login");
+                                html::class("mt-4 p-2 bg-green-500 text-white rounded w-full hover:bg-green-600");
                             });
                         });
                     });
-                }))
-            })
-            .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
-                html::html(|| {
-                    Title("TodoApp | Me", ());
-    
-                    html::body(|| {
-                        html::div(|| {
-                            html::h1(|| {
-                                html::content(format!("Welcome, {}!", user.username));
-                                html::class("text-2xl font-bold text-center text-blue-600");
-                            });
-    
-                            html::p(|| {
-                                html::content(format!("User ID: {}", user.id));
-                                html::class("mt-4 text-gray-600 text-center");
-                            });
+                });
+            }))
+        })
+        .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
+            html::html(|| {
+                Title("TodoApp | Me", ());
+
+                html::body(|| {
+                    html::div(|| {
+                        html::h1(|| {
+                            html::content(format!("Welcome, {}!", user.username));
+                            html::class("text-2xl font-bold text-center text-blue-600");
+                        });
+
+                        html::p(|| {
+                            html::content(format!("User ID: {}", user.id));
+                            html::class("mt-4 text-gray-600 text-center");
                         });
                     });
-                })
+                });
             })
+        })
     }
 }
 

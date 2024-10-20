@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     sync::{Arc, LazyLock},
 };
 
@@ -16,6 +17,7 @@ use crate::{
     state::AppState,
 };
 
+#[derive(Debug)]
 pub struct App {
     scope: Scope,
     fallback: Option<BoxedHandler>,
@@ -226,15 +228,13 @@ impl Scope {
             method_router: HashMap::new(),
         }
     }
-}
 
-impl Scope {
     fn add_scope(&mut self, route: &str, scope: Scope) {
         for (method, router) in scope.method_router {
             for (r, handler) in router.into_entries() {
                 let sub_route = r.to_string();
-                let full_path = if sub_route == "/" {
-                    route.to_string()
+                let full_path = if route == "/" {
+                    sub_route
                 } else {
                     format!("{route}{sub_route}")
                 };
@@ -352,5 +352,17 @@ impl Scope {
         R: IntoResponse,
     {
         self.route(MethodRoute::any(), route, handler)
+    }
+}
+
+impl Debug for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut map = f.debug_map();
+
+        for (method, handler) in self.method_router.iter() {
+            map.entry(&method, &handler);
+        }
+
+        map.finish()
     }
 }

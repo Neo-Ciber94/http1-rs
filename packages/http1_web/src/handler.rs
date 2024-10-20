@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use http1::{body::Body, request::Request, response::Response};
 
@@ -11,6 +11,12 @@ pub trait Handler<Args> {
 
 #[derive(Clone)]
 pub struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
+
+impl Debug for BoxedHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("BoxedHandler").finish()
+    }
+}
 
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
