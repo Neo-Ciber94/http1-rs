@@ -49,44 +49,9 @@ pub enum ErrorStatusCode {
     NetworkAuthenticationRequired,
 }
 
-enum Inner {
-    Response(Box<dyn FnOnce() -> Response<Body>>),
-    Error(Box<dyn std::error::Error + Send + Sync + 'static>),
-}
-
-/// Represents an error response.
-pub struct ErrorResponse {
-    status: ErrorStatusCode,
-    inner: Inner,
-}
-
-impl ErrorResponse {
-    /// Constructs an `ErrorResponse` with a type that can be converted to a `IntoResponse`.
-    pub fn new<T>(status: ErrorStatusCode, response: T) -> Self
-    where
-        T: IntoResponse + 'static,
-    {
-        let response = Box::new(|| response.into_response());
-        ErrorResponse {
-            status,
-            inner: Inner::Response(response),
-        }
-    }
-
-    /// Constructs an `ErrorResponse` from a status an an `std::error::Error`.
-    pub fn from_error<E>(status: ErrorStatusCode, error: E) -> Self
-    where
-        E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
-    {
-        ErrorResponse {
-            status,
-            inner: Inner::Error(error.into()),
-        }
-    }
-
-    /// Returns the status code for this error.
-    pub fn status_code(&self) -> StatusCode {
-        match self.status {
+impl ErrorStatusCode {
+    pub fn as_status_code(&self) -> StatusCode {
+        match self {
             // 400 Series (Client Errors)
             ErrorStatusCode::BadRequest => StatusCode::BAD_REQUEST,
             ErrorStatusCode::Unauthorized => StatusCode::UNAUTHORIZED,
@@ -138,6 +103,53 @@ impl ErrorResponse {
                 StatusCode::NETWORK_AUTHENTICATION_REQUIRED
             }
         }
+    }
+}
+
+impl IntoResponse for ErrorStatusCode {
+    fn into_response(self) -> Response<Body> {
+        self.as_status_code().into_response()
+    }
+}
+
+enum Inner {
+    Response(Box<dyn FnOnce() -> Response<Body>>),
+    Error(Box<dyn std::error::Error + Send + Sync + 'static>),
+}
+
+/// Represents an error response.
+pub struct ErrorResponse {
+    status: ErrorStatusCode,
+    inner: Inner,
+}
+
+impl ErrorResponse {
+    /// Constructs an `ErrorResponse` with a type that can be converted to a `IntoResponse`.
+    pub fn new<T>(status: ErrorStatusCode, response: T) -> Self
+    where
+        T: IntoResponse + 'static,
+    {
+        let response = Box::new(|| response.into_response());
+        ErrorResponse {
+            status,
+            inner: Inner::Response(response),
+        }
+    }
+
+    /// Constructs an `ErrorResponse` from a status an an `std::error::Error`.
+    pub fn from_error<E>(status: ErrorStatusCode, error: E) -> Self
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    {
+        ErrorResponse {
+            status,
+            inner: Inner::Error(error.into()),
+        }
+    }
+
+    /// Returns the status code for this error.
+    pub fn status_code(&self) -> StatusCode {
+        self.status.as_status_code()
     }
 
     /// Returns the error status code.
