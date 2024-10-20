@@ -1,6 +1,5 @@
 pub mod app;
 pub mod cookies;
-pub mod data;
 pub mod error_response;
 pub mod forms;
 pub mod from_request;

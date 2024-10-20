@@ -1,25 +1,25 @@
-use std::{fmt::Display, ops::Deref, sync::Arc};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
-use http1::status::StatusCode;
+use http1::{common::any_map::AnyMap, status::StatusCode};
 
 use crate::{from_request::FromRequestRef, into_response::IntoResponse};
 
+/// A state to share within requests.
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct State<T>(Arc<T>);
+pub struct State<T>(pub T);
 
 impl<T> State<T> {
+    /// Constructs a new state.
     pub fn new(value: T) -> Self {
-        State(Arc::new(value))
+        State(value)
     }
 
-    pub fn inner(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T> Clone for State<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
+    /// Returns the inner value.
+    pub fn into_inner(self) -> T {
+        self.0
     }
 }
 
@@ -27,7 +27,24 @@ impl<T> Deref for State<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.inner()
+        &self.0
+    }
+}
+
+#[derive(Default)]
+pub struct AppState(AnyMap);
+
+impl Deref for AppState {
+    type Target = AnyMap;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for AppState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -48,15 +65,17 @@ impl IntoResponse for AppStateError {
     }
 }
 
-impl<T: Send + Sync + 'static> FromRequestRef for State<T> {
+impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
     type Rejection = AppStateError;
 
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
         req.extensions()
-            .get::<State<T>>()
+            .get::<AppState>()
+            .and_then(|x| x.get::<T>())
             .cloned()
+            .map(State)
             .ok_or(AppStateError)
     }
 }

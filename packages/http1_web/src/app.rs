@@ -5,46 +5,39 @@ use http1::{
 };
 
 use crate::{
-    data::DataMap,
     from_request::FromRequest,
     handler::{BoxedHandler, Handler},
     into_response::IntoResponse,
     middleware::{BoxedMiddleware, Middleware},
     routing::{method_route::MethodRoute, Router},
-    state::State,
+    state::AppState,
 };
 
-pub struct App<T> {
+pub struct App {
     scope: Scope,
     fallback: Option<BoxedHandler>,
     middleware: Vec<BoxedMiddleware>,
-    data_map: Arc<DataMap>,
-    state: State<T>,
+    app_state: Arc<AppState>,
 }
 
-impl App<()> {
-    pub fn new() -> App<()> {
-        Self::with_state(())
-    }
-
-    pub fn with_state<T>(state: T) -> App<T> {
+impl App {
+    pub fn new() -> App {
         App {
             scope: Scope::new(),
             fallback: None,
             middleware: Vec::new(),
-            state: State::new(state),
-            data_map: Arc::new(DataMap::new()),
+            app_state: Arc::new(AppState::default()),
         }
     }
 }
 
-impl Default for App<()> {
+impl Default for App {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> App<T> {
+impl App {
     pub fn middleware<M>(mut self, middleware: M) -> Self
     where
         M: Middleware + Send + Sync + 'static,
@@ -53,11 +46,11 @@ impl<T> App<T> {
         self
     }
 
-    pub fn data<U>(mut self, value: U) -> Self
+    pub fn state<U>(mut self, value: U) -> Self
     where
-        U: Send + Sync + 'static,
+        U: Clone + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.data_map)
+        Arc::get_mut(&mut self.app_state)
             .expect("Failed to get data map")
             .insert(value);
         self
@@ -161,10 +154,7 @@ impl<T> App<T> {
     }
 }
 
-impl<T> RequestHandler for App<T>
-where
-    T: Send + Sync + 'static,
-{
+impl RequestHandler for App {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
 
@@ -180,8 +170,7 @@ where
             Some(mtch) => {
                 // Add any additional extensions
                 req.extensions_mut().insert(mtch.params.clone());
-                req.extensions_mut().insert(self.state.clone());
-                req.extensions_mut().insert(self.data_map.clone());
+                req.extensions_mut().insert(self.app_state.clone());
 
                 // Handle the request
                 let res = if middlewares.is_empty() {
