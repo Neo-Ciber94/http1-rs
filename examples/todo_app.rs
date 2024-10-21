@@ -1,7 +1,7 @@
 use db::DB;
 use http1::server::Server;
-use http1_web::{app::App, middleware::logging::Logging};
-use routes::{api_routes, home_routes};
+use http1_web::{app::App, middleware::{logging::Logging, redirection::Redirection}};
+use routes::{api_routes, home_routes, todos_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -11,8 +11,10 @@ fn main() -> std::io::Result<()> {
     let app = App::new()
         .state(DB::new())
         .middleware(Logging)
+        //.middleware(Redirection::new("/", "/login"))
         .scope("/api", api_routes())
-        .scope("/", home_routes());
+        .scope("/", home_routes())
+        .scope("/todos", todos_routes());
 
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
@@ -24,43 +26,56 @@ const COOKIE_SESSION_NAME: &str = "auth-session-id";
 mod routes {
     use http1::{body::Body, response::Response};
     use http1_web::{
-        app::Scope,
-        cookies::{Cookie, Cookies},
-        error_response::{ErrorResponse, ErrorStatusCode},
-        forms::form::Form,
-        from_request::FromRequestRef,
-        html::{self, element::HTMLElement},
-        impl_serde_struct,
-        into_response::IntoResponse,
-        redirect::Redirect,
-        state::State,
+        app::Scope, cookies::{Cookie, Cookies}, error_response::{ErrorResponse, ErrorStatusCode}, forms::form::Form, from_request::FromRequestRef, html::{self, element::HTMLElement}, impl_serde_struct, into_response::IntoResponse, path::Path, redirect::Redirect, state::State
     };
 
     use crate::{
         components::Title,
-        db::{User, DB},
+        db::{Todo, User, DB},
         COOKIE_SESSION_NAME,
     };
 
     #[derive(Debug)]
     struct AuthenticatedUser(pub User);
 
+    enum AuthenticatedUserRejection {
+        StateError,
+        RedirectToLogin
+    }
+
+    impl IntoResponse for AuthenticatedUserRejection {
+        fn into_response(self) -> Response<Body> {
+            match self {
+                AuthenticatedUserRejection::StateError => ErrorStatusCode::InternalServerError.into_response(),
+                AuthenticatedUserRejection::RedirectToLogin => Redirect::see_other("/login").into_response(),
+            }
+        }
+    }
+
     impl FromRequestRef for AuthenticatedUser {
-        type Rejection = ErrorStatusCode;
+        type Rejection = AuthenticatedUserRejection;
 
         fn from_request_ref(
             req: &http1::request::Request<http1::body::Body>,
         ) -> Result<Self, Self::Rejection> {
             let State(db) = State::<DB>::from_request_ref(req)
-                .map_err(|_| ErrorStatusCode::InternalServerError)?;
+            .inspect_err(|err| {
+                log::error!("Failed to get database: {err}");
+            })
+                .map_err(|_| AuthenticatedUserRejection::StateError)?;
+
             let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+
             let session_cookie = cookies
                 .get(super::COOKIE_SESSION_NAME)
-                .ok_or_else(|| ErrorStatusCode::Unauthorized)?;
+                .ok_or_else(|| AuthenticatedUserRejection::RedirectToLogin)?;
 
             match crate::db::get_session_user(&db, session_cookie.value().to_owned()) {
                 Ok(Some(user)) => Ok(AuthenticatedUser(user)),
-                _ => Err(ErrorStatusCode::Unauthorized),
+                x => {
+                    log::error!("user session not found: {x:?}");
+                    Err(AuthenticatedUserRejection::RedirectToLogin)
+                },
             }
         }
     }
@@ -75,86 +90,376 @@ mod routes {
              username: String
         });
 
-        Scope::new().post(
+        struct CreateTodo {
+            pub title: String,
+            pub description: Option<String>,
+        }
+    
+        impl_serde_struct!(CreateTodo => {
+             title: String,
+             description: Option<String>,
+        });
+
+        struct UpdateTodo {
+            pub id: u64,
+            pub title: String,
+            pub description: Option<String>,
+        }
+    
+        impl_serde_struct!(UpdateTodo => {
+             id: u64,
+             title: String,
+             description: Option<String>,
+        });
+
+        Scope::new()
+        .post(
             "/login",
             |State(db): State<DB>,
-             input: Form<LoginUser>|
+             Form(input): Form<LoginUser>|
              -> Result<Response<Body>, ErrorResponse> {
-                let user = crate::db::insert_user(&db, input.into_inner().username)?;
+                let user = crate::db::insert_user(&db, input.username)?;
                 let session = crate::db::create_session(&db, user.id)?;
 
                 log::info!("User created: {user:?}");
 
                 Ok((
-                    Redirect::see_other("/me"),
+                    Redirect::see_other("/todos"),
                     Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
                         .path("/")
+                        .http_only(true)
+                        .same_site(http1_web::cookies::SameSite::Strict)
                         .build(),
                 )
                     .into_response())
             },
         )
+        .post("/todos/create", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser, Form(todo): Form<CreateTodo>|-> Result<Redirect, ErrorResponse> {
+            crate::db::insert_todo(&db, todo.title, todo.description.filter(|x| !x.is_empty()), user.id)?;
+            
+            Ok(Redirect::see_other("/todos"))
+        })
+        .post("/todos/update", |State(db): State<DB>,Form(form): Form<Todo>|-> Result<Redirect, ErrorResponse> {
+            crate::db::update_todo(&db, form)?;
+            
+            Ok(Redirect::see_other("/todos"))
+        })
+        .post("/todos/delete/:todo_id", |State(db): State<DB>, Path(todo_id): Path<u64>|-> Result<Redirect, ErrorResponse> {
+            crate::db::delete_todo(&db, todo_id)?;
+            
+            Ok(Redirect::see_other("/todos"))
+        })
+        .post("/todos/toggle/:todo_id", |State(db): State<DB>, Path(todo_id): Path<u64>|-> Result<Redirect, ErrorResponse> {
+            let mut todo = match crate::db::get_todo(&db, todo_id)? {
+                Some(x) => x,
+                None => return Err(ErrorStatusCode::NotFound.into()),
+            };
+
+            todo.is_done = !todo.is_done;
+            crate::db::update_todo(&db, todo)?;
+            
+            Ok(Redirect::see_other("/todos"))
+        })
     }
+
+    pub fn todos_routes() -> Scope {
+        Scope::new()
+            .get("/", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
+                let todos = crate::db::get_all_todos(&db, user.id)?;
+    
+                dbg!(&todos);
+
+                Ok(html::html(|| {
+                    Title("TodoApp | Todos", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen bg-gray-100 p-6");
+    
+                            html::h1(|| {
+                                html::content("Your Todos");
+                                html::class("text-3xl font-bold text-center text-blue-600 mb-6");
+                            });
+    
+                            // Link to create a new todo
+                            html::a(|| {
+                                html::attr("href", "/todos/create");
+                                html::content("Create New Todo");
+                                html::class("mt-6 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block");
+                            });
+                    
+                            html::div(|| {
+                                todos.iter().for_each(|todo| {
+                                    html::div(|| {
+                                        html::class("bg-white shadow-lg rounded p-4 mb-4");
+    
+                                        html::h2(|| {
+                                            html::content(&todo.title);
+                                            html::class("text-xl font-bold text-gray-800");
+                                        });
+    
+                                        if let Some(desc) = &todo.description {
+                                            html::p(|| {
+                                                html::content(desc);
+                                                html::class("text-gray-600 mt-2");
+                                            });
+                                        }
+    
+                                        // Toggle button
+                                        html::form(|| {
+                                            html::attr("method", "post");
+                                            html::attr("action", format!("/api/todos/toggle/{}", todo.id));
+    
+                                            html::button(|| {
+                                                html::content(if todo.is_done { "Mark as Incomplete" } else { "Mark as Complete" });
+                                                html::class("mt-4 p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition");
+                                            });
+                                        });
+    
+                                        // Edit button
+                                        html::a(|| {
+                                            html::attr("href", format!("/todos/edit/{}", todo.id));
+                                            html::content("Edit");
+                                            html::class("mt-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition inline-block");
+                                        });
+    
+                                        // Delete form
+                                        html::form(|| {
+                                            html::attr("method", "post");
+                                            html::attr("action", format!("/api/todos/delete/{}", todo.id));
+    
+                                            html::button(|| {
+                                                html::content("Delete");
+                                                html::class("mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition");
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+    
+         
+                        });
+                    });
+                }))
+            })
+            .get("/create", | AuthenticatedUser(user): AuthenticatedUser| {
+                html::html(|| {
+                    Title("TodoApp | Create Todo", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+    
+                            html::div(|| {
+                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+    
+                                html::h1(|| {
+                                    html::content("Create New Todo");
+                                    html::class("text-3xl font-bold text-center text-blue-600 mb-6");
+                                });
+    
+                                html::form(|| {
+                                    html::attr("method", "post");
+                                    html::attr("action", "/api/todos/create");
+    
+                                    html::input(|| {
+                                        html::attr("type", "text");
+                                        html::attr("placeholder", "Title");
+                                        html::attr("name", "title");
+                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                    });
+    
+                                    html::textarea(|| {
+                                        html::attr("placeholder", "Description (optional)");
+                                        html::attr("name", "description");
+                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                    });
+    
+                                    html::button(|| {
+                                        html::content("Create Todo");
+                                        html::class("mt-6 p-3 bg-green-500 text-white rounded w-full hover:bg-green-600 transition");
+                                    });
+                                });
+                            });
+                        });
+                    });
+                })
+            })
+            .get("/edit/:todo_id", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+                let todo = match crate::db::get_todo(&db, todo_id)? {
+                    Some(x) => x,
+                    None => {
+                        return Err(ErrorStatusCode::NotFound.into())
+                    }
+                };
+    
+                Ok(html::html(|| {
+                    Title("TodoApp | Edit Todo", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+    
+                            html::div(|| {
+                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+    
+                                html::h1(|| {
+                                    html::content("Edit Todo");
+                                    html::class("text-3xl font-bold text-center text-blue-600 mb-6");
+                                });
+    
+                                html::form(|| {
+                                    html::attr("method", "post");
+                                    html::attr("action", "/api/todos/update");
+    
+                                    html::input(|| {
+                                        html::attr("type", "hidden");
+                                        html::attr("name", "id");
+                                        html::attr("value", todo.id);
+                                    });
+                                    
+                                    html::input(|| {
+                                        html::attr("type", "text");
+                                        html::attr("placeholder", "Title");
+                                        html::attr("name", "title");
+                                        html::attr("value", &todo.title);
+                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                    });
+    
+                                    html::textarea(|| {
+                                        html::attr("placeholder", "Description (optional)");
+                                        html::attr("name", "description");
+                                        html::content(todo.description.clone().unwrap_or_default());
+                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                    });
+    
+                                    html::button(|| {
+                                        html::content("Update Todo");
+                                        html::class("mt-6 p-3 bg-blue-500 text-white rounded w-full hover:bg-blue-600 transition");
+                                    });
+                                });
+                            });
+                        });
+                    });
+                }))
+            })
+            .get("/:todo_id", |State(db): State<DB>, _: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+                let todo = match crate::db::get_todo(&db, todo_id)? {
+                    Some(x) => x,
+                    None => {
+                        return Err(ErrorStatusCode::NotFound.into())
+                    }
+                };
+    
+                Ok(html::html(|| {
+                    Title(format!("TodoApp | Todo #{}", todo.id), ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+    
+                            html::div(|| {
+                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+    
+                                html::h1(|| {
+                                    html::content(&todo.title);
+                                    html::class("text-3xl font-bold text-center text-blue-600 mb-4");
+                                });
+    
+                                if let Some(desc) = &todo.description {
+                                    html::p(|| {
+                                        html::content(desc);
+                                        html::class("text-gray-600 text-center mb-4");
+                                    });
+                                }
+    
+                                html::p(|| {
+                                    html::content(format!("Completed: {}", todo.is_done));
+                                    html::class("text-gray-600 text-center mb-4");
+                                });
+                            });
+                        });
+                    });
+                }))
+            })
+    }
+    
 
     pub fn home_routes() -> Scope {
         Scope::new()
-        .get("/", || "Hello World!")     
-        .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
-
-            if auth.is_some() {
-                return Err(Redirect::see_other("/"));
-            }
-
-            Ok(html::html(|| {
-                Title("TodoApp | Login", ());
-
-                html::body(|| {
-                    html::div(|| {
-                        html::h1(|| {
-                            html::content("Login to TodoApp");
-                            html::class("text-2xl font-bold text-center text-blue-600");
-                        });
-
-                        html::form(|| {
-                            html::attr("method", "post");
-                            html::attr("action", "/api/login");
-
-                            html::input(|| {
-                                html::attr("type", "text");
-                                html::attr("placeholder", "Username");
-                                html::attr("name", "username");
-                                html::class("mt-4 p-2 border border-gray-300 rounded w-full");
-                            });
-
-                            html::button(|| {
-                                html::content("Login");
-                                html::class("mt-4 p-2 bg-green-500 text-white rounded w-full hover:bg-green-600");
+            .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
+                if auth.is_some() {
+                    return Err(Redirect::see_other("/todos"));
+                }
+    
+                Ok(html::html(|| {
+                    Title("TodoApp | Login", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen flex items-center justify-center bg-gray-100");
+    
+                            html::div(|| {
+                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+    
+                                html::h1(|| {
+                                    html::content("Login to TodoApp");
+                                    html::class("text-3xl font-extrabold text-center text-blue-600 mb-6");
+                                });
+    
+                                html::form(|| {
+                                    html::attr("method", "post");
+                                    html::attr("action", "/api/login");
+    
+                                    html::input(|| {
+                                        html::attr("type", "text");
+                                        html::attr("placeholder", "Username");
+                                        html::attr("name", "username");
+                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out");
+                                    });
+    
+                                    html::button(|| {
+                                        html::content("Login");
+                                        html::class("mt-6 p-3 bg-green-500 text-white font-semibold rounded w-full hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105");
+                                    });
+                                });
                             });
                         });
                     });
-                });
-            }))
-        })
-        .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
-            html::html(|| {
-                Title("TodoApp | Me", ());
-
-                html::body(|| {
-                    html::div(|| {
-                        html::h1(|| {
-                            html::content(format!("Welcome, {}!", user.username));
-                            html::class("text-2xl font-bold text-center text-blue-600");
-                        });
-
-                        html::p(|| {
-                            html::content(format!("User ID: {}", user.id));
-                            html::class("mt-4 text-gray-600 text-center");
-                        });
-                    });
-                });
+                }))
             })
-        })
+            .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
+                html::html(|| {
+                    Title("TodoApp | Me", ());
+    
+                    html::body(|| {
+                        html::div(|| {
+                            html::class("min-h-screen flex items-center justify-center bg-gray-100");
+    
+                            html::div(|| {
+                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+    
+                                html::h1(|| {
+                                    html::content(format!("Welcome, {}!", user.username));
+                                    html::class("text-3xl font-extrabold text-center text-blue-600 mb-6");
+                                });
+    
+                                html::p(|| {
+                                    html::content(format!("User ID: {}", user.id));
+                                    html::class("mt-4 text-gray-600 text-center text-lg");
+                                });
+    
+                                html::p(|| {
+                                    html::content("Have a great day using TodoApp!");
+                                    html::class("mt-4 text-gray-500 text-center text-sm");
+                                });
+                            });
+                        });
+                    });
+                })
+            })
     }
+    
 }
 
 #[allow(non_snake_case)]
@@ -182,6 +487,8 @@ mod db {
         sync::{atomic::AtomicU64, Arc, RwLock},
     };
 
+    use http1_web::impl_serde_struct;
+
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum Table {
         User,
@@ -206,6 +513,11 @@ mod db {
         pub username: String,
     }
 
+    impl_serde_struct!(User => {
+        id: u64,
+        username: String,
+   });
+
     #[derive(Debug, Clone)]
     pub struct Todo {
         pub id: u64,
@@ -214,6 +526,14 @@ mod db {
         pub is_done: bool,
         pub user_id: u64,
     }
+
+    impl_serde_struct!(Todo => {
+        id: u64,
+        title: String,
+        description: Option<String>,
+        is_done: bool,
+        user_id: u64,
+   });
 
     #[derive(Debug, Clone)]
     pub struct Session {
@@ -350,6 +670,7 @@ mod db {
             is_done: false,
             user_id,
         };
+
         records.insert(Key::Number(id), Box::new(todo.clone()));
         Ok(todo)
     }
@@ -398,13 +719,14 @@ mod db {
             .transpose()
     }
 
-    pub fn get_all_todos(db: &DB) -> Result<Vec<Todo>, DBError> {
+    pub fn get_all_todos(db: &DB, user_id: u64) -> Result<Vec<Todo>, DBError> {
         let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
         let todos = lock.get(&Table::Todo).expect("todos table should exists");
 
         let todos = todos
             .values()
             .filter_map(|x| x.downcast_ref::<Todo>())
+            .filter(|t| t.user_id == user_id)
             .cloned()
             .collect::<Vec<_>>();
 
@@ -417,9 +739,15 @@ mod db {
             .get_mut(&Table::Session)
             .expect("sessions table should exists");
 
+
+
         let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
             .take(32)
             .collect::<String>();
+
+
+            log::warn!("Creating session: {id}");
+
         let session = Session {
             id: id.clone(),
             user_id,
@@ -443,6 +771,8 @@ mod db {
     }
 
     pub fn get_session_user(db: &DB, session_id: String) -> Result<Option<User>, DBError> {
+        log::warn!("Search session: {session_id}");
+
         let session = match get_session_by_id(db, session_id)? {
             Some(s) => s,
             None => return Ok(None),

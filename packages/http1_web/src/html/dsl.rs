@@ -16,6 +16,12 @@ impl IntoAttrValue for String {
     }
 }
 
+impl<'a> IntoAttrValue for &'a String {
+    fn into_attr_value(self) -> AttrValue {
+        AttrValue::String(self.to_owned())
+    }
+}
+
 impl<'a> IntoAttrValue for &'a str {
     fn into_attr_value(self) -> AttrValue {
         AttrValue::String(self.to_owned())
@@ -33,6 +39,22 @@ impl IntoAttrValue for bool {
         AttrValue::Bool(self)
     }
 }
+
+macro_rules! impl_into_attr_value_for_primitive {
+    ($($T:ident),*) => {
+       $(
+            impl IntoAttrValue for $T {
+                fn into_attr_value(self) -> AttrValue {
+                    AttrValue::String(self.to_string())
+                }
+            }
+       )*
+    };
+}
+
+impl_into_attr_value_for_primitive!(
+    u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, f32, f64, char
+);
 
 pub enum Children {
     None,

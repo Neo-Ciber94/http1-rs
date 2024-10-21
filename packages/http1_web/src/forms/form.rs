@@ -27,7 +27,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Form<T>(T);
+pub struct Form<T>(pub T);
 
 impl<T> Form<T> {
     pub fn into_inner(self) -> T {
