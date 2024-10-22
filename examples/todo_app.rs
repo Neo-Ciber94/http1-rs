@@ -295,7 +295,6 @@ mod routes {
                                                 });
                                             });
 
-
                                             // Edit button
                                             html::a(|| {
                                                 html::attr("href", format!("/todos/edit/{}", todo.id));
@@ -768,7 +767,7 @@ mod db {
                 )));
             }
 
-            if let Some(description) = todo.description.as_deref() {
+            if let Some(description) = todo.description.as_deref().filter(|x| x.is_empty()) {
                 if description.trim().is_empty() {
                     return Err(Error::Validation(ValidationError::new(
                         "description",
