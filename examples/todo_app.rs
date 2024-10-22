@@ -21,9 +21,12 @@ fn main() -> std::io::Result<()> {
         .start(app)
 }
 
-const COOKIE_SESSION_NAME: &str = "auth-session-id";
+const COOKIE_SESSION_NAME: &str = "auth_session";
 
 mod routes {
+    use std::time::Duration;
+
+    use datetime::DateTime;
     use http1::{body::Body, response::Response};
     use http1_web::{
         app::Scope, cookies::{Cookie, Cookies}, error_response::{ErrorResponse, ErrorStatusCode}, forms::form::Form, from_request::FromRequestRef, html::{self, element::HTMLElement}, impl_serde_struct, into_response::IntoResponse, path::Path, redirect::Redirect, state::State
@@ -65,6 +68,8 @@ mod routes {
                 .map_err(|_| AuthenticatedUserRejection::StateError)?;
 
             let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+
+            dbg!(&cookies);
 
             let session_cookie = cookies
                 .get(super::COOKIE_SESSION_NAME)
@@ -128,7 +133,7 @@ mod routes {
                     Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
                         .path("/")
                         .http_only(true)
-                        .same_site(http1_web::cookies::SameSite::Strict)
+                        .expires(DateTime::now_utc() + Duration::from_secs(60 * 60))
                         .build(),
                 )
                     .into_response())
@@ -139,9 +144,18 @@ mod routes {
             
             Ok(Redirect::see_other("/todos"))
         })
-        .post("/todos/update", |State(db): State<DB>,Form(form): Form<Todo>|-> Result<Redirect, ErrorResponse> {
-            crate::db::update_todo(&db, form)?;
-            
+        .post("/todos/update", |State(db): State<DB>,Form(form): Form<UpdateTodo>|-> Result<Redirect, ErrorResponse> {
+            let mut todo = match crate::db::get_todo(&db, form.id)? {
+                Some(x) => x,
+                None => return Err(ErrorStatusCode::NotFound.into()),
+            };
+
+            // Update fields
+            todo.title = form.title;
+            todo.description = form.description;
+
+            // Save
+            crate::db::update_todo(&db, todo)?;
             Ok(Redirect::see_other("/todos"))
         })
         .post("/todos/delete/:todo_id", |State(db): State<DB>, Path(todo_id): Path<u64>|-> Result<Redirect, ErrorResponse> {
@@ -741,9 +755,7 @@ mod db {
 
 
 
-        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
-            .take(32)
-            .collect::<String>();
+        let id = "0123456789".to_owned();
 
 
             log::warn!("Creating session: {id}");

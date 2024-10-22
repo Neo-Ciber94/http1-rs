@@ -4,9 +4,15 @@ edition = "2021"
 
 [workspace]
 resolver = "1"
-members = [ "packages/datetime","packages/http1", "packages/http1_web", "packages/log"]
+members = [
+    "packages/datetime",
+    "packages/http1",
+    "packages/http1_web",
+    "packages/log",
+]
 
 [dependencies]
 http1 = { path = "packages/http1" }
 http1_web = { path = "packages/http1_web" }
 log = { path = "packages/log" }
+datetime = { path = "packages/datetime" }
