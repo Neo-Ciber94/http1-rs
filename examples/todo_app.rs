@@ -242,14 +242,14 @@ mod routes {
                             html::a(|| {
                                 html::attr("href", "/todos/create");
                                 html::content("Create New Todo");
-                                html::class("mt-4 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block shadow-md");
+                                html::class("mt-4 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block shadow-md mb-5");
                             });
                 
                             // Todo items container
                             html::div(|| {
                                 todos.iter().for_each(|todo| {
                                     html::div(|| {
-                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 transition-transform transform hover:scale-105 flex items-center justify-between");
+                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex items-center justify-between");
                 
                                         // Form for toggling completion with a button
                                         html::form(|| {
