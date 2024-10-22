@@ -249,55 +249,70 @@ mod routes {
                             html::div(|| {
                                 todos.iter().for_each(|todo| {
                                     html::div(|| {
-                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex items-center justify-between");
+                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between");
                 
-                                        // Form for toggling completion with a button
-                                        html::form(|| {
-                                            html::attr("method", "post");
-                                            html::attr("action", format!("/api/todos/toggle/{}", todo.id));
-                                            html::class("flex items-center");
-                
+                                        html::div(|| {
                                             // Todo title
                                             html::h2(|| {
                                                 html::content(&todo.title);
                                                 html::class("text-xl font-bold text-gray-800 flex-grow");
                                             });
                 
-                                            // Toggle button with meaningful names and state-based styles
-                                            html::button(|| {
-                                                if todo.is_done {
-                                                    html::content("Undo Completion");
-                                                    html::class("ml-4 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"); // Style for undone
-                                                } else {
-                                                    html::content("Complete Todo");
-                                                    html::class("ml-4 p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"); // Style for completed
-                                                }
-                                            });
+                    
+                                            // Todo description
+                                            if let Some(desc) = &todo.description {
+                                                html::p(|| {
+                                                    html::content(desc);
+                                                    html::class("text-gray-600 mt-2");
+                                                });
+                                            }
+                                            else {
+                                                html::p(|| {
+                                                    html::content("<no description>");
+                                                    html::class("text-gray-600 opacity-50 italic mt-2");
+                                                });
+                                            }
                                         });
-                
-                                        // Todo description
-                                        if let Some(desc) = &todo.description {
-                                            html::p(|| {
-                                                html::content(desc);
-                                                html::class("text-gray-600 mt-2");
+
+                                        html::div(|| {
+                                            html::class("flex flex-col gap-2");
+
+                                            // Form for toggling completion with a button
+                                            html::form(|| {
+                                                html::attr("method", "post");
+                                                html::attr("action", format!("/api/todos/toggle/{}", todo.id));
+                                                html::class("flex items-center m-0");
+                    
+                                                // Toggle button with meaningful names and state-based styles
+                                                html::button(|| {
+                                                    if todo.is_done {
+                                                        html::content("Undo Completion");
+                                                        html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"); // Style for undone
+                                                    } else {
+                                                        html::content("Complete Todo");
+                                                        html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"); // Style for completed
+                                                    }
+                                                });
                                             });
-                                        }
-                
-                                        // Edit button
-                                        html::a(|| {
-                                            html::attr("href", format!("/todos/edit/{}", todo.id));
-                                            html::content("Edit");
-                                            html::class("mt-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition inline-block");
-                                        });
-                
-                                        // Delete form
-                                        html::form(|| {
-                                            html::attr("method", "post");
-                                            html::attr("action", format!("/api/todos/delete/{}", todo.id));
-                
-                                            html::button(|| {
-                                                html::content("Delete");
-                                                html::class("mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition inline-block");
+
+
+                                            // Edit button
+                                            html::a(|| {
+                                                html::attr("href", format!("/todos/edit/{}", todo.id));
+                                                html::content("Edit");
+                                                html::class("p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition flex justify-center");
+                                            });
+                    
+                                            // Delete form
+                                            html::form(|| {
+                                                html::attr("method", "post");
+                                                html::attr("action", format!("/api/todos/delete/{}", todo.id));
+                                                html::class("flex justify-center");
+                    
+                                                html::button(|| {
+                                                    html::content("Delete");
+                                                    html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition w-full");
+                                                });
                                             });
                                         });
                                     });
@@ -776,7 +791,10 @@ mod db {
             .expect("user table should exists");
 
         let id = NEXT_USER_ID.next();
-        let mut user = User { id, username: username.trim().into() };
+        let mut user = User {
+            id,
+            username: username.trim().into(),
+        };
 
         Validation::validate_user(&mut user)?;
 

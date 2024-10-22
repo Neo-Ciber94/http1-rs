@@ -29,8 +29,7 @@ impl_deserialize_struct!(Upload => {
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    let addr = "127.0.0.1:5000".parse().unwrap();
-    let server = Server::new(addr);
+    let server = Server::new("127.0.0.1:5000");
 
     let app = App::new()
         .middleware(middleware)
