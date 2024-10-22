@@ -297,13 +297,11 @@ impl Deserializer for DeserializeFromStr {
         ))
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize str to `option`",
-        ))
+        visitor.visit_some(self)
     }
 
     fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, Error>
@@ -489,13 +487,11 @@ impl Deserializer for DeserializeOnlyString {
         Err(super::de::Error::custom("cannot deserialize str to `map`"))
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom(
-            "cannot deserialize str to `option`",
-        ))
+        visitor.visit_some(self)
     }
 
     fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, Error>
