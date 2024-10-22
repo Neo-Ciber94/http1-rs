@@ -128,6 +128,9 @@ pub fn decode_uri_component<S: AsRef<str>>(input: S) -> Result<String, InvalidUr
             // Convert the hex string to a byte.
             let byte = u8::from_str_radix(&hex, 16).map_err(|_| InvalidUriComponent)?;
             decoded.push(byte);
+        } else if c == '+' {
+            // If the character is '+', treat it as a space.
+            decoded.push(b' '); // Push a space byte
         } else {
             // If the character is not a percent-encoded value, just push it as-is.
             decoded.push(c as u8);
