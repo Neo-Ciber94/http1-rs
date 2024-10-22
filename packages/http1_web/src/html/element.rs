@@ -261,9 +261,12 @@ fn write_element(
     for attr in el.attributes.values() {
         match attr {
             Attribute::NameValue(NameValueAttr { name, value }) => {
+                let name = escape_html(name);
+                let value = escape_html(value);
                 write!(f, " {name}=\"{value}\"")?;
             }
             Attribute::Boolean(BooleanAttr { name }) => {
+                let name = escape_html(name);
                 write!(f, " {name}")?;
             }
         }
@@ -282,6 +285,7 @@ fn write_element(
                 Node::Element(element) => write_element(element, f, indentation_level + 1)?,
                 Node::Text(text) => {
                     write_indent(f, indentation_level + 1)?;
+                    let text = escape_html(text);
                     writeln!(f, "{text}")?;
                 }
             }
@@ -297,6 +301,24 @@ fn write_element(
     }
 
     Ok(())
+}
+
+// TODO: Possible without allocation?
+fn escape_html(input: &str) -> String {
+    let mut escaped = String::new();
+
+    for c in input.chars() {
+        match c {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
+            _ => escaped.push(c),
+        }
+    }
+
+    escaped
 }
 
 pub struct Builder {
