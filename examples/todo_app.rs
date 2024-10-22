@@ -11,7 +11,7 @@ fn main() -> std::io::Result<()> {
     let app = App::new()
         .state(DB::new())
         .middleware(Logging)
-        //.middleware(Redirection::new("/", "/login"))
+        .middleware(Redirection::new("/", "/login"))
         .scope("/api", api_routes())
         .scope("/", home_routes())
         .scope("/todos", todos_routes());
@@ -34,7 +34,7 @@ mod routes {
 
     use crate::{
         components::Title,
-        db::{Todo, User, DB},
+        db::{ User, DB},
         COOKIE_SESSION_NAME,
     };
 
@@ -256,7 +256,7 @@ mod routes {
                     });
                 }))
             })
-            .get("/create", | AuthenticatedUser(user): AuthenticatedUser| {
+            .get("/create", | _: AuthenticatedUser| {
                 html::html(|| {
                     Title("TodoApp | Create Todo", ());
     
@@ -299,7 +299,7 @@ mod routes {
                     });
                 })
             })
-            .get("/edit/:todo_id", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+            .get("/edit/:todo_id", |State(db): State<DB>, _: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
                 let todo = match crate::db::get_todo(&db, todo_id)? {
                     Some(x) => x,
                     None => {
@@ -753,17 +753,13 @@ mod db {
             .get_mut(&Table::Session)
             .expect("sessions table should exists");
 
-
-
-        let id = "0123456789".to_owned();
-
-
-            log::warn!("Creating session: {id}");
+        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>().take(32).collect::<String>();
 
         let session = Session {
             id: id.clone(),
             user_id,
         };
+
         records.insert(Key::String(id), Box::new(session.clone()));
         Ok(session)
     }
