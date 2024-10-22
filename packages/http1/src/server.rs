@@ -1,4 +1,4 @@
-use std::net::{SocketAddr, TcpListener};
+use std::net::{TcpListener, ToSocketAddrs};
 
 use crate::{
     handler::RequestHandler,
@@ -20,18 +20,18 @@ impl Default for Config {
     }
 }
 
-type OnReady = Option<Box<dyn FnOnce(&SocketAddr)>>;
+type OnReady<A> = Option<Box<dyn FnOnce(&A)>>;
 
 /// The server implementation.
-pub struct Server {
-    addr: SocketAddr,
+pub struct Server<A> {
+    addr: A,
     config: Config,
-    on_ready: OnReady,
+    on_ready: OnReady<A>,
 }
 
-impl Server {
+impl Server<()> {
     /// Constructs a new server.
-    pub fn new(addr: SocketAddr) -> Self {
+    pub fn new<A: ToSocketAddrs>(addr: A) -> Server<A> {
         let config = Config::default();
 
         Server {
@@ -41,15 +41,17 @@ impl Server {
         }
     }
 
-    /// Adds a callback that will be executed right after the server starts.
-    pub fn on_ready<F: FnOnce(&SocketAddr) + 'static>(mut self, f: F) -> Self {
-        self.on_ready = Some(Box::new(f));
-        self
-    }
-
     /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
+        self
+    }
+}
+
+impl<A: ToSocketAddrs> Server<A> {
+    /// Adds a callback that will be executed right after the server starts.
+    pub fn on_ready<F: FnOnce(&A) + 'static>(mut self, f: F) -> Self {
+        self.on_ready = Some(Box::new(f));
         self
     }
 
@@ -73,7 +75,7 @@ impl Server {
             mut on_ready,
         } = self;
 
-        let listener = TcpListener::bind(addr)?;
+        let listener = TcpListener::bind(&addr)?;
 
         if let Some(on_ready) = on_ready.take() {
             on_ready(&addr)
