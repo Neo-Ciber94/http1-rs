@@ -252,10 +252,18 @@ mod routes {
                                         html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between");
                 
                                         html::div(|| {
+                                            let is_done_class =  if todo.is_done { 
+                                                "line-through opacity-90" 
+                                            } 
+                                            else
+                                            {
+                                                 "" 
+                                                };
+
                                             // Todo title
                                             html::h2(|| {
                                                 html::content(&todo.title);
-                                                html::class("text-xl font-bold text-gray-800 flex-grow");
+                                                html::class(format!("text-xl font-bold text-gray-800 flex-grow {is_done_class}"));
                                             });
                 
                     
@@ -263,7 +271,7 @@ mod routes {
                                             if let Some(desc) = &todo.description {
                                                 html::p(|| {
                                                     html::content(desc);
-                                                    html::class("text-gray-600 mt-2");
+                                                    html::class(format!("text-gray-600 mt-2 {is_done_class}"));
                                                 });
                                             }
                                             else {
@@ -286,10 +294,10 @@ mod routes {
                                                 // Toggle button with meaningful names and state-based styles
                                                 html::button(|| {
                                                     if todo.is_done {
-                                                        html::content("Undo Completion");
+                                                        html::content("Completed");
                                                         html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"); // Style for undone
                                                     } else {
-                                                        html::content("Complete Todo");
+                                                        html::content("Pending");
                                                         html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"); // Style for completed
                                                     }
                                                 });
@@ -441,7 +449,7 @@ mod routes {
     
                 Ok(html::html(|| {
                     Head(|| {
-                        Title(format!("TodoApp | Todo #{}", todo.id));
+                        Title(format!("TodoApp | {}", todo.title));
                     });
     
                     html::body(|| {
