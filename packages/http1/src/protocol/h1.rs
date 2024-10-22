@@ -135,7 +135,7 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
 
     let url = parts
         .next()
-        .and_then(|s| crate::uri::convert::decode_uri_component(s).ok())
+        .and_then(|s| crate::uri::url_encoding::decode(s).ok())
         .and_then(|s| Uri::from_str(&s).ok())
         .ok_or_else(|| std::io::Error::other("Failed to parse request url"))?;
 

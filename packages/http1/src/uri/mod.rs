@@ -1,5 +1,5 @@
 pub mod authority;
-pub mod convert;
+pub mod url_encoding;
 pub mod path_query;
 pub mod scheme;
 pub mod uri;

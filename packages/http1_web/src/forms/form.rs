@@ -8,7 +8,7 @@ use http1::{
     response::Response,
     status::StatusCode,
     uri::{
-        convert::{self, InvalidUriComponent},
+        url_encoding::{self, InvalidUriComponent},
         path_query::{QueryMap, QueryValue},
         uri::InvalidUri,
     },
@@ -108,7 +108,7 @@ impl<T: Deserialize> FromRequest for Form<T> {
                 let s =
                     String::from_utf8(bytes).map_err(|e| RejectFormError::Utf8Error(e.into()))?;
 
-                let q = convert::decode_uri_component(&s)
+                let q = url_encoding::decode(&s)
                     .map_err(RejectFormError::InvalidUriComponent)?;
 
                 let query_map = QueryMap::from_query_str(&q);

@@ -5,47 +5,11 @@ pub trait Alphabet {
 }
 
 /// Percent encode alphabet.
-pub struct UrlComponentEncode;
-impl Alphabet for UrlComponentEncode {
+pub struct UrlASCII;
+impl Alphabet for UrlASCII {
     fn contains(&self, value: u8) -> bool {
         match value {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => true,
-            _ => false,
-        }
-    }
-}
-
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes
-pub struct CookieCharset;
-
-#[allow(clippy::match_like_matches_macro)]
-impl Alphabet for CookieCharset {
-    fn contains(&self, value: u8) -> bool {
-        match value {
-            b'A'..=b'Z'
-            | b'a'..=b'z'
-            | b'0'..=b'9'
-            | b'-'
-            | b'_'
-            | b'.'
-            | b'~'
-            | b'('
-            | b')'
-            | b'<'
-            | b'>'
-            | b'@'
-            | b','
-            | b';'
-            | b':'
-            | b'\\'
-            | b'"'
-            | b'/'
-            | b'['
-            | b']'
-            | b'?'
-            | b'='
-            | b'{'
-            | b'}' => true,
             _ => false,
         }
     }
@@ -59,8 +23,8 @@ impl Alphabet for CookieCharset {
 ///
 /// # Returns
 /// A `String` representing the encoded URI component.
-pub fn encode_uri_component<S: AsRef<str>>(input: S) -> String {
-    encode_uri_component_with(input, UrlComponentEncode)
+pub fn encode<S: AsRef<str>>(input: S) -> String {
+    encode_with(input, UrlASCII)
 }
 
 /// Encodes a URI component using a custom alphabet for percent-encoding.
@@ -74,7 +38,7 @@ pub fn encode_uri_component<S: AsRef<str>>(input: S) -> String {
 ///
 /// # Returns
 /// A `String` representing the encoded URI component.
-pub fn encode_uri_component_with<S: AsRef<str>>(input: S, alphabet: impl Alphabet) -> String {
+pub fn encode_with<S: AsRef<str>>(input: S, alphabet: impl Alphabet) -> String {
     // Create an empty `String` to store the encoded result.
     let mut encoded = String::new();
 
@@ -112,7 +76,7 @@ pub struct InvalidUriComponent;
 /// A `Result<String, InvalidUriComponent>` where:
 /// - `Ok` contains the decoded string.
 /// - `Err` contains the `InvalidUriComponent` error if the input is not a valid URI component.
-pub fn decode_uri_component<S: AsRef<str>>(input: S) -> Result<String, InvalidUriComponent> {
+pub fn decode<S: AsRef<str>>(input: S) -> Result<String, InvalidUriComponent> {
     // Vector to hold the decoded bytes.
     let mut decoded = Vec::new();
     let mut chars = input.as_ref().chars();
@@ -144,69 +108,63 @@ pub fn decode_uri_component<S: AsRef<str>>(input: S) -> Result<String, InvalidUr
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_uri_component, encode_uri_component};
+    use super::{decode, encode};
 
     #[test]
     fn should_encode_special_characters() {
-        assert_eq!(encode_uri_component("hello@world"), "hello%40world");
-        assert_eq!(encode_uri_component("100% free"), "100%25%20free");
-        assert_eq!(encode_uri_component("a+b=c"), "a%2Bb%3Dc");
-        assert_eq!(encode_uri_component("rust-lang.org"), "rust-lang.org");
+        assert_eq!(encode("hello@world"), "hello%40world");
+        assert_eq!(encode("100% free"), "100%25%20free");
+        assert_eq!(encode("a+b=c"), "a%2Bb%3Dc");
+        assert_eq!(encode("rust-lang.org"), "rust-lang.org");
     }
 
     #[test]
     fn should_encode_reserved_characters() {
-        assert_eq!(encode_uri_component("! * ' ( ) ; : @ & = + $ , / ? # [ ]"),
+        assert_eq!(encode("! * ' ( ) ; : @ & = + $ , / ? # [ ]"),
             "%21%20%2A%20%27%20%28%20%29%20%3B%20%3A%20%40%20%26%20%3D%20%2B%20%24%20%2C%20%2F%20%3F%20%23%20%5B%20%5D");
     }
 
     #[test]
     fn should_encode_unicode_characters() {
         assert_eq!(
-            encode_uri_component("こんにちは"),
+            encode("こんにちは"),
             "%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF"
         );
-        assert_eq!(encode_uri_component("你好"), "%E4%BD%A0%E5%A5%BD");
-        assert_eq!(encode_uri_component("😊"), "%F0%9F%98%8A");
+        assert_eq!(encode("你好"), "%E4%BD%A0%E5%A5%BD");
+        assert_eq!(encode("😊"), "%F0%9F%98%8A");
     }
 
     #[test]
     fn should_decode_str() {
-        assert_eq!(
-            decode_uri_component("hello%20world").unwrap(),
-            "hello world"
-        );
+        assert_eq!(decode("hello%20world").unwrap(), "hello world");
     }
 
     #[test]
     fn should_decode_special_characters() {
-        assert_eq!(
-            decode_uri_component("hello%40world").unwrap(),
-            "hello@world"
-        );
-        assert_eq!(decode_uri_component("100%25%20free").unwrap(), "100% free");
-        assert_eq!(decode_uri_component("a%2Bb%3Dc").unwrap(), "a+b=c");
+        assert_eq!(decode("hello%40world").unwrap(), "hello@world");
+        assert_eq!(decode("100%25%20free").unwrap(), "100% free");
+        assert_eq!(decode("a%2Bb%3Dc").unwrap(), "a+b=c");
     }
 
     #[test]
     fn should_decode_unicode_characters() {
         assert_eq!(
-            decode_uri_component("%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF").unwrap(),
+            decode("%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF").unwrap(),
             "こんにちは"
         );
-        assert_eq!(decode_uri_component("%E4%BD%A0%E5%A5%BD").unwrap(), "你好");
-        assert_eq!(decode_uri_component("%F0%9F%98%8A").unwrap(), "😊");
+        assert_eq!(decode("%E4%BD%A0%E5%A5%BD").unwrap(), "你好");
+        assert_eq!(decode("%F0%9F%98%8A").unwrap(), "😊");
     }
 
     #[test]
     fn should_decode_incomplete_percent_encoding() {
-        assert!(decode_uri_component("hello%2world").is_err());
-        assert!(decode_uri_component("hello%").is_err());
+        assert!(decode("hello%2world").is_err());
+        assert!(decode("hello%").is_err());
     }
 
     #[test]
     fn should_handle_empty_string() {
-        assert_eq!(encode_uri_component(""), "");
-        assert_eq!(decode_uri_component("").unwrap(), "");
+        assert_eq!(encode(""), "");
+        assert_eq!(decode("").unwrap(), "");
     }
 }

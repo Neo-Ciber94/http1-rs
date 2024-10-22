@@ -5,7 +5,7 @@ use http1::{
     headers::{self, Headers},
     response::Response,
     status::StatusCode,
-    uri::convert::{self, CookieCharset},
+    uri::url_encoding::{self, Alphabet},
 };
 
 use datetime::DateTime;
@@ -237,8 +237,44 @@ impl From<Builder> for Cookie {
 
 impl Display for Cookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = convert::encode_uri_component_with(self.name(), CookieCharset);
-        let value = convert::encode_uri_component_with(self.value(), CookieCharset);
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#attributes
+        pub struct CookieASCII;
+
+        #[allow(clippy::match_like_matches_macro)]
+        impl Alphabet for CookieASCII {
+            fn contains(&self, value: u8) -> bool {
+                match value {
+                    b'A'..=b'Z'
+                    | b'a'..=b'z'
+                    | b'0'..=b'9'
+                    | b'-'
+                    | b'_'
+                    | b'.'
+                    | b'~'
+                    | b'('
+                    | b')'
+                    | b'<'
+                    | b'>'
+                    | b'@'
+                    | b','
+                    | b';'
+                    | b':'
+                    | b'\\'
+                    | b'"'
+                    | b'/'
+                    | b'['
+                    | b']'
+                    | b'?'
+                    | b'='
+                    | b'{'
+                    | b'}' => true,
+                    _ => false,
+                }
+            }
+        }
+
+        let name = url_encoding::encode_with(self.name(), CookieASCII);
+        let value = url_encoding::encode_with(self.value(), CookieASCII);
 
         write!(f, "{name}={value}")?;
 
@@ -247,18 +283,14 @@ impl Display for Cookie {
         }
 
         if let Some(path) = self.path.as_deref() {
-            write!(
-                f,
-                "; Path={}",
-                convert::encode_uri_component_with(path, CookieCharset)
-            )?;
+            write!(f, "; Path={}", url_encoding::encode_with(path, CookieASCII))?;
         }
 
         if let Some(domain) = self.domain.as_deref() {
             write!(
                 f,
                 "; Domain={}",
-                convert::encode_uri_component_with(domain, CookieCharset)
+                url_encoding::encode_with(domain, CookieASCII)
             )?;
         }
 
