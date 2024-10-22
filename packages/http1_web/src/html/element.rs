@@ -290,7 +290,7 @@ fn write_element(
         if len > 0 {
             write_indent(f, indentation_level)?;
         }
-        
+
         writeln!(f, "</{}>", el.tag)?;
     } else {
         writeln!(f, " />")?;

@@ -24,7 +24,6 @@ impl Redirection {
             assert!(!to.ends_with("/"), "`from` route should not end with `/`");
         }
 
-
         Redirection { from, to }
     }
 }

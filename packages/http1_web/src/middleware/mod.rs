@@ -1,8 +1,8 @@
 pub mod cors;
 pub mod logging;
+pub mod redirection;
 pub mod sessions;
 pub mod timeout;
-pub mod redirection;
 
 use http1::{body::Body, request::Request, response::Response};
 use std::sync::Arc;

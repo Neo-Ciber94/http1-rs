@@ -1,6 +1,9 @@
 use db::DB;
 use http1::server::Server;
-use http1_web::{app::App, middleware::{logging::Logging, redirection::Redirection}};
+use http1_web::{
+    app::App,
+    middleware::{logging::Logging, redirection::Redirection},
+};
 use routes::{api_routes, home_routes, todos_routes};
 
 fn main() -> std::io::Result<()> {
@@ -29,12 +32,22 @@ mod routes {
     use datetime::DateTime;
     use http1::{body::Body, response::Response};
     use http1_web::{
-        app::Scope, cookies::{Cookie, Cookies}, error_response::{ErrorResponse, ErrorStatusCode}, forms::form::Form, from_request::FromRequestRef, html::{self, element::HTMLElement}, impl_serde_struct, into_response::IntoResponse, path::Path, redirect::Redirect, state::State
+        app::Scope,
+        cookies::{Cookie, Cookies},
+        error_response::{ErrorResponse, ErrorStatusCode},
+        forms::form::Form,
+        from_request::FromRequestRef,
+        html::{self, element::HTMLElement},
+        impl_serde_struct,
+        into_response::IntoResponse,
+        path::Path,
+        redirect::Redirect,
+        state::State,
     };
 
     use crate::{
         components::{Head, Title},
-        db::{ User, DB},
+        db::{User, DB},
         COOKIE_SESSION_NAME,
     };
 
@@ -43,14 +56,18 @@ mod routes {
 
     enum AuthenticatedUserRejection {
         StateError,
-        RedirectToLogin
+        RedirectToLogin,
     }
 
     impl IntoResponse for AuthenticatedUserRejection {
         fn into_response(self) -> Response<Body> {
             match self {
-                AuthenticatedUserRejection::StateError => ErrorStatusCode::InternalServerError.into_response(),
-                AuthenticatedUserRejection::RedirectToLogin => Redirect::see_other("/login").into_response(),
+                AuthenticatedUserRejection::StateError => {
+                    ErrorStatusCode::InternalServerError.into_response()
+                }
+                AuthenticatedUserRejection::RedirectToLogin => {
+                    Redirect::see_other("/login").into_response()
+                }
             }
         }
     }
@@ -62,9 +79,9 @@ mod routes {
             req: &http1::request::Request<http1::body::Body>,
         ) -> Result<Self, Self::Rejection> {
             let State(db) = State::<DB>::from_request_ref(req)
-            .inspect_err(|err| {
-                log::error!("Failed to get database: {err}");
-            })
+                .inspect_err(|err| {
+                    log::error!("Failed to get database: {err}");
+                })
                 .map_err(|_| AuthenticatedUserRejection::StateError)?;
 
             let cookies = Cookies::from_request_ref(req).unwrap_or_default();
@@ -80,7 +97,7 @@ mod routes {
                 x => {
                     log::error!("user session not found: {x:?}");
                     Err(AuthenticatedUserRejection::RedirectToLogin)
-                },
+                }
             }
         }
     }
@@ -99,7 +116,7 @@ mod routes {
             pub title: String,
             pub description: Option<String>,
         }
-    
+
         impl_serde_struct!(CreateTodo => {
              title: String,
              description: Option<String>,
@@ -110,7 +127,7 @@ mod routes {
             pub title: String,
             pub description: Option<String>,
         }
-    
+
         impl_serde_struct!(UpdateTodo => {
              id: u64,
              title: String,
@@ -118,62 +135,88 @@ mod routes {
         });
 
         Scope::new()
-        .post(
-            "/login",
-            |State(db): State<DB>,
-             Form(input): Form<LoginUser>|
-             -> Result<Response<Body>, ErrorResponse> {
-                let user = crate::db::insert_user(&db, input.username)?;
-                let session = crate::db::create_session(&db, user.id)?;
+            .post(
+                "/login",
+                |State(db): State<DB>,
+                 Form(input): Form<LoginUser>|
+                 -> Result<Response<Body>, ErrorResponse> {
+                    let user = crate::db::insert_user(&db, input.username)?;
+                    let session = crate::db::create_session(&db, user.id)?;
 
-                log::info!("User created: {user:?}");
+                    log::info!("User created: {user:?}");
 
-                Ok((
-                    Redirect::see_other("/todos"),
-                    Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
-                        .path("/")
-                        .http_only(true)
-                        .expires(DateTime::now_utc() + Duration::from_secs(60 * 60))
-                        .build(),
-                )
-                    .into_response())
-            },
-        )
-        .post("/todos/create", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser, Form(todo): Form<CreateTodo>|-> Result<Redirect, ErrorResponse> {
-            crate::db::insert_todo(&db, todo.title, todo.description.filter(|x| !x.is_empty()), user.id)?;
-            
-            Ok(Redirect::see_other("/todos"))
-        })
-        .post("/todos/update", |State(db): State<DB>,Form(form): Form<UpdateTodo>|-> Result<Redirect, ErrorResponse> {
-            let mut todo = match crate::db::get_todo(&db, form.id)? {
-                Some(x) => x,
-                None => return Err(ErrorStatusCode::NotFound.into()),
-            };
+                    Ok((
+                        Redirect::see_other("/todos"),
+                        Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
+                            .path("/")
+                            .http_only(true)
+                            .expires(DateTime::now_utc() + Duration::from_secs(60 * 60))
+                            .build(),
+                    )
+                        .into_response())
+                },
+            )
+            .post(
+                "/todos/create",
+                |State(db): State<DB>,
+                 AuthenticatedUser(user): AuthenticatedUser,
+                 Form(todo): Form<CreateTodo>|
+                 -> Result<Redirect, ErrorResponse> {
+                    crate::db::insert_todo(
+                        &db,
+                        todo.title,
+                        todo.description.filter(|x| !x.is_empty()),
+                        user.id,
+                    )?;
 
-            // Update fields
-            todo.title = form.title;
-            todo.description = form.description;
+                    Ok(Redirect::see_other("/todos"))
+                },
+            )
+            .post(
+                "/todos/update",
+                |State(db): State<DB>,
+                 Form(form): Form<UpdateTodo>|
+                 -> Result<Redirect, ErrorResponse> {
+                    let mut todo = match crate::db::get_todo(&db, form.id)? {
+                        Some(x) => x,
+                        None => return Err(ErrorStatusCode::NotFound.into()),
+                    };
 
-            // Save
-            crate::db::update_todo(&db, todo)?;
-            Ok(Redirect::see_other("/todos"))
-        })
-        .post("/todos/delete/:todo_id", |State(db): State<DB>, Path(todo_id): Path<u64>|-> Result<Redirect, ErrorResponse> {
-            crate::db::delete_todo(&db, todo_id)?;
-            
-            Ok(Redirect::see_other("/todos"))
-        })
-        .post("/todos/toggle/:todo_id", |State(db): State<DB>, Path(todo_id): Path<u64>|-> Result<Redirect, ErrorResponse> {
-            let mut todo = match crate::db::get_todo(&db, todo_id)? {
-                Some(x) => x,
-                None => return Err(ErrorStatusCode::NotFound.into()),
-            };
+                    // Update fields
+                    todo.title = form.title;
+                    todo.description = form.description;
 
-            todo.is_done = !todo.is_done;
-            crate::db::update_todo(&db, todo)?;
-            
-            Ok(Redirect::see_other("/todos"))
-        })
+                    // Save
+                    crate::db::update_todo(&db, todo)?;
+                    Ok(Redirect::see_other("/todos"))
+                },
+            )
+            .post(
+                "/todos/delete/:todo_id",
+                |State(db): State<DB>,
+                 Path(todo_id): Path<u64>|
+                 -> Result<Redirect, ErrorResponse> {
+                    crate::db::delete_todo(&db, todo_id)?;
+
+                    Ok(Redirect::see_other("/todos"))
+                },
+            )
+            .post(
+                "/todos/toggle/:todo_id",
+                |State(db): State<DB>,
+                 Path(todo_id): Path<u64>|
+                 -> Result<Redirect, ErrorResponse> {
+                    let mut todo = match crate::db::get_todo(&db, todo_id)? {
+                        Some(x) => x,
+                        None => return Err(ErrorStatusCode::NotFound.into()),
+                    };
+
+                    todo.is_done = !todo.is_done;
+                    crate::db::update_todo(&db, todo)?;
+
+                    Ok(Redirect::see_other("/todos"))
+                },
+            )
     }
 
     pub fn todos_routes() -> Scope {
@@ -405,7 +448,6 @@ mod routes {
                 }))
             })
     }
-    
 
     pub fn home_routes() -> Scope {
         Scope::new()
@@ -485,7 +527,6 @@ mod routes {
                 })
             })
     }
-    
 }
 
 #[allow(non_snake_case)]
@@ -543,9 +584,9 @@ mod db {
     }
 
     impl_serde_struct!(User => {
-        id: u64,
-        username: String,
-   });
+         id: u64,
+         username: String,
+    });
 
     #[derive(Debug, Clone)]
     pub struct Todo {
@@ -557,12 +598,12 @@ mod db {
     }
 
     impl_serde_struct!(Todo => {
-        id: u64,
-        title: String,
-        description: Option<String>,
-        is_done: bool,
-        user_id: u64,
-   });
+         id: u64,
+         title: String,
+         description: Option<String>,
+         is_done: bool,
+         user_id: u64,
+    });
 
     #[derive(Debug, Clone)]
     pub struct Session {
@@ -768,7 +809,9 @@ mod db {
             .get_mut(&Table::Session)
             .expect("sessions table should exists");
 
-        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>().take(32).collect::<String>();
+        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
+            .take(32)
+            .collect::<String>();
 
         let session = Session {
             id: id.clone(),
