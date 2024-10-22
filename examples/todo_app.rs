@@ -9,7 +9,7 @@ use routes::{api_routes, home_routes, not_found, todos_routes};
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    let addr = "127.0.0.1:5000".parse().unwrap();
+    let addr = "localhost:5000";
 
     let app = App::new()
         .state(DB::new())
@@ -547,26 +547,26 @@ mod routes {
             Head(|| {
                 Title("Todo App | Not Found");
             });
-    
+
             html::body(|| {
                 html::div(|| {
                     html::class("min-h-screen bg-gray-100 flex items-center justify-center");
-    
+
                     html::div(|| {
                         html::class("bg-white p-8 rounded shadow-lg text-center");
-    
+
                         // Heading
                         html::h1(|| {
                             html::content("404 Not Found");
                             html::class("text-4xl font-bold text-red-600");
                         });
-    
+
                         // Description
                         html::p(|| {
                             html::content("The page you are looking for does not exist.");
                             html::class("text-gray-600 mt-4");
                         });
-    
+
                         // Back to home link
                         html::a(|| {
                             html::attr("href", "/");
@@ -597,7 +597,7 @@ mod components {
 
     pub fn Title(title: impl Into<String>) -> HTMLElement {
         html::title(title.into())
-    }    
+    }
 }
 
 mod db {
@@ -686,7 +686,6 @@ mod db {
     static NEXT_USER_ID: Id = Id::new();
     static NEXT_TODO_ID: Id = Id::new();
 
-    
     #[derive(Debug)]
     pub struct ValidationError {
         field: String,
@@ -695,7 +694,10 @@ mod db {
 
     impl ValidationError {
         pub fn new(field: impl Into<String>, message: impl Into<String>) -> Self {
-            ValidationError { field: field.into(), message: message.into() }
+            ValidationError {
+                field: field.into(),
+                message: message.into(),
+            }
         }
 
         pub fn field(&self) -> &str {
@@ -711,7 +713,7 @@ mod db {
     pub enum Error {
         FailedToRead,
         FailedToWrite,
-        Validation(ValidationError)
+        Validation(ValidationError),
     }
 
     impl std::error::Error for Error {}
@@ -721,31 +723,47 @@ mod db {
             match self {
                 Error::FailedToRead => write!(f, "failed to open database to read"),
                 Error::FailedToWrite => write!(f, "failed to open database to write"),
-                Error::Validation(ValidationError { field, message}) => write!(f, "invalid `{field}`: {message}"),
+                Error::Validation(ValidationError { field, message }) => {
+                    write!(f, "invalid `{field}`: {message}")
+                }
             }
         }
     }
 
     struct Validation;
     impl Validation {
-        pub fn validate_user(user: &User) -> Result<(), Error> {
+        pub fn validate_user(user: &mut User) -> Result<(), Error> {
             if user.username.trim().is_empty() {
-                return Err(Error::Validation(ValidationError::new("username", "cannot be empty")));
+                return Err(Error::Validation(ValidationError::new(
+                    "username",
+                    "cannot be empty",
+                )));
             }
-            
+
+            user.username = user.username.trim().into();
+
             Ok(())
         }
 
-        pub fn validate_todo(todo: &Todo) -> Result<(), Error> {
+        pub fn validate_todo(todo: &mut Todo) -> Result<(), Error> {
             if todo.title.trim().is_empty() {
-                return Err(Error::Validation(ValidationError::new("title", "cannot be empty")));
+                return Err(Error::Validation(ValidationError::new(
+                    "title",
+                    "cannot be empty",
+                )));
             }
 
             if let Some(description) = todo.description.as_deref() {
                 if description.trim().is_empty() {
-                    return Err(Error::Validation(ValidationError::new("description", "cannot be empty")));
+                    return Err(Error::Validation(ValidationError::new(
+                        "description",
+                        "cannot be empty",
+                    )));
                 }
             }
+
+            todo.title = todo.title.trim().into();
+            todo.description = todo.description.as_deref().map(|x| x.trim().into());
 
             Ok(())
         }
@@ -758,21 +776,21 @@ mod db {
             .expect("user table should exists");
 
         let id = NEXT_USER_ID.next();
-        let user = User { id, username };
+        let mut user = User { id, username: username.trim().into() };
 
-        Validation::validate_user(&user)?;
+        Validation::validate_user(&mut user)?;
 
         records.insert(Key::Number(id), Box::new(user.clone()));
         Ok(user)
     }
 
-    pub fn update_user(db: &DB, user: User) -> Result<Option<User>, Error> {
+    pub fn update_user(db: &DB, mut user: User) -> Result<Option<User>, Error> {
         let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
 
-        Validation::validate_user(&user)?;
+        Validation::validate_user(&mut user)?;
 
         match records
             .get_mut(&Key::Number(user.id))
@@ -837,7 +855,7 @@ mod db {
             .expect("todos table should exists");
 
         let id = NEXT_TODO_ID.next();
-        let todo = Todo {
+        let mut todo = Todo {
             id,
             title,
             description,
@@ -845,18 +863,18 @@ mod db {
             user_id,
         };
 
-        Validation::validate_todo(&todo)?;
+        Validation::validate_todo(&mut todo)?;
         records.insert(Key::Number(id), Box::new(todo.clone()));
         Ok(todo)
     }
 
-    pub fn update_todo(db: &DB, todo: Todo) -> Result<Option<Todo>, Error> {
+    pub fn update_todo(db: &DB, mut todo: Todo) -> Result<Option<Todo>, Error> {
         let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Todo)
             .expect("todo table should exists");
 
-        Validation::validate_todo(&todo)?;
+        Validation::validate_todo(&mut todo)?;
 
         match records
             .get_mut(&Key::Number(todo.id))
