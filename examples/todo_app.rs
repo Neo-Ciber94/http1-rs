@@ -33,7 +33,7 @@ mod routes {
     };
 
     use crate::{
-        components::Title,
+        components::{Head, Title},
         db::{ User, DB},
         COOKIE_SESSION_NAME,
     };
@@ -180,11 +180,11 @@ mod routes {
         Scope::new()
             .get("/", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
                 let todos = crate::db::get_all_todos(&db, user.id)?;
-    
-                dbg!(&todos);
 
                 Ok(html::html(|| {
-                    Title("TodoApp | Todos", ());
+                    Head(|| {
+                        Title("TodoApp | Todos");
+                    });
     
                     html::body(|| {
                         html::div(|| {
@@ -258,7 +258,9 @@ mod routes {
             })
             .get("/create", | _: AuthenticatedUser| {
                 html::html(|| {
-                    Title("TodoApp | Create Todo", ());
+                    Head(|| {
+                        Title("TodoApp | Create Todo");
+                    });
     
                     html::body(|| {
                         html::div(|| {
@@ -309,7 +311,9 @@ mod routes {
                 };
     
                 Ok(html::html(|| {
-                    Title("TodoApp | Edit Todo", ());
+                    Head(|| {
+                        Title("TodoApp | Edit Todo");
+                    });
     
                     html::body(|| {
                         html::div(|| {
@@ -368,7 +372,9 @@ mod routes {
                 };
     
                 Ok(html::html(|| {
-                    Title(format!("TodoApp | Todo #{}", todo.id), ());
+                    Head(|| {
+                        Title(format!("TodoApp | Todo #{}", todo.id));
+                    });
     
                     html::body(|| {
                         html::div(|| {
@@ -409,8 +415,10 @@ mod routes {
                 }
     
                 Ok(html::html(|| {
-                    Title("TodoApp | Login", ());
-    
+                    Head(|| {
+                        Title("TodoApp | Login");
+                    });
+
                     html::body(|| {
                         html::div(|| {
                             html::class("min-h-screen flex items-center justify-center bg-gray-100");
@@ -446,7 +454,9 @@ mod routes {
             })
             .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
                 html::html(|| {
-                    Title("TodoApp | Me", ());
+                    Head(|| {
+                        Title("TodoApp | Me");
+                    });
     
                     html::body(|| {
                         html::div(|| {
@@ -482,16 +492,19 @@ mod routes {
 mod components {
     use http1_web::html::{self, element::HTMLElement, IntoChildren};
 
-    pub fn Title(title: impl Into<String>, content: impl IntoChildren) -> HTMLElement {
+    pub fn Head(content: impl IntoChildren) -> HTMLElement {
         html::head(|| {
-            html::title(title.into());
+            content.into_children();
+
             html::meta(|| html::attr("charset", "UTF-8"));
             html::script(|| {
                 html::attr("src", "https://cdn.tailwindcss.com");
             });
-
-            content.into_children();
         })
+    }
+
+    pub fn Title(title: impl Into<String>) -> HTMLElement {
+        html::title(title.into())
     }
 }
 
