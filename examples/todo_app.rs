@@ -4,7 +4,7 @@ use http1_web::{
     app::App,
     middleware::{logging::Logging, redirection::Redirection},
 };
-use routes::{api_routes, home_routes, todos_routes};
+use routes::{api_routes, home_routes, not_found, todos_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -17,7 +17,8 @@ fn main() -> std::io::Result<()> {
         .middleware(Redirection::new("/", "/login"))
         .scope("/api", api_routes())
         .scope("/", home_routes())
-        .scope("/todos", todos_routes());
+        .scope("/todos", todos_routes())
+        .fallback(not_found);
 
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
@@ -540,6 +541,43 @@ mod routes {
                 })
             })
     }
+
+    pub fn not_found() -> HTMLElement {
+        html::html(|| {
+            Head(|| {
+                Title("Todo App | Not Found");
+            });
+    
+            html::body(|| {
+                html::div(|| {
+                    html::class("min-h-screen bg-gray-100 flex items-center justify-center");
+    
+                    html::div(|| {
+                        html::class("bg-white p-8 rounded shadow-lg text-center");
+    
+                        // Heading
+                        html::h1(|| {
+                            html::content("404 Not Found");
+                            html::class("text-4xl font-bold text-red-600");
+                        });
+    
+                        // Description
+                        html::p(|| {
+                            html::content("The page you are looking for does not exist.");
+                            html::class("text-gray-600 mt-4");
+                        });
+    
+                        // Back to home link
+                        html::a(|| {
+                            html::attr("href", "/");
+                            html::content("Go to Home");
+                            html::class("mt-6 inline-block p-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition");
+                        });
+                    });
+                });
+            });
+        })
+    }
 }
 
 #[allow(non_snake_case)]
@@ -559,7 +597,7 @@ mod components {
 
     pub fn Title(title: impl Into<String>) -> HTMLElement {
         html::title(title.into())
-    }
+    }    
 }
 
 mod db {

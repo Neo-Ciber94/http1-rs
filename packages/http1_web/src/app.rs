@@ -77,6 +77,16 @@ impl App {
         self
     }
 
+    pub fn fallback<H, Args, R>(mut self, handler: H) -> Self
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self.fallback = Some(BoxedHandler::new(handler));
+        self
+    }
+
     pub fn get<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
