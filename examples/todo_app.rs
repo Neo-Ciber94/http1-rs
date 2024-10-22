@@ -86,8 +86,6 @@ mod routes {
 
             let cookies = Cookies::from_request_ref(req).unwrap_or_default();
 
-            dbg!(&cookies);
-
             let session_cookie = cookies
                 .get(super::COOKIE_SESSION_NAME)
                 .ok_or_else(|| AuthenticatedUserRejection::RedirectToLogin)?;
@@ -228,76 +226,86 @@ mod routes {
                     Head(|| {
                         Title("TodoApp | Todos");
                     });
-    
+                
                     html::body(|| {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6");
-    
+                
+                            // Main heading
                             html::h1(|| {
                                 html::content("Your Todos");
-                                html::class("text-3xl font-bold text-center text-blue-600 mb-6");
+                                html::class("text-3xl font-bold text-center text-blue-600 mb-8");
                             });
-    
+                
                             // Link to create a new todo
                             html::a(|| {
                                 html::attr("href", "/todos/create");
                                 html::content("Create New Todo");
-                                html::class("mt-6 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block");
+                                html::class("mt-4 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block shadow-md");
                             });
-                    
+                
+                            // Todo items container
                             html::div(|| {
                                 todos.iter().for_each(|todo| {
                                     html::div(|| {
-                                        html::class("bg-white shadow-lg rounded p-4 mb-4");
-    
-                                        html::h2(|| {
-                                            html::content(&todo.title);
-                                            html::class("text-xl font-bold text-gray-800");
+                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 transition-transform transform hover:scale-105 flex items-center justify-between");
+                
+                                        // Form for toggling completion with a button
+                                        html::form(|| {
+                                            html::attr("method", "post");
+                                            html::attr("action", format!("/api/todos/toggle/{}", todo.id));
+                                            html::class("flex items-center");
+                
+                                            // Todo title
+                                            html::h2(|| {
+                                                html::content(&todo.title);
+                                                html::class("text-xl font-bold text-gray-800 flex-grow");
+                                            });
+                
+                                            // Toggle button with meaningful names and state-based styles
+                                            html::button(|| {
+                                                if todo.is_done {
+                                                    html::content("Undo Completion");
+                                                    html::class("ml-4 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"); // Style for undone
+                                                } else {
+                                                    html::content("Complete Todo");
+                                                    html::class("ml-4 p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"); // Style for completed
+                                                }
+                                            });
                                         });
-    
+                
+                                        // Todo description
                                         if let Some(desc) = &todo.description {
                                             html::p(|| {
                                                 html::content(desc);
                                                 html::class("text-gray-600 mt-2");
                                             });
                                         }
-    
-                                        // Toggle button
-                                        html::form(|| {
-                                            html::attr("method", "post");
-                                            html::attr("action", format!("/api/todos/toggle/{}", todo.id));
-    
-                                            html::button(|| {
-                                                html::content(if todo.is_done { "Mark as Incomplete" } else { "Mark as Complete" });
-                                                html::class("mt-4 p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition");
-                                            });
-                                        });
-    
+                
                                         // Edit button
                                         html::a(|| {
                                             html::attr("href", format!("/todos/edit/{}", todo.id));
                                             html::content("Edit");
                                             html::class("mt-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition inline-block");
                                         });
-    
+                
                                         // Delete form
                                         html::form(|| {
                                             html::attr("method", "post");
                                             html::attr("action", format!("/api/todos/delete/{}", todo.id));
-    
+                
                                             html::button(|| {
                                                 html::content("Delete");
-                                                html::class("mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition");
+                                                html::class("mt-2 p-2 bg-red-500 text-white rounded hover:bg-red-600 transition inline-block");
                                             });
                                         });
                                     });
                                 });
                             });
-    
-         
                         });
                     });
-                }))
+                })
+                )
             })
             .get("/create", | _: AuthenticatedUser| {
                 html::html(|| {
@@ -327,6 +335,8 @@ mod routes {
                                         html::attr("name", "title");
                                         html::attr("required", true);
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                        html::attr("minlength", 3);
+                                        html::attr("pattern", ".*\\S.*");
                                     });
     
                                     html::textarea(|| {
@@ -481,6 +491,9 @@ mod routes {
                                         html::attr("type", "text");
                                         html::attr("placeholder", "Username");
                                         html::attr("name", "username");
+                                        html::attr("required", true);
+                                        html::attr("minlength", 3);
+                                        html::attr("pattern", ".*\\S.*");
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out");
                                     });
     
@@ -635,40 +648,93 @@ mod db {
     static NEXT_USER_ID: Id = Id::new();
     static NEXT_TODO_ID: Id = Id::new();
 
+    
     #[derive(Debug)]
-    pub enum DBError {
-        FailedToRead,
-        FailedToWrite,
+    pub struct ValidationError {
+        field: String,
+        message: String,
     }
 
-    impl std::error::Error for DBError {}
+    impl ValidationError {
+        pub fn new(field: impl Into<String>, message: impl Into<String>) -> Self {
+            ValidationError { field: field.into(), message: message.into() }
+        }
 
-    impl Display for DBError {
+        pub fn field(&self) -> &str {
+            &self.field
+        }
+
+        pub fn message(&self) -> &str {
+            &self.message
+        }
+    }
+
+    #[derive(Debug)]
+    pub enum Error {
+        FailedToRead,
+        FailedToWrite,
+        Validation(ValidationError)
+    }
+
+    impl std::error::Error for Error {}
+
+    impl Display for Error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                DBError::FailedToRead => write!(f, "failed to open database to read"),
-                DBError::FailedToWrite => write!(f, "failed to open database to write"),
+                Error::FailedToRead => write!(f, "failed to open database to read"),
+                Error::FailedToWrite => write!(f, "failed to open database to write"),
+                Error::Validation(ValidationError { field, message}) => write!(f, "invalid `{field}`: {message}"),
             }
         }
     }
 
-    pub fn insert_user(db: &DB, username: String) -> Result<User, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    struct Validation;
+    impl Validation {
+        pub fn validate_user(user: &User) -> Result<(), Error> {
+            if user.username.trim().is_empty() {
+                return Err(Error::Validation(ValidationError::new("username", "cannot be empty")));
+            }
+            
+            Ok(())
+        }
+
+        pub fn validate_todo(todo: &Todo) -> Result<(), Error> {
+            if todo.title.trim().is_empty() {
+                return Err(Error::Validation(ValidationError::new("title", "cannot be empty")));
+            }
+
+            if let Some(description) = todo.description.as_deref() {
+                if description.trim().is_empty() {
+                    return Err(Error::Validation(ValidationError::new("description", "cannot be empty")));
+                }
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn insert_user(db: &DB, username: String) -> Result<User, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
 
         let id = NEXT_USER_ID.next();
         let user = User { id, username };
+
+        Validation::validate_user(&user)?;
+
         records.insert(Key::Number(id), Box::new(user.clone()));
         Ok(user)
     }
 
-    pub fn update_user(db: &DB, user: User) -> Result<Option<User>, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn update_user(db: &DB, user: User) -> Result<Option<User>, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
+
+        Validation::validate_user(&user)?;
 
         match records
             .get_mut(&Key::Number(user.id))
@@ -682,8 +748,8 @@ mod db {
         }
     }
 
-    pub fn delete_user(db: &DB, id: u64) -> Result<Option<User>, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn delete_user(db: &DB, id: u64) -> Result<Option<User>, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::User)
             .expect("user table should exists");
@@ -696,8 +762,8 @@ mod db {
         Ok(deleted)
     }
 
-    pub fn get_user(db: &DB, id: u64) -> Result<Option<User>, DBError> {
-        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+    pub fn get_user(db: &DB, id: u64) -> Result<Option<User>, Error> {
+        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
         let records = lock.get(&Table::User).expect("user table should exists");
 
         records
@@ -708,8 +774,8 @@ mod db {
             .transpose()
     }
 
-    pub fn get_all_user(db: &DB) -> Result<Vec<User>, DBError> {
-        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+    pub fn get_all_user(db: &DB) -> Result<Vec<User>, Error> {
+        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
         let records = lock.get(&Table::User).expect("user table should exists");
 
         let users = records
@@ -726,14 +792,14 @@ mod db {
         title: String,
         description: Option<String>,
         user_id: u64,
-    ) -> Result<Todo, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    ) -> Result<Todo, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Todo)
             .expect("todos table should exists");
 
         let id = NEXT_TODO_ID.next();
-        let todo: Todo = Todo {
+        let todo = Todo {
             id,
             title,
             description,
@@ -741,15 +807,18 @@ mod db {
             user_id,
         };
 
+        Validation::validate_todo(&todo)?;
         records.insert(Key::Number(id), Box::new(todo.clone()));
         Ok(todo)
     }
 
-    pub fn update_todo(db: &DB, todo: Todo) -> Result<Option<Todo>, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn update_todo(db: &DB, todo: Todo) -> Result<Option<Todo>, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Todo)
             .expect("todo table should exists");
+
+        Validation::validate_todo(&todo)?;
 
         match records
             .get_mut(&Key::Number(todo.id))
@@ -763,8 +832,8 @@ mod db {
         }
     }
 
-    pub fn delete_todo(db: &DB, id: u64) -> Result<Option<Todo>, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn delete_todo(db: &DB, id: u64) -> Result<Option<Todo>, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Todo)
             .expect("todos table should exists");
@@ -777,8 +846,8 @@ mod db {
         Ok(deleted)
     }
 
-    pub fn get_todo(db: &DB, id: u64) -> Result<Option<Todo>, DBError> {
-        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+    pub fn get_todo(db: &DB, id: u64) -> Result<Option<Todo>, Error> {
+        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
         let todos = lock.get(&Table::Todo).expect("todos table should exists");
 
         todos
@@ -789,8 +858,8 @@ mod db {
             .transpose()
     }
 
-    pub fn get_all_todos(db: &DB, user_id: u64) -> Result<Vec<Todo>, DBError> {
-        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+    pub fn get_all_todos(db: &DB, user_id: u64) -> Result<Vec<Todo>, Error> {
+        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
         let todos = lock.get(&Table::Todo).expect("todos table should exists");
 
         let todos = todos
@@ -803,8 +872,8 @@ mod db {
         Ok(todos)
     }
 
-    pub fn create_session(db: &DB, user_id: u64) -> Result<Session, DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn create_session(db: &DB, user_id: u64) -> Result<Session, Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Session)
             .expect("sessions table should exists");
@@ -822,8 +891,8 @@ mod db {
         Ok(session)
     }
 
-    pub fn get_session_by_id(db: &DB, session_id: String) -> Result<Option<Session>, DBError> {
-        let lock = db.0.read().map_err(|_| DBError::FailedToRead)?;
+    pub fn get_session_by_id(db: &DB, session_id: String) -> Result<Option<Session>, Error> {
+        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
         let sessions = lock
             .get(&Table::Session)
             .expect("sessions table should exists");
@@ -836,7 +905,7 @@ mod db {
             .transpose()
     }
 
-    pub fn get_session_user(db: &DB, session_id: String) -> Result<Option<User>, DBError> {
+    pub fn get_session_user(db: &DB, session_id: String) -> Result<Option<User>, Error> {
         log::warn!("Search session: {session_id}");
 
         let session = match get_session_by_id(db, session_id)? {
@@ -847,8 +916,8 @@ mod db {
         get_user(db, session.user_id)
     }
 
-    pub fn remove_session(db: &DB, session_id: String) -> Result<(), DBError> {
-        let mut lock = db.0.write().map_err(|_| DBError::FailedToWrite)?;
+    pub fn remove_session(db: &DB, session_id: String) -> Result<(), Error> {
+        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
         let records = lock
             .get_mut(&Table::Session)
             .expect("sessions table should exists");
