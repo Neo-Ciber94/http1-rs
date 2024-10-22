@@ -280,6 +280,7 @@ mod routes {
                                         html::attr("type", "text");
                                         html::attr("placeholder", "Title");
                                         html::attr("name", "title");
+                                        html::attr("required", true);
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
                                     });
     
@@ -337,6 +338,7 @@ mod routes {
                                         html::attr("placeholder", "Title");
                                         html::attr("name", "title");
                                         html::attr("value", &todo.title);
+                                        html::attr("required", true);
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
                                     });
     
