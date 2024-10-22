@@ -164,6 +164,7 @@ impl FromStr for Cookie {
         Ok(builder.build())
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct Builder(Cookie);
 
@@ -236,12 +237,10 @@ impl From<Builder> for Cookie {
 
 impl Display for Cookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{name}={value}",
-            name = convert::encode_uri_component_with(self.name(), CookieCharset),
-            value = convert::encode_uri_component_with(self.value(), CookieCharset),
-        )?;
+        let name = convert::encode_uri_component_with(self.name(), CookieCharset);
+        let value = convert::encode_uri_component_with(self.value(), CookieCharset);
+
+        write!(f, "{name}={value}")?;
 
         if self.http_only {
             write!(f, "; HttpOnly")?;
