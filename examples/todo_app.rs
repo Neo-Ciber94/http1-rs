@@ -1053,3 +1053,78 @@ mod db {
         Ok(())
     }
 }
+
+mod kv {
+    use std::{fmt::Display,  path::{Path, PathBuf}};
+    use http1_web::serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
+
+    #[derive(Debug)]
+    pub struct SetValueError;
+
+    impl Display for SetValueError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "failed to set value")
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct KeyValueDatabase(PathBuf); 
+
+    impl KeyValueDatabase {
+        pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
+            let cwd = std::env::current_dir()?;
+            let file_path = cwd.join(path);
+
+            assert!(file_path.is_file(), "is not a file: {file_path:?}");
+
+            if (!file_path.exists()) {
+                let mut ancestors  = file_path.ancestors();
+                ancestors.next();
+
+                if let Some(dir) = ancestors.next() {
+                    std::fs::create_dir_all(dir)?;
+                }
+            }
+
+            Ok(KeyValueDatabase(file_path))
+        }
+
+        fn tap<F, R>(&self, f: F) -> std::io::Result<R> where F: FnOnce(&mut JsonValue) -> std::io::Result<R> {
+            let bytes = std::fs::read(self.0.as_path())?;
+            let mut json = if bytes.is_empty() {
+                JsonValue::Object(Default::default())
+            } else {
+                http1_web::serde::json::from_bytes::<JsonValue>(bytes).map_err(|err| std::io::Error::other(err))?
+            };
+
+            let result = f(&mut json);
+            std::fs::write(self.0.as_path(), json.to_string())?;
+            result
+        }
+
+        pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T)  -> std::io::Result<()> {
+            self.tap(|json| {
+                json[key.as_ref()] = http1_web::serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
+                Ok(())
+            })
+        }
+
+        pub fn get<T: Deserialize>(&self, key: impl AsRef<str>) -> std::io::Result<Option<T>> {
+            self.tap(|json | {
+                let value = match json.get(key.as_ref()) {
+                    Some(x) => x,
+                    None => return Ok(None),
+                };
+
+                http1_web::serde::json::from_value(value.clone()).map_err(|err| std::io::Error::other(err))
+            })
+        }
+
+        pub fn del(&self, key: impl AsRef<str>) -> std::io::Result<()> {
+            self.tap(|json| {
+                json.remove(key.as_ref());
+                Ok(())
+            })
+        }
+    }
+}
