@@ -14,6 +14,7 @@ fn main() -> std::io::Result<()> {
 
     let app = App::new()
         .state(DB::new())
+        .state(KeyValueDatabase::new("examples/todo_app/db.json").unwrap())
         .middleware(Logging)
         .middleware(Redirection::new("/", "/login"))
         .scope("/api", api_routes())
@@ -1068,7 +1069,7 @@ mod kv {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct KeyValueDatabase(PathBuf); 
 
     impl KeyValueDatabase {
@@ -1076,9 +1077,7 @@ mod kv {
             let cwd = std::env::current_dir()?;
             let file_path = cwd.join(path);
 
-            assert!(file_path.is_file(), "is not a file: {file_path:?}");
-
-            if (!file_path.exists()) {
+            if !file_path.exists() {
                 let mut ancestors  = file_path.ancestors();
                 ancestors.next();
 
@@ -1086,6 +1085,9 @@ mod kv {
                     std::fs::create_dir_all(dir)?;
                 }
             }
+
+            std::fs::write(&file_path, "{}")?;
+            log::debug!("Created kv database file: {file_path:?}");
 
             Ok(KeyValueDatabase(file_path))
         }
