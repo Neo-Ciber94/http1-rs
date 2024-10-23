@@ -226,6 +226,18 @@ mod routes {
                 Ok(html::html(|| {
                     Head(|| {
                         Title("TodoApp | Todos");
+                        html::style(r#"
+                         .animate-fade-in {
+                            opacity: 0; 
+                            animation: fadeIn 300ms ease-in forwards;
+                        }
+
+                         @keyframes fadeIn {
+                                to {
+                                    opacity: 1;
+                                }
+                            }
+                        "#);
                     });
                 
                     html::body(|| {
@@ -249,16 +261,15 @@ mod routes {
                             html::div(|| {
                                 todos.iter().for_each(|todo| {
                                     html::div(|| {
-                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between");
+                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between animate-fade-in");
                 
                                         html::div(|| {
                                             let is_done_class =  if todo.is_done { 
-                                                "line-through opacity-90" 
+                                                "line-through opacity-50 italic" 
                                             } 
-                                            else
-                                            {
-                                                 "" 
-                                                };
+                                            else  { 
+                                                "" 
+                                            };
 
                                             // Todo title
                                             html::h2(|| {
@@ -284,21 +295,20 @@ mod routes {
 
                                         html::div(|| {
                                             html::class("flex flex-col gap-2");
+                                            html::styles("min-width: 100px");
 
-                                            // Form for toggling completion with a button
                                             html::form(|| {
                                                 html::attr("method", "post");
                                                 html::attr("action", format!("/api/todos/toggle/{}", todo.id));
                                                 html::class("flex items-center m-0");
                     
-                                                // Toggle button with meaningful names and state-based styles
                                                 html::button(|| {
                                                     if todo.is_done {
                                                         html::content("Completed");
-                                                        html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition"); // Style for undone
+                                                        html::class("p-2 bg-red-500 text-white rounded hover:bg-green-600 transition w-full"); 
                                                     } else {
                                                         html::content("Pending");
-                                                        html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"); // Style for completed
+                                                        html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition w-full");
                                                     }
                                                 });
                                             });
@@ -381,7 +391,7 @@ mod routes {
             .get("/edit/:todo_id", |State(db): State<DB>, _: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
                 let todo = match crate::db::get_todo(&db, todo_id)? {
                     Some(x) => x,
-                    None => {
+                        None => {
                         return Err(ErrorStatusCode::NotFound.into())
                     }
                 };
@@ -425,7 +435,7 @@ mod routes {
                                     html::textarea(|| {
                                         html::attr("placeholder", "Description (optional)");
                                         html::attr("name", "description");
-                                        html::content(todo.description.clone().unwrap_or_default());
+                                        html::attr("value", todo.description.clone().unwrap_or_default());
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
                                     });
     
