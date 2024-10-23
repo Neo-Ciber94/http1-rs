@@ -49,9 +49,7 @@ mod routes {
     };
 
     use crate::{
-        components::{Head, Layout, Title},
-        db::{User, DB},
-        COOKIE_SESSION_NAME,
+        components::{Head, Layout, Title}, db::{User, DB}, kv::KeyValueDatabase, COOKIE_SESSION_NAME
     };
 
     #[derive(Debug)]
@@ -81,7 +79,7 @@ mod routes {
         fn from_request_ref(
             req: &http1::request::Request<http1::body::Body>,
         ) -> Result<Self, Self::Rejection> {
-            let State(db) = State::<DB>::from_request_ref(req)
+            let State(db) = State::<KeyValueDatabase>::from_request_ref(req)
                 .inspect_err(|err| {
                     log::error!("Failed to get database: {err}");
                 })
@@ -138,7 +136,7 @@ mod routes {
         Scope::new()
             .post(
                 "/login",
-                |State(db): State<DB>,
+                |State(db): State<KeyValueDatabase>,
                  Form(input): Form<LoginUser>|
                  -> Result<Response<Body>, ErrorResponse> {
                     let user = crate::db::insert_user(&db, input.username)?;
@@ -159,7 +157,7 @@ mod routes {
             )
             .get(
                 "/logout",
-                |State(db): State<DB>, mut cookies: Cookies, auth: Option<AuthenticatedUser>|
+                |State(db): State<KeyValueDatabase>, mut cookies: Cookies, auth: Option<AuthenticatedUser>|
                  -> Result<Response<Body>, ErrorResponse> {
                    
                    if auth.is_none() {
@@ -678,7 +676,10 @@ mod db {
         sync::{atomic::AtomicU64, Arc, RwLock},
     };
 
+    use http1::error::BoxError;
     use http1_web::impl_serde_struct;
+
+    use crate::kv::KeyValueDatabase;
 
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum Table {
@@ -731,6 +732,11 @@ mod db {
         pub id: String,
         pub user_id: u64,
     }
+
+    impl_serde_struct!(Session => {
+        id: String,
+        user_id: u64,
+   });
 
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
     enum Key {
@@ -839,81 +845,50 @@ mod db {
         }
     }
 
-    pub fn insert_user(db: &DB, username: String) -> Result<User, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::User)
-            .expect("user table should exists");
 
-        let id = NEXT_USER_ID.next();
-        let mut user = User {
-            id,
-            username: username.trim().into(),
-        };
-
+    pub fn insert_user(db: &KeyValueDatabase, username: String) -> Result<User, BoxError> {
+        let id = db.incr("next_user_id")? + 1;
+        let mut user = User { id, username: username.trim().into() };
         Validation::validate_user(&mut user)?;
-
-        records.insert(Key::Number(id), Box::new(user.clone()));
+        db.set(format!("user/{id}"), user.clone())?;
         Ok(user)
     }
 
-    pub fn update_user(db: &DB, mut user: User) -> Result<Option<User>, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::User)
-            .expect("user table should exists");
+    pub fn update_user(db: &KeyValueDatabase, mut user: User) -> Result<Option<User>, BoxError> {
+        let key = &format!("user/{}", user.id);
 
-        Validation::validate_user(&mut user)?;
+        if db.contains(key)? {
+            Validation::validate_user(&mut user)?;
+            db.set(key, user.clone())?;
+            Ok(Some(user))
+        }
+        else {
+            Ok(None)
+        }
 
-        match records
-            .get_mut(&Key::Number(user.id))
-            .and_then(|x| x.downcast_mut::<User>())
-        {
-            Some(user_to_update) => {
-                user_to_update.username = user.username;
-                Ok(Some(user_to_update.clone()))
-            }
+    }
+
+    pub fn delete_user(db: &KeyValueDatabase, id: u64) -> Result<Option<User>, BoxError> {
+        let key = &format!("user/{id}");
+
+        match db.get(key)? {
+            Some(deleted) => {
+                db.del(key)?;
+                Ok(Some(deleted))
+            },
             None => Ok(None),
         }
     }
 
-    pub fn delete_user(db: &DB, id: u64) -> Result<Option<User>, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::User)
-            .expect("user table should exists");
-
-        let deleted = records
-            .remove(&Key::Number(id))
-            .and_then(|x| x.downcast::<User>().ok())
-            .map(|x| *x);
-
-        Ok(deleted)
+    pub fn get_user(db: &KeyValueDatabase, id: u64) -> Result<Option<User>, BoxError> {
+        let key = &format!("user/{id}");
+        let user = db.get::<User>(key)?;
+        Ok(user)
     }
 
-    pub fn get_user(db: &DB, id: u64) -> Result<Option<User>, Error> {
-        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
-        let records = lock.get(&Table::User).expect("user table should exists");
-
-        records
-            .get(&Key::Number(id))
-            .and_then(|x| x.downcast_ref::<User>())
-            .cloned()
-            .map(Ok)
-            .transpose()
-    }
-
-    pub fn get_all_user(db: &DB) -> Result<Vec<User>, Error> {
-        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
-        let records = lock.get(&Table::User).expect("user table should exists");
-
-        let users = records
-            .values()
-            .filter_map(|x| x.downcast_ref::<User>())
-            .cloned()
-            .collect::<Vec<_>>();
-
-        Ok(users)
+    pub fn get_all_user(db: &KeyValueDatabase) -> Result<Vec<User>, BoxError> {
+        let result = db.scan::<User>("user/")?;
+        Ok(result)
     }
 
     pub fn insert_todo(
@@ -1001,12 +976,7 @@ mod db {
         Ok(todos)
     }
 
-    pub fn create_session(db: &DB, user_id: u64) -> Result<Session, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::Session)
-            .expect("sessions table should exists");
-
+    pub fn create_session(db: &KeyValueDatabase, user_id: u64) -> Result<Session, BoxError> {
         let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
             .take(32)
             .collect::<String>();
@@ -1016,25 +986,17 @@ mod db {
             user_id,
         };
 
-        records.insert(Key::String(id), Box::new(session.clone()));
+        db.set(format!("session/{id}"), session.clone())?;
         Ok(session)
     }
 
-    pub fn get_session_by_id(db: &DB, session_id: String) -> Result<Option<Session>, Error> {
-        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
-        let sessions = lock
-            .get(&Table::Session)
-            .expect("sessions table should exists");
-
-        sessions
-            .get(&Key::String(session_id))
-            .and_then(|x| x.downcast_ref::<Session>())
-            .cloned()
-            .map(Ok)
-            .transpose()
+    pub fn get_session_by_id(db: &KeyValueDatabase, session_id: String) -> Result<Option<Session>, BoxError> {
+        let key = format!("session/{session_id}");
+        let session = db.get::<Session>(key)?;
+        Ok(session)
     }
 
-    pub fn get_session_user(db: &DB, session_id: String) -> Result<Option<User>, Error> {
+    pub fn get_session_user(db: &KeyValueDatabase, session_id: String) -> Result<Option<User>, BoxError> {
         log::warn!("Search session: {session_id}");
 
         let session = match get_session_by_id(db, session_id)? {
@@ -1045,13 +1007,9 @@ mod db {
         get_user(db, session.user_id)
     }
 
-    pub fn remove_session(db: &DB, session_id: String) -> Result<(), Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::Session)
-            .expect("sessions table should exists");
-
-        records.remove(&Key::String(session_id));
+    pub fn remove_session(db: &KeyValueDatabase, session_id: String) -> Result<(), BoxError> {
+        let key = format!("session/{session_id}");
+        db.del(key)?;
         Ok(())
     }
 }
@@ -1105,9 +1063,10 @@ mod kv {
             result
         }
 
-        pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T)  -> std::io::Result<()> {
+        pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
             self.tap(|json| {
-                json[key.as_ref()] = http1_web::serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
+                let new_value = http1_web::serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
+                json.try_insert(key.as_ref(), new_value).map_err(|err| std::io::Error::other(err))?;
                 Ok(())
             })
         }
@@ -1120,6 +1079,61 @@ mod kv {
                 };
 
                 http1_web::serde::json::from_value(value.clone()).map_err(|err| std::io::Error::other(err))
+            })
+        }
+
+        pub fn scan<T: Deserialize>(&self, pattern: impl AsRef<str>) -> std::io::Result<Vec<T>> {
+            self.tap(|json | {
+                let pattern = pattern.as_ref();
+                let mut values = Vec::new();
+
+                match json {
+                    JsonValue::Object(ordered_map) => {
+                        for (k, v) in ordered_map.iter() {
+                            if !k.starts_with(pattern) {
+                                continue;
+                            }
+
+                            match http1_web::serde::json::from_value::<T>(v.clone()) {
+                                Ok(x) => values.push(x),
+                                Err(_) => {},
+                            };
+                        }
+                    },
+                    v => panic!("expected json object but was `{}`", v.variant())
+                }
+
+                Ok(values)
+            })
+        }
+
+        pub fn incr(&self, key: impl AsRef<str>) -> std::io::Result<u64> {
+            self.tap(|json| {
+                let key = key.as_ref();
+                match json.get(key) {
+                    Some(x) => {
+                        if !x.is_number() {
+                            return Err(std::io::Error::other(format!("`{key}` is not a number")));
+                        }
+
+                        let value = x.as_number().unwrap().as_u64().unwrap_or(0) + 1;
+                        json.try_insert(key, JsonValue::from(value)).map_err(|err| std::io::Error::other(err))?;
+                        Ok(value)
+                    },
+                    None => {
+                        json.try_insert(key, JsonValue::from(0)).map_err(|err| std::io::Error::other(err))?;
+                        Ok(0)
+                    },
+                }
+            })
+        }
+
+        pub fn contains(&self, key: impl AsRef<str>) -> std::io::Result<bool> {
+            self.tap(|json | {
+                match json.get(key.as_ref()) {
+                    Some(_) => Ok(true),
+                    None => Ok(false),
+                }
             })
         }
 
