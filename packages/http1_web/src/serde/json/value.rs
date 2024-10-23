@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    fmt::Display,
     ops::{Index, IndexMut},
 };
 
@@ -11,9 +12,7 @@ use crate::serde::{
     visitor::{BytesAccess, MapAccess, SeqAccess, Visitor},
 };
 
-use super::{
-    number::Number,
-    ser::{JsonBytesSerializer, JsonSerializationError},
+use super::{number::Number, ser::{JsonBytesSerializer, JsonSerializationError}
 };
 
 /// A JSON value, which can represent various types of data such as numbers, strings,
@@ -362,6 +361,13 @@ macro_rules! json {
 
            $crate::serde::json::value::JsonValue::Object(map)
         }
+    }
+}
+
+impl Display for JsonValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = super::to_pretty_string(self).map_err(|_| std::fmt::Error)?;
+        write!(f, "{s}")
     }
 }
 
