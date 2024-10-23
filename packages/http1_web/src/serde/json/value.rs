@@ -192,7 +192,7 @@ impl JsonValue {
     /// # Panics
     /// - This element is not a json
     /// - This element is an array and the index is out of bounds
-    pub fn insert<I: JsonIndexMut>(&mut self, index: I, new_value: JsonValue) -> JsonValue {
+    pub fn insert<I: JsonIndexMut>(&mut self, index: I, new_value: JsonValue) -> Option<JsonValue> {
         index.insert(self, new_value)
     }
 
@@ -209,7 +209,7 @@ impl JsonValue {
         &mut self,
         index: I,
         new_value: JsonValue,
-    ) -> Result<JsonValue, TryInsertError> {
+    ) -> Result<Option<JsonValue>, TryInsertError> {
         index.try_insert(self, new_value)
     }
 
@@ -490,11 +490,11 @@ pub trait JsonIndexMut: Sized + Copy + std::fmt::Display {
         self,
         json: &mut JsonValue,
         new_value: JsonValue,
-    ) -> Result<JsonValue, TryInsertError>;
+    ) -> Result<Option<JsonValue>, TryInsertError>;
 
     fn try_remove(self, json: &mut JsonValue) -> Result<Option<JsonValue>, TryRemoveError>;
 
-    fn insert(self, json: &mut JsonValue, new_value: JsonValue) -> JsonValue {
+    fn insert(self, json: &mut JsonValue, new_value: JsonValue) -> Option<JsonValue> {
         match self.try_insert(json, new_value) {
             Ok(x) => x,
             Err(TryInsertError::ExpectedArrayOrMap) => {
@@ -539,14 +539,14 @@ impl JsonIndexMut for usize {
         self,
         json: &mut JsonValue,
         new_value: JsonValue,
-    ) -> Result<JsonValue, TryInsertError> {
+    ) -> Result<Option<JsonValue>, TryInsertError> {
         match json {
             JsonValue::Array(vec) => match vec.get_mut(self) {
-                Some(x) => Ok(std::mem::replace(x, new_value)),
+                Some(x) => Ok(Some(std::mem::replace(x, new_value))),
                 None => Err(TryInsertError::OutOfBounds),
             },
             JsonValue::Object(map) => match map.get_index_mut(self) {
-                Some(x) => Ok(std::mem::replace(x, new_value)),
+                Some(x) => Ok(Some(std::mem::replace(x, new_value))),
                 None => Err(TryInsertError::OutOfBounds),
             },
             _ => Err(TryInsertError::ExpectedArrayOrMap),
@@ -579,11 +579,14 @@ impl<'a> JsonIndexMut for &'a str {
         self,
         json: &mut JsonValue,
         new_value: JsonValue,
-    ) -> Result<JsonValue, TryInsertError> {
+    ) -> Result<Option<JsonValue>, TryInsertError> {
         match json {
             JsonValue::Object(map) => match map.get_mut(self) {
-                Some(x) => Ok(std::mem::replace(x, new_value)),
-                None => Err(TryInsertError::OutOfBounds),
+                Some(x) => Ok(Some(std::mem::replace(x, new_value))),
+                None => {
+                    map.insert(self.to_owned(), new_value);
+                    Ok(None)
+                }
             },
             _ => Err(TryInsertError::ExpectedMap),
         }
