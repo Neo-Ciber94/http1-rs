@@ -4,6 +4,7 @@ use http1_web::{
     app::App,
     middleware::{logging::Logging, redirection::Redirection},
 };
+use kv::KeyValueDatabase;
 use routes::{api_routes, home_routes, not_found, todos_routes};
 
 fn main() -> std::io::Result<()> {
