@@ -12,7 +12,9 @@ use crate::serde::{
     visitor::{BytesAccess, MapAccess, SeqAccess, Visitor},
 };
 
-use super::{number::Number, ser::{JsonBytesSerializer, JsonSerializationError}
+use super::{
+    number::Number,
+    ser::{JsonBytesSerializer, JsonSerializationError},
 };
 
 /// A JSON value, which can represent various types of data such as numbers, strings,
@@ -165,6 +167,21 @@ impl JsonValue {
     /// This can be used to extract the current value while leaving a null in its place.
     pub fn take(&mut self) -> JsonValue {
         std::mem::take(self)
+    }
+
+    /// Returns a reference element to the given index.
+    pub fn get<I: JsonValueIndex>(&self, index: I) -> Option<&JsonValue> {
+        index.get(self)
+    }
+
+    /// Returns a reference mutable element to the given index.
+    pub fn get_mut<I: JsonValueIndex>(&mut self, index: I) -> Option<&mut JsonValue> {
+        index.get_mut(self)
+    }
+
+    /// Removes the element at the given index.
+    pub fn remove<I: JsonValueIndex>(&mut self, index: I) -> Option<JsonValue> {
+        index.remove(self)
     }
 
     /// Selects a nested `JsonValue` based on a dot-separated path.
@@ -410,6 +427,7 @@ pub trait JsonValueIndex {
     fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue>;
     fn index(self, value: &JsonValue) -> &JsonValue;
     fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue;
+    fn remove(self, value: &mut JsonValue) -> Option<JsonValue>;
 }
 
 impl JsonValueIndex for usize {
@@ -438,6 +456,20 @@ impl JsonValueIndex for usize {
         match value {
             JsonValue::Array(vec) => &mut vec[self],
             _ => panic!("cannot index as an array a `{}`", value.variant()),
+        }
+    }
+
+    fn remove(self, value: &mut JsonValue) -> Option<JsonValue> {
+        match value {
+            JsonValue::Array(vec) => {
+                if self < vec.len() {
+                    Some(vec.remove(self))
+                } else {
+                    None
+                }
+            }
+            JsonValue::Object(ordered_map) => ordered_map.remove_index(self),
+            _ => None,
         }
     }
 }
@@ -472,6 +504,13 @@ impl<'a> JsonValueIndex for &'a str {
                 .get_mut(self)
                 .unwrap_or_else(|| panic!("not value found in `{self}`")),
             _ => panic!("cannot index as an object a `{}`", value.variant()),
+        }
+    }
+
+    fn remove(self, value: &mut JsonValue) -> Option<JsonValue> {
+        match value {
+            JsonValue::Object(ordered_map) => ordered_map.remove(self),
+            _ => None
         }
     }
 }

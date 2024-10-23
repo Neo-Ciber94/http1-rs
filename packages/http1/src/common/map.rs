@@ -94,6 +94,18 @@ where
         }
     }
 
+    /// Removes the element at the given position.
+    pub fn remove_index(&mut self, pos: usize) -> Option<V> {
+        let key = self.keys.get(pos)?;
+        match self.map.remove_entry(key) {
+            Some((k, v)) => {
+                self.keys.retain(|x| x != &k);
+                Some(v)
+            }
+            None => None,
+        }
+    }
+
     /// Returns an iterator over the key-value pairs in insertion order.
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
