@@ -47,15 +47,15 @@ mod routes {
     };
 
     use crate::{
-        components::{Head, Title},
+        components::{Head, Layout, Title},
         db::{User, DB},
         COOKIE_SESSION_NAME,
     };
 
     #[derive(Debug)]
-    struct AuthenticatedUser(pub User);
+    pub struct AuthenticatedUser(pub User);
 
-    enum AuthenticatedUserRejection {
+    pub enum AuthenticatedUserRejection {
         StateError,
         RedirectToLogin,
     }
@@ -155,6 +155,28 @@ mod routes {
                         .into_response())
                 },
             )
+            .get(
+                "/logout",
+                |State(db): State<DB>, mut cookies: Cookies, auth: Option<AuthenticatedUser>|
+                 -> Result<Response<Body>, ErrorResponse> {
+                   
+                   if auth.is_none() {
+                    return Ok(Redirect::see_other("/todos").into_response());
+                   }
+
+                   let session_cookie = match cookies.get(COOKIE_SESSION_NAME) {
+                    Some(c) => c,
+                    None => {
+                        return Ok(Redirect::see_other("/todos").into_response());
+                    }
+                   };
+
+                   crate::db::remove_session(&db, session_cookie.value().to_owned())?;
+                   cookies.del(COOKIE_SESSION_NAME);
+                   
+                   Ok((Redirect::see_other("/"), cookies).into_response())
+                },
+            )
             .post(
                 "/todos/create",
                 |State(db): State<DB>,
@@ -220,7 +242,8 @@ mod routes {
 
     pub fn todos_routes() -> Scope {
         Scope::new()
-            .get("/", |State(db): State<DB>, AuthenticatedUser(user): AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
+            .get("/", |State(db): State<DB>, auth: AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
+                let AuthenticatedUser(user) = &auth;
                 let todos = crate::db::get_all_todos(&db, user.id)?;
 
                 Ok(html::html(|| {
@@ -241,94 +264,96 @@ mod routes {
                     });
                 
                     html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen bg-gray-100 p-6");
-                
-                            // Main heading
-                            html::h1(|| {
-                                html::content("Your Todos");
-                                html::class("text-3xl font-bold text-center text-blue-600 mb-8");
-                            });
-                
-                            // Link to create a new todo
-                            html::a(|| {
-                                html::attr("href", "/todos/create");
-                                html::content("Create New Todo");
-                                html::class("mt-4 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block shadow-md mb-5");
-                            });
-                
-                            // Todo items container
+                        Layout(Some(auth), || {
                             html::div(|| {
-                                todos.iter().for_each(|todo| {
-                                    html::div(|| {
-                                        html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between animate-fade-in");
-                
+                                html::class("min-h-screen bg-gray-100 p-6");
+                    
+                                // Main heading
+                                html::h1(|| {
+                                    html::content("Your Todos");
+                                    html::class("text-3xl font-bold text-center text-blue-600 mb-8");
+                                });
+                    
+                                // Link to create a new todo
+                                html::a(|| {
+                                    html::attr("href", "/todos/create");
+                                    html::content("Create New Todo");
+                                    html::class("mt-4 p-3 bg-green-500 text-white rounded hover:bg-green-600 transition inline-block shadow-md mb-5");
+                                });
+                    
+                                // Todo items container
+                                html::div(|| {
+                                    todos.iter().for_each(|todo| {
                                         html::div(|| {
-                                            let is_done_class =  if todo.is_done { 
-                                                "line-through opacity-50 italic" 
-                                            } 
-                                            else  { 
-                                                "" 
-                                            };
-
-                                            // Todo title
-                                            html::h2(|| {
-                                                html::content(&todo.title);
-                                                html::class(format!("text-xl font-bold text-gray-800 flex-grow {is_done_class}"));
-                                            });
-                
+                                            html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between animate-fade-in");
                     
-                                            // Todo description
-                                            if let Some(desc) = &todo.description {
-                                                html::p(|| {
-                                                    html::content(desc);
-                                                    html::class(format!("text-gray-600 mt-2 {is_done_class}"));
+                                            html::div(|| {
+                                                let is_done_class =  if todo.is_done { 
+                                                    "line-through opacity-50 italic" 
+                                                } 
+                                                else  { 
+                                                    "" 
+                                                };
+    
+                                                // Todo title
+                                                html::h2(|| {
+                                                    html::content(&todo.title);
+                                                    html::class(format!("text-xl font-bold text-gray-800 flex-grow {is_done_class}"));
                                                 });
-                                            }
-                                            else {
-                                                html::p(|| {
-                                                    html::content("<no description>");
-                                                    html::class("text-gray-600 opacity-50 italic mt-2");
-                                                });
-                                            }
-                                        });
-
-                                        html::div(|| {
-                                            html::class("flex flex-col gap-2");
-                                            html::styles("min-width: 100px");
-
-                                            html::form(|| {
-                                                html::attr("method", "post");
-                                                html::attr("action", format!("/api/todos/toggle/{}", todo.id));
-                                                html::class("flex items-center m-0");
                     
-                                                html::button(|| {
-                                                    if todo.is_done {
-                                                        html::content("Completed");
-                                                        html::class("p-2 bg-red-500 text-white rounded hover:bg-green-600 transition w-full"); 
-                                                    } else {
-                                                        html::content("Pending");
-                                                        html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition w-full");
-                                                    }
-                                                });
+                        
+                                                // Todo description
+                                                if let Some(desc) = &todo.description {
+                                                    html::p(|| {
+                                                        html::content(desc);
+                                                        html::class(format!("text-gray-600 mt-2 {is_done_class}"));
+                                                    });
+                                                }
+                                                else {
+                                                    html::p(|| {
+                                                        html::content("<no description>");
+                                                        html::class("text-gray-600 opacity-50 italic mt-2");
+                                                    });
+                                                }
                                             });
-
-                                            // Edit button
-                                            html::a(|| {
-                                                html::attr("href", format!("/todos/edit/{}", todo.id));
-                                                html::content("Edit");
-                                                html::class("p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition flex justify-center");
-                                            });
-                    
-                                            // Delete form
-                                            html::form(|| {
-                                                html::attr("method", "post");
-                                                html::attr("action", format!("/api/todos/delete/{}", todo.id));
-                                                html::class("flex justify-center");
-                    
-                                                html::button(|| {
-                                                    html::content("Delete");
-                                                    html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition w-full");
+    
+                                            html::div(|| {
+                                                html::class("flex flex-col gap-2");
+                                                html::styles("min-width: 100px");
+    
+                                                html::form(|| {
+                                                    html::attr("method", "post");
+                                                    html::attr("action", format!("/api/todos/toggle/{}", todo.id));
+                                                    html::class("flex items-center m-0");
+                        
+                                                    html::button(|| {
+                                                        if todo.is_done {
+                                                            html::content("Completed");
+                                                            html::class("p-2 bg-red-500 text-white rounded hover:bg-green-600 transition w-full"); 
+                                                        } else {
+                                                            html::content("Pending");
+                                                            html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition w-full");
+                                                        }
+                                                    });
+                                                });
+    
+                                                // Edit button
+                                                html::a(|| {
+                                                    html::attr("href", format!("/todos/edit/{}", todo.id));
+                                                    html::content("Edit");
+                                                    html::class("p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition flex justify-center");
+                                                });
+                        
+                                                // Delete form
+                                                html::form(|| {
+                                                    html::attr("method", "post");
+                                                    html::attr("action", format!("/api/todos/delete/{}", todo.id));
+                                                    html::class("flex justify-center");
+                        
+                                                    html::button(|| {
+                                                        html::content("Delete");
+                                                        html::class("p-2 bg-red-500 text-white rounded hover:bg-red-600 transition w-full");
+                                                    });
                                                 });
                                             });
                                         });
@@ -340,47 +365,49 @@ mod routes {
                 })
                 )
             })
-            .get("/create", | _: AuthenticatedUser| {
+            .get("/create", | auth: AuthenticatedUser| {
                 html::html(|| {
                     Head(|| {
                         Title("TodoApp | Create Todo");
                     });
     
                     html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
-    
+                        Layout(Some(auth), || {
                             html::div(|| {
-                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
-    
-                                html::h1(|| {
-                                    html::content("Create New Todo");
-                                    html::class("text-3xl font-bold text-center text-blue-600 mb-6");
-                                });
-    
-                                html::form(|| {
-                                    html::attr("method", "post");
-                                    html::attr("action", "/api/todos/create");
-    
-                                    html::input(|| {
-                                        html::attr("type", "text");
-                                        html::attr("placeholder", "Title");
-                                        html::attr("name", "title");
-                                        html::attr("required", true);
-                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
-                                        html::attr("minlength", 3);
-                                        html::attr("pattern", ".*\\S.*");
+                                html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+        
+                                html::div(|| {
+                                    html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+        
+                                    html::h1(|| {
+                                        html::content("Create New Todo");
+                                        html::class("text-3xl font-bold text-center text-blue-600 mb-6");
                                     });
-    
-                                    html::textarea(|| {
-                                        html::attr("placeholder", "Description (optional)");
-                                        html::attr("name", "description");
-                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
-                                    });
-    
-                                    html::button(|| {
-                                        html::content("Create Todo");
-                                        html::class("mt-6 p-3 bg-green-500 text-white rounded w-full hover:bg-green-600 transition");
+        
+                                    html::form(|| {
+                                        html::attr("method", "post");
+                                        html::attr("action", "/api/todos/create");
+        
+                                        html::input(|| {
+                                            html::attr("type", "text");
+                                            html::attr("placeholder", "Title");
+                                            html::attr("name", "title");
+                                            html::attr("required", true);
+                                            html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                            html::attr("minlength", 3);
+                                            html::attr("pattern", ".*\\S.*");
+                                        });
+        
+                                        html::textarea(|| {
+                                            html::attr("placeholder", "Description (optional)");
+                                            html::attr("name", "description");
+                                            html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                        });
+        
+                                        html::button(|| {
+                                            html::content("Create Todo");
+                                            html::class("mt-6 p-3 bg-green-500 text-white rounded w-full hover:bg-green-600 transition");
+                                        });
                                     });
                                 });
                             });
@@ -388,7 +415,7 @@ mod routes {
                     });
                 })
             })
-            .get("/edit/:todo_id", |State(db): State<DB>, _: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+            .get("/edit/:todo_id", |State(db): State<DB>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
                 let todo = match crate::db::get_todo(&db, todo_id)? {
                     Some(x) => x,
                         None => {
@@ -402,46 +429,48 @@ mod routes {
                     });
     
                     html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
-    
+                        Layout(Some(auth), || {
                             html::div(|| {
-                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
-    
-                                html::h1(|| {
-                                    html::content("Edit Todo");
-                                    html::class("text-3xl font-bold text-center text-blue-600 mb-6");
-                                });
-    
-                                html::form(|| {
-                                    html::attr("method", "post");
-                                    html::attr("action", "/api/todos/update");
-    
-                                    html::input(|| {
-                                        html::attr("type", "hidden");
-                                        html::attr("name", "id");
-                                        html::attr("value", todo.id);
+                                html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+        
+                                html::div(|| {
+                                    html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+        
+                                    html::h1(|| {
+                                        html::content("Edit Todo");
+                                        html::class("text-3xl font-bold text-center text-blue-600 mb-6");
                                     });
-                                    
-                                    html::input(|| {
-                                        html::attr("type", "text");
-                                        html::attr("placeholder", "Title");
-                                        html::attr("name", "title");
-                                        html::attr("value", &todo.title);
-                                        html::attr("required", true);
-                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
-                                    });
-    
-                                    html::textarea(|| {
-                                        html::attr("placeholder", "Description (optional)");
-                                        html::attr("name", "description");
-                                        html::attr("value", todo.description.clone().unwrap_or_default());
-                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full");
-                                    });
-    
-                                    html::button(|| {
-                                        html::content("Update Todo");
-                                        html::class("mt-6 p-3 bg-blue-500 text-white rounded w-full hover:bg-blue-600 transition");
+        
+                                    html::form(|| {
+                                        html::attr("method", "post");
+                                        html::attr("action", "/api/todos/update");
+        
+                                        html::input(|| {
+                                            html::attr("type", "hidden");
+                                            html::attr("name", "id");
+                                            html::attr("value", todo.id);
+                                        });
+                                        
+                                        html::input(|| {
+                                            html::attr("type", "text");
+                                            html::attr("placeholder", "Title");
+                                            html::attr("name", "title");
+                                            html::attr("value", &todo.title);
+                                            html::attr("required", true);
+                                            html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                        });
+        
+                                        html::textarea(|| {
+                                            html::attr("placeholder", "Description (optional)");
+                                            html::attr("name", "description");
+                                            html::attr("value", todo.description.clone().unwrap_or_default());
+                                            html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                        });
+        
+                                        html::button(|| {
+                                            html::content("Update Todo");
+                                            html::class("mt-6 p-3 bg-blue-500 text-white rounded w-full hover:bg-blue-600 transition");
+                                        });
                                     });
                                 });
                             });
@@ -449,7 +478,7 @@ mod routes {
                     });
                 }))
             })
-            .get("/:todo_id", |State(db): State<DB>, _: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+            .get("/:todo_id", |State(db): State<DB>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
                 let todo = match crate::db::get_todo(&db, todo_id)? {
                     Some(x) => x,
                     None => {
@@ -463,27 +492,29 @@ mod routes {
                     });
     
                     html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
-    
+                        Layout(Some(auth), || {
                             html::div(|| {
-                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
-    
-                                html::h1(|| {
-                                    html::content(&todo.title);
-                                    html::class("text-3xl font-bold text-center text-blue-600 mb-4");
-                                });
-    
-                                if let Some(desc) = &todo.description {
+                                html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
+        
+                                html::div(|| {
+                                    html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+        
+                                    html::h1(|| {
+                                        html::content(&todo.title);
+                                        html::class("text-3xl font-bold text-center text-blue-600 mb-4");
+                                    });
+        
+                                    if let Some(desc) = &todo.description {
+                                        html::p(|| {
+                                            html::content(desc);
+                                            html::class("text-gray-600 text-center mb-4");
+                                        });
+                                    }
+        
                                     html::p(|| {
-                                        html::content(desc);
+                                        html::content(format!("Completed: {}", todo.is_done));
                                         html::class("text-gray-600 text-center mb-4");
                                     });
-                                }
-    
-                                html::p(|| {
-                                    html::content(format!("Completed: {}", todo.is_done));
-                                    html::class("text-gray-600 text-center mb-4");
                                 });
                             });
                         });
@@ -505,72 +536,42 @@ mod routes {
                     });
 
                     html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen flex items-center justify-center bg-gray-100");
-    
+                        Layout(auth, || {
                             html::div(|| {
-                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
-    
-                                html::h1(|| {
-                                    html::content("Login to TodoApp");
-                                    html::class("text-3xl font-extrabold text-center text-blue-600 mb-6");
-                                });
-    
-                                html::form(|| {
-                                    html::attr("method", "post");
-                                    html::attr("action", "/api/login");
-    
-                                    html::input(|| {
-                                        html::attr("type", "text");
-                                        html::attr("placeholder", "Username");
-                                        html::attr("name", "username");
-                                        html::attr("required", true);
-                                        html::attr("minlength", 3);
-                                        html::attr("pattern", ".*\\S.*");
-                                        html::class("mt-4 p-3 border border-gray-300 rounded w-full focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out");
+                                html::class("min-h-screen flex items-center justify-center bg-gray-100");
+        
+                                html::div(|| {
+                                    html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
+        
+                                    html::h1(|| {
+                                        html::content("Login to TodoApp");
+                                        html::class("text-3xl font-extrabold text-center text-blue-600 mb-6");
                                     });
-    
-                                    html::button(|| {
-                                        html::content("Login");
-                                        html::class("mt-6 p-3 bg-green-500 text-white font-semibold rounded w-full hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105");
+        
+                                    html::form(|| {
+                                        html::attr("method", "post");
+                                        html::attr("action", "/api/login");
+        
+                                        html::input(|| {
+                                            html::attr("type", "text");
+                                            html::attr("placeholder", "Username");
+                                            html::attr("name", "username");
+                                            html::attr("required", true);
+                                            html::attr("minlength", 3);
+                                            html::attr("pattern", ".*\\S.*");
+                                            html::class("mt-4 p-3 border border-gray-300 rounded w-full focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out");
+                                        });
+        
+                                        html::button(|| {
+                                            html::content("Login");
+                                            html::class("mt-6 p-3 bg-green-500 text-white font-semibold rounded w-full hover:bg-green-600 transition duration-300 ease-in-out transform hover:scale-105");
+                                        });
                                     });
                                 });
                             });
                         });
                     });
                 }))
-            })
-            .get("/me", |AuthenticatedUser(user): AuthenticatedUser| {
-                html::html(|| {
-                    Head(|| {
-                        Title("TodoApp | Me");
-                    });
-    
-                    html::body(|| {
-                        html::div(|| {
-                            html::class("min-h-screen flex items-center justify-center bg-gray-100");
-    
-                            html::div(|| {
-                                html::class("bg-white p-8 rounded shadow-lg w-full max-w-md");
-    
-                                html::h1(|| {
-                                    html::content(format!("Welcome, {}!", user.username));
-                                    html::class("text-3xl font-extrabold text-center text-blue-600 mb-6");
-                                });
-    
-                                html::p(|| {
-                                    html::content(format!("User ID: {}", user.id));
-                                    html::class("mt-4 text-gray-600 text-center text-lg");
-                                });
-    
-                                html::p(|| {
-                                    html::content("Have a great day using TodoApp!");
-                                    html::class("mt-4 text-gray-500 text-center text-sm");
-                                });
-                            });
-                        });
-                    });
-                })
             })
     }
 
@@ -616,6 +617,8 @@ mod routes {
 mod components {
     use http1_web::html::{self, element::HTMLElement, IntoChildren};
 
+    use crate::routes::AuthenticatedUser;
+
     pub fn Head(content: impl IntoChildren) -> HTMLElement {
         html::head(|| {
             content.into_children();
@@ -629,6 +632,39 @@ mod components {
 
     pub fn Title(title: impl Into<String>) -> HTMLElement {
         html::title(title.into())
+    }
+
+    pub fn Layout(auth: Option<AuthenticatedUser>, content: impl IntoChildren) -> HTMLElement {
+        html::div(|| {
+            html::header(|| {
+                html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-end items-center");
+                
+                html::h4(|| {
+                    html::content("TodoApp");
+                    html::class("text-xl font-bold text-blue-500");
+                });
+
+                if let Some(AuthenticatedUser(user)) = auth {
+                html::div(|| {
+                    html::class("flex flex-row gap-2 items-center");
+                        html::h4(|| {
+                            html::content(user.username);
+                            html::class("font-bold text-xl");
+                        });
+                        html::a(|| {
+                            html::attr("href", "/api/logout");
+
+                            html::button(|| {
+                                html::content("Logout");
+                                html::class("p-3 bg-black text-white rounded hover:bg-slate-800 transition inline-block shadow-md");
+                            });
+                        });
+                    });
+                }
+            });
+
+            content.into_children();
+        })
     }
 }
 

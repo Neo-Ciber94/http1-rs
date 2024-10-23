@@ -184,6 +184,11 @@ impl Builder {
         })
     }
 
+    pub fn value(mut self, value: impl Into<String>) -> Self {
+        self.0.value = value.into();
+        self
+    }
+
     pub fn http_only(mut self, http_only: bool) -> Self {
         self.0.http_only = http_only;
         self
@@ -343,6 +348,8 @@ pub struct Cookies {
     removed_cookies: Vec<Cookie>,
 }
 
+pub type CookiesIter<'a> = std::iter::Chain<std::slice::Iter<'a, Cookie>, std::slice::Iter<'a, Cookie>>;
+
 impl Cookies {
     pub fn new() -> Self {
         Default::default()
@@ -382,8 +389,11 @@ impl Cookies {
     pub fn del(&mut self, name: impl AsRef<str>) -> Option<&Cookie> {
         match self.cookies.iter().position(|c| c.name() == name.as_ref()) {
             Some(pos) => {
-                let deleted = self.cookies.remove(pos);
-                self.removed_cookies.push(deleted);
+                let deleted = Builder(self.cookies.remove(pos))
+                    .value("")
+                    .expires(DateTime::with_millis(0));
+
+                self.removed_cookies.push(deleted.into());
                 self.removed_cookies.iter().last()
             }
             None => None,
@@ -404,14 +414,14 @@ impl Cookies {
         self.cookies.iter().filter(move |c| c.name() == name)
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Cookie> {
-        self.cookies.iter()
+    pub fn iter(&self) -> CookiesIter<'_> {
+        self.cookies.iter().chain(self.removed_cookies.iter())
     }
 }
 
 impl<'a> IntoIterator for &'a Cookies {
     type Item = &'a Cookie;
-    type IntoIter = std::slice::Iter<'a, Cookie>;
+    type IntoIter = CookiesIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -429,6 +439,7 @@ impl IntoIterator for Cookies {
 
 impl Extend<Cookie> for Headers {
     fn extend<T: IntoIterator<Item = Cookie>>(&mut self, iter: T) {
+        // Set any new cookies
         for cookie in iter {
             self.append(headers::SET_COOKIE, cookie.to_string());
         }
