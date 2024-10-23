@@ -63,9 +63,17 @@ where
     }
 
     /// Returns the reference to the element with the key at the given position.
-    pub fn get_index(&self, pos: usize) -> Option<&V> {
-        match self.keys.get(pos) {
+    pub fn get_index(&self, index: usize) -> Option<&V> {
+        match self.keys.get(index) {
             Some(key) => self.get(key),
+            None => None,
+        }
+    }
+
+    /// Returns the mutable reference to the element with the key at the given position.
+    pub fn get_index_mut(&mut self, index: usize) -> Option<&mut V> {
+        match self.keys.get(index) {
+            Some(key) => self.map.get_mut(key),
             None => None,
         }
     }
@@ -95,8 +103,8 @@ where
     }
 
     /// Removes the element at the given position.
-    pub fn remove_index(&mut self, pos: usize) -> Option<V> {
-        let key = self.keys.get(pos)?;
+    pub fn remove_index(&mut self, index: usize) -> Option<V> {
+        let key = self.keys.get(index)?;
         match self.map.remove_entry(key) {
             Some((k, v)) => {
                 self.keys.retain(|x| x != &k);
