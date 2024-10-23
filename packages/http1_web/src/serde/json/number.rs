@@ -182,6 +182,18 @@ impl_from_number!(
     float = [f32, f64]
 );
 
+impl From<usize> for Number {
+    fn from(value: usize) -> Self {
+        Number::UInteger(value as u128)
+    }
+}
+
+impl From<isize> for Number {
+    fn from(value: isize) -> Self {
+        Number::Integer(value as i128)
+    }
+}
+
 impl Expected for Number {
     fn expected(&self) -> &'static str {
         match self {

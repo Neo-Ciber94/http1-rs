@@ -771,6 +771,18 @@ impl From<f64> for JsonValue {
     }
 }
 
+impl From<isize> for JsonValue {
+    fn from(value: isize) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
+impl From<usize> for JsonValue {
+    fn from(value: usize) -> Self {
+        JsonValue::Number(Number::from(value))
+    }
+}
+
 impl<T: Into<JsonValue>> From<Vec<T>> for JsonValue {
     fn from(value: Vec<T>) -> Self {
         let arr = value.into_iter().map(|x| x.into()).collect::<Vec<_>>();
