@@ -22,6 +22,7 @@ impl Expected for &'static str {
     }
 }
 
+#[derive(Debug)]
 pub struct TypeMismatchError {
     unexpected: Unexpected,
     expected: &'static str,
@@ -36,12 +37,6 @@ impl TypeMismatchError {
             unexpected,
             expected: expected.expected(),
         }
-    }
-}
-
-impl Debug for TypeMismatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MismatchTypeError")
     }
 }
 
