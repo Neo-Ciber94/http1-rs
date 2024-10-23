@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Display,
-    ops::{Index, IndexMut},
+    ops::Index,
 };
 
 use http1::common::map::OrderedMap;
@@ -170,18 +170,47 @@ impl JsonValue {
     }
 
     /// Returns a reference element to the given index.
-    pub fn get<I: JsonValueIndex>(&self, index: I) -> Option<&JsonValue> {
+    pub fn get<I: JsonIndex>(&self, index: I) -> Option<&JsonValue> {
         index.get(self)
     }
 
     /// Returns a reference mutable element to the given index.
-    pub fn get_mut<I: JsonValueIndex>(&mut self, index: I) -> Option<&mut JsonValue> {
+    pub fn get_mut<I: JsonIndex>(&mut self, index: I) -> Option<&mut JsonValue> {
         index.get_mut(self)
     }
 
     /// Removes the element at the given index.
-    pub fn remove<I: JsonValueIndex>(&mut self, index: I) -> Option<JsonValue> {
+    ///
+    /// # Panics
+    /// - This element is not a json
+    pub fn remove<I: JsonIndexMut>(&mut self, index: I) -> Option<JsonValue> {
         index.remove(self)
+    }
+
+    /// Insert or replace the element at the given index and returns the previous value if any.
+    ///
+    /// # Panics
+    /// - This element is not a json
+    /// - This element is an array and the index is out of bounds
+    pub fn insert<I: JsonIndexMut>(&mut self, index: I, new_value: JsonValue) -> JsonValue {
+        index.insert(self, new_value)
+    }
+
+    /// Removes the element at the given index.
+    pub fn try_remove<I: JsonIndexMut>(
+        &mut self,
+        index: I,
+    ) -> Result<Option<JsonValue>, TryRemoveError> {
+        index.try_remove(self)
+    }
+
+    /// Insert or replace the element at the given index and returns the previous value if any.
+    pub fn try_insert<I: JsonIndexMut>(
+        &mut self,
+        index: I,
+        new_value: JsonValue,
+    ) -> Result<JsonValue, TryInsertError> {
+        index.try_insert(self, new_value)
     }
 
     /// Selects a nested `JsonValue` based on a dot-separated path.
@@ -331,7 +360,7 @@ impl JsonValue {
     }
 
     /// Returns the string representation of the type of the `JsonValue` (e.g., "string", "array").
-    pub(crate) fn variant(&self) -> &str {
+    pub fn variant(&self) -> &'static str {
         match self {
             JsonValue::Number(_) => "number",
             JsonValue::String(_) => "string",
@@ -407,7 +436,7 @@ impl Default for JsonValue {
     }
 }
 
-impl<I: JsonValueIndex> Index<I> for JsonValue {
+impl<I: JsonIndex> Index<I> for JsonValue {
     type Output = JsonValue;
 
     fn index(&self, index: I) -> &Self::Output {
@@ -415,102 +444,233 @@ impl<I: JsonValueIndex> Index<I> for JsonValue {
     }
 }
 
-impl<I: JsonValueIndex> IndexMut<I> for JsonValue {
-    fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        index.index_mut(self)
+#[derive(Debug)]
+pub enum TryInsertError {
+    ExpectedArrayOrMap,
+    ExpectedMap,
+    OutOfBounds,
+}
+
+impl std::error::Error for TryInsertError {}
+
+impl std::fmt::Display for TryInsertError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TryInsertError::ExpectedArrayOrMap => {
+                write!(f, "failed to insert value, expected array or map")
+            }
+            TryInsertError::ExpectedMap => write!(f, "failed to insert value, expected map"),
+            TryInsertError::OutOfBounds => write!(f, "failed to insert, index out of bounds"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum TryRemoveError {
+    ExpectedArrayOrMap,
+    ExpectedMap,
+}
+
+impl std::error::Error for TryRemoveError {}
+
+impl std::fmt::Display for TryRemoveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TryRemoveError::ExpectedArrayOrMap => {
+                write!(f, "failed to remove value, expected array or map")
+            }
+            TryRemoveError::ExpectedMap => write!(f, "failed to remove value, expected map"),
+        }
+    }
+}
+
+#[doc(hidden)]
+pub trait JsonIndexMut: Sized + Copy + std::fmt::Display {
+    fn try_insert(
+        self,
+        json: &mut JsonValue,
+        new_value: JsonValue,
+    ) -> Result<JsonValue, TryInsertError>;
+
+    fn try_remove(self, json: &mut JsonValue) -> Result<Option<JsonValue>, TryRemoveError>;
+
+    fn insert(self, json: &mut JsonValue, new_value: JsonValue) -> JsonValue {
+        match self.try_insert(json, new_value) {
+            Ok(x) => x,
+            Err(TryInsertError::ExpectedArrayOrMap) => {
+                panic!(
+                    "cannot insert value in a json `{}`, expected a array or map",
+                    json.variant()
+                )
+            }
+            Err(TryInsertError::ExpectedMap) => {
+                panic!(
+                    "cannot insert value in a json `{}`, expected a map",
+                    json.variant()
+                )
+            }
+            Err(TryInsertError::OutOfBounds) => {
+                panic!("index `{self}` is out of bounds")
+            }
+        }
+    }
+
+    fn remove(self, json: &mut JsonValue) -> Option<JsonValue> {
+        match self.try_remove(json) {
+            Ok(x) => x,
+            Err(TryRemoveError::ExpectedArrayOrMap) => {
+                panic!(
+                    "cannot remove `{self}` from a json `{}`, expected array or map",
+                    json.variant()
+                )
+            }
+            Err(TryRemoveError::ExpectedMap) => {
+                panic!(
+                    "cannot remove `{self}` from a json `{}`, expected a map",
+                    json.variant()
+                )
+            }
+        }
+    }
+}
+
+impl JsonIndexMut for usize {
+    fn try_insert(
+        self,
+        json: &mut JsonValue,
+        new_value: JsonValue,
+    ) -> Result<JsonValue, TryInsertError> {
+        match json {
+            JsonValue::Array(vec) => match vec.get_mut(self) {
+                Some(x) => Ok(std::mem::replace(x, new_value)),
+                None => Err(TryInsertError::OutOfBounds),
+            },
+            JsonValue::Object(map) => match map.get_index_mut(self) {
+                Some(x) => Ok(std::mem::replace(x, new_value)),
+                None => Err(TryInsertError::OutOfBounds),
+            },
+            _ => Err(TryInsertError::ExpectedArrayOrMap),
+        }
+    }
+
+    fn try_remove(self, json: &mut JsonValue) -> Result<Option<JsonValue>, TryRemoveError> {
+        match json {
+            JsonValue::Array(vec) => {
+                if self > vec.len() {
+                    Ok(None)
+                } else {
+                    Ok(Some(vec.remove(self)))
+                }
+            }
+            JsonValue::Object(map) => {
+                if self > map.len() {
+                    Ok(None)
+                } else {
+                    Ok(map.remove_index(self))
+                }
+            }
+            _ => Err(TryRemoveError::ExpectedArrayOrMap),
+        }
+    }
+}
+
+impl<'a> JsonIndexMut for &'a str {
+    fn try_insert(
+        self,
+        json: &mut JsonValue,
+        new_value: JsonValue,
+    ) -> Result<JsonValue, TryInsertError> {
+        match json {
+            JsonValue::Object(map) => match map.get_mut(self) {
+                Some(x) => Ok(std::mem::replace(x, new_value)),
+                None => Err(TryInsertError::OutOfBounds),
+            },
+            _ => Err(TryInsertError::ExpectedMap),
+        }
+    }
+
+    fn try_remove(self, json: &mut JsonValue) -> Result<Option<JsonValue>, TryRemoveError> {
+        match json {
+            JsonValue::Object(map) => Ok(map.remove(self)),
+            _ => Err(TryRemoveError::ExpectedMap),
+        }
     }
 }
 
 /// Allow to index a json value object or array.
-pub trait JsonValueIndex {
-    fn get(self, value: &JsonValue) -> Option<&JsonValue>;
-    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue>;
-    fn index(self, value: &JsonValue) -> &JsonValue;
-    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue;
-    fn remove(self, value: &mut JsonValue) -> Option<JsonValue>;
+#[doc(hidden)]
+pub trait JsonIndex {
+    fn get(self, json: &JsonValue) -> Option<&JsonValue>;
+    fn get_mut(self, json: &mut JsonValue) -> Option<&mut JsonValue>;
+    fn index(self, json: &JsonValue) -> &JsonValue;
+    fn index_mut(self, json: &mut JsonValue) -> &mut JsonValue;
 }
 
-impl JsonValueIndex for usize {
-    fn get(self, value: &JsonValue) -> Option<&JsonValue> {
-        match value {
+impl JsonIndex for usize {
+    fn get(self, json: &JsonValue) -> Option<&JsonValue> {
+        match json {
             JsonValue::Array(vec) => vec.get(self),
+            JsonValue::Object(map) => map.get_index(self),
             _ => None,
         }
     }
 
-    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue> {
-        match value {
+    fn get_mut(self, json: &mut JsonValue) -> Option<&mut JsonValue> {
+        match json {
             JsonValue::Array(vec) => vec.get_mut(self),
+            JsonValue::Object(map) => map.get_index_mut(self),
             _ => None,
         }
     }
 
-    fn index(self, value: &JsonValue) -> &JsonValue {
-        match value {
+    fn index(self, json: &JsonValue) -> &JsonValue {
+        match json {
             JsonValue::Array(vec) => &vec[self],
-            _ => panic!("cannot index as an array a `{}`", value.variant()),
+            JsonValue::Object(map) => map
+                .get_index(self)
+                .unwrap_or_else(|| panic!("index {self} is out of range: {self} > {}", map.len())),
+            _ => panic!("cannot index a json `{}` as an array", json.variant()),
         }
     }
 
-    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue {
-        match value {
+    fn index_mut(self, json: &mut JsonValue) -> &mut JsonValue {
+        match json {
             JsonValue::Array(vec) => &mut vec[self],
-            _ => panic!("cannot index as an array a `{}`", value.variant()),
-        }
-    }
-
-    fn remove(self, value: &mut JsonValue) -> Option<JsonValue> {
-        match value {
-            JsonValue::Array(vec) => {
-                if self < vec.len() {
-                    Some(vec.remove(self))
-                } else {
-                    None
-                }
-            }
-            JsonValue::Object(ordered_map) => ordered_map.remove_index(self),
-            _ => None,
+            _ => panic!("cannot index a `{}` as an array", json.variant()),
         }
     }
 }
 
-impl<'a> JsonValueIndex for &'a str {
-    fn get(self, value: &JsonValue) -> Option<&JsonValue> {
-        match value {
+impl<'a> JsonIndex for &'a str {
+    fn get(self, json: &JsonValue) -> Option<&JsonValue> {
+        match json {
             JsonValue::Object(map) => map.get(self),
             _ => None,
         }
     }
 
-    fn get_mut(self, value: &mut JsonValue) -> Option<&mut JsonValue> {
-        match value {
+    fn get_mut(self, json: &mut JsonValue) -> Option<&mut JsonValue> {
+        match json {
             JsonValue::Object(map) => map.get_mut(self),
             _ => None,
         }
     }
 
-    fn index(self, value: &JsonValue) -> &JsonValue {
-        match value {
+    fn index(self, json: &JsonValue) -> &JsonValue {
+        match json {
             JsonValue::Object(map) => map
                 .get(self)
-                .unwrap_or_else(|| panic!("not value found in `{self}`")),
-            _ => panic!("cannot index as an object a `{}`", value.variant()),
+                .unwrap_or_else(|| panic!("no value found for key `{self}`")),
+            _ => panic!("cannot index a json `{}` as a map", json.variant()),
         }
     }
 
-    fn index_mut(self, value: &mut JsonValue) -> &mut JsonValue {
-        match value {
+    fn index_mut(self, json: &mut JsonValue) -> &mut JsonValue {
+        match json {
             JsonValue::Object(map) => map
                 .get_mut(self)
-                .unwrap_or_else(|| panic!("not value found in `{self}`")),
-            _ => panic!("cannot index as an object a `{}`", value.variant()),
-        }
-    }
-
-    fn remove(self, value: &mut JsonValue) -> Option<JsonValue> {
-        match value {
-            JsonValue::Object(ordered_map) => ordered_map.remove(self),
-            _ => None
+                .unwrap_or_else(|| panic!("no value found for key `{self}`")),
+            _ => panic!("cannot index a json `{}` as a map", json.variant()),
         }
     }
 }
