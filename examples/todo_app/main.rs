@@ -41,7 +41,7 @@ mod routes {
         from_request::FromRequestRef,
         html::{self, element::HTMLElement},
         impl_serde_struct,
-        into_response::IntoResponse,
+        into_response::{IntoResponse, NotFound},
         path::Path,
         redirect::Redirect,
         state::State,
@@ -558,6 +558,7 @@ mod routes {
                                             html::attr("required", true);
                                             html::attr("minlength", 3);
                                             html::attr("pattern", ".*\\S.*");
+                                            html::attr("autocomplete", "username");
                                             html::class("mt-4 p-3 border border-gray-300 rounded w-full focus:ring-2 focus:ring-blue-500 transition-all duration-300 ease-in-out");
                                         });
         
@@ -574,8 +575,8 @@ mod routes {
             })
     }
 
-    pub fn not_found() -> HTMLElement {
-        html::html(|| {
+    pub fn not_found() -> NotFound<HTMLElement> {
+        NotFound(html::html(|| {
             Head(|| {
                 Title("Todo App | Not Found");
             });
@@ -608,7 +609,7 @@ mod routes {
                     });
                 });
             });
-        })
+        }))
     }
 }
 
@@ -872,7 +873,9 @@ mod models {
             user_sessions.iter().any(|s| s.id == key)
         })?;
 
-        log::debug!("`{deleted}` sessions deleted");
+        if deleted > 0 {
+            log::debug!("`{deleted}` sessions deleted");
+        }
 
         Ok(())
        }
