@@ -637,7 +637,7 @@ mod components {
     pub fn Layout(auth: Option<AuthenticatedUser>, content: impl IntoChildren) -> HTMLElement {
         html::div(|| {
             html::header(|| {
-                html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-end items-center");
+                html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
                 
                 html::h4(|| {
                     html::content("TodoApp");
@@ -660,6 +660,9 @@ mod components {
                             });
                         });
                     });
+                }
+                else {
+                    html::div("");
                 }
             });
 
@@ -741,7 +744,6 @@ mod db {
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
     enum Key {
         Number(u64),
-        String(String),
     }
 
     #[derive(Clone)]
@@ -750,16 +752,13 @@ mod db {
     impl DB {
         pub fn new() -> Self {
             let tables = HashMap::from_iter([
-                (Table::User, Default::default()),
                 (Table::Todo, Default::default()),
-                (Table::Session, Default::default()),
             ]);
 
             DB(Arc::new(RwLock::new(tables)))
         }
     }
 
-    static NEXT_USER_ID: Id = Id::new();
     static NEXT_TODO_ID: Id = Id::new();
 
     #[derive(Debug)]
@@ -880,8 +879,8 @@ mod db {
         }
     }
 
-    pub fn get_user(db: &KeyValueDatabase, id: u64) -> Result<Option<User>, BoxError> {
-        let key = &format!("user/{id}");
+    pub fn get_user(db: &KeyValueDatabase, user_id: u64) -> Result<Option<User>, BoxError> {
+        let key = &format!("user/{user_id}");
         let user = db.get::<User>(key)?;
         Ok(user)
     }
@@ -1042,10 +1041,14 @@ mod kv {
                 if let Some(dir) = ancestors.next() {
                     std::fs::create_dir_all(dir)?;
                 }
+
+                std::fs::write(&file_path, "{}")?;
+                log::debug!("Created kv database file: {file_path:?}");
+            }
+            else {
+                log::debug!("kv database file exists: {file_path:?}");
             }
 
-            std::fs::write(&file_path, "{}")?;
-            log::debug!("Created kv database file: {file_path:?}");
 
             Ok(KeyValueDatabase(file_path))
         }
@@ -1071,14 +1074,15 @@ mod kv {
             })
         }
 
-        pub fn get<T: Deserialize>(&self, key: impl AsRef<str>) -> std::io::Result<Option<T>> {
+        pub fn get<T: Deserialize + 'static>(&self, key: impl AsRef<str>) -> std::io::Result<Option<T>> {
             self.tap(|json | {
                 let value = match json.get(key.as_ref()) {
                     Some(x) => x,
                     None => return Ok(None),
                 };
 
-                http1_web::serde::json::from_value(value.clone()).map_err(|err| std::io::Error::other(err))
+                let value = http1_web::serde::json::from_value::<T>(value.clone()).map_err(|err| std::io::Error::other(err))?;
+                Ok(Some(value))
             })
         }
 
@@ -1117,7 +1121,8 @@ mod kv {
                         }
 
                         let value = x.as_number().unwrap().as_u64().unwrap_or(0) + 1;
-                        json.try_insert(key, JsonValue::from(value)).map_err(|err| std::io::Error::other(err))?;
+                        let new_value = JsonValue::from(value);
+                        json.try_insert(key, new_value).map_err(|err| std::io::Error::other(err))?;
                         Ok(value)
                     },
                     None => {
