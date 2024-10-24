@@ -169,7 +169,7 @@ impl App {
     }
 }
 
-static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> = LazyLock::new(|| BoxedHandler::new(NotFound));
+static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> = LazyLock::new(|| BoxedHandler::new(NotFoundHandler));
 
 impl RequestHandler for App {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
@@ -218,9 +218,9 @@ impl RequestHandler for App {
     }
 }
 
-struct NotFound;
+struct NotFoundHandler;
 
-impl Handler<Request<Body>> for NotFound {
+impl Handler<Request<Body>> for NotFoundHandler {
     type Output = Response<Body>;
 
     fn call(&self, _: Request<Body>) -> Self::Output {

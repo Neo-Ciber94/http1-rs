@@ -273,3 +273,14 @@ impl IntoResponse for Infallible {
         unreachable!()
     }
 }
+
+/// Represents a 404 response.
+pub struct NotFound<T>(pub T);
+
+impl<T: IntoResponse> IntoResponse for NotFound<T> {
+    fn into_response(self) -> Response<Body> {
+        let mut res = self.0.into_response();
+        *res.status_mut() = StatusCode::NOT_FOUND;
+        res
+    }
+}
