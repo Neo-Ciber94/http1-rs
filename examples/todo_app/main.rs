@@ -1,4 +1,4 @@
-use db::DB;
+
 use http1::server::Server;
 use http1_web::{
     app::App,
@@ -13,7 +13,6 @@ fn main() -> std::io::Result<()> {
     let addr = "localhost:5000";
 
     let app = App::new()
-        .state(DB::new())
         .state(KeyValueDatabase::new("examples/todo_app/db.json").unwrap())
         .middleware(Logging)
         .middleware(Redirection::new("/", "/login"))
@@ -49,7 +48,7 @@ mod routes {
     };
 
     use crate::{
-        components::{Head, Layout, Title}, db::{User, DB}, kv::KeyValueDatabase, COOKIE_SESSION_NAME
+        components::{Head, Layout, Title}, models::User, kv::KeyValueDatabase, COOKIE_SESSION_NAME
     };
 
     #[derive(Debug)]
@@ -91,7 +90,7 @@ mod routes {
                 .get(super::COOKIE_SESSION_NAME)
                 .ok_or_else(|| AuthenticatedUserRejection::RedirectToLogin)?;
 
-            match crate::db::get_session_user(&db, session_cookie.value().to_owned()) {
+            match crate::models::get_session_user(&db, session_cookie.value().to_owned()) {
                 Ok(Some(user)) => Ok(AuthenticatedUser(user)),
                 x => {
                     log::error!("user session not found: {x:?}");
@@ -139,8 +138,8 @@ mod routes {
                 |State(db): State<KeyValueDatabase>,
                  Form(input): Form<LoginUser>|
                  -> Result<Response<Body>, ErrorResponse> {
-                    let user = crate::db::insert_user(&db, input.username)?;
-                    let session = crate::db::create_session(&db, user.id)?;
+                    let user = crate::models::insert_user(&db, input.username)?;
+                    let session = crate::models::create_session(&db, user.id)?;
 
                     log::info!("User created: {user:?}");
 
@@ -171,7 +170,7 @@ mod routes {
                     }
                    };
 
-                   crate::db::remove_session(&db, session_cookie.value().to_owned())?;
+                   crate::models::remove_session(&db, session_cookie.value().to_owned())?;
                    cookies.del(COOKIE_SESSION_NAME);
                    
                    Ok((Redirect::see_other("/"), cookies).into_response())
@@ -179,11 +178,11 @@ mod routes {
             )
             .post(
                 "/todos/create",
-                |State(db): State<DB>,
+                |State(db): State<KeyValueDatabase>,
                  AuthenticatedUser(user): AuthenticatedUser,
                  Form(todo): Form<CreateTodo>|
                  -> Result<Redirect, ErrorResponse> {
-                    crate::db::insert_todo(
+                    crate::models::insert_todo(
                         &db,
                         todo.title,
                         todo.description.filter(|x| !x.is_empty()),
@@ -195,10 +194,10 @@ mod routes {
             )
             .post(
                 "/todos/update",
-                |State(db): State<DB>,
+                |State(db): State<KeyValueDatabase>,
                  Form(form): Form<UpdateTodo>|
                  -> Result<Redirect, ErrorResponse> {
-                    let mut todo = match crate::db::get_todo(&db, form.id)? {
+                    let mut todo = match crate::models::get_todo(&db, form.id)? {
                         Some(x) => x,
                         None => return Err(ErrorStatusCode::NotFound.into()),
                     };
@@ -208,32 +207,32 @@ mod routes {
                     todo.description = form.description;
 
                     // Save
-                    crate::db::update_todo(&db, todo)?;
+                    crate::models::update_todo(&db, todo)?;
                     Ok(Redirect::see_other("/todos"))
                 },
             )
             .post(
                 "/todos/delete/:todo_id",
-                |State(db): State<DB>,
+                |State(db): State<KeyValueDatabase>,
                  Path(todo_id): Path<u64>|
                  -> Result<Redirect, ErrorResponse> {
-                    crate::db::delete_todo(&db, todo_id)?;
+                    crate::models::delete_todo(&db, todo_id)?;
 
                     Ok(Redirect::see_other("/todos"))
                 },
             )
             .post(
                 "/todos/toggle/:todo_id",
-                |State(db): State<DB>,
+                |State(db): State<KeyValueDatabase>,
                  Path(todo_id): Path<u64>|
                  -> Result<Redirect, ErrorResponse> {
-                    let mut todo = match crate::db::get_todo(&db, todo_id)? {
+                    let mut todo = match crate::models::get_todo(&db, todo_id)? {
                         Some(x) => x,
                         None => return Err(ErrorStatusCode::NotFound.into()),
                     };
 
                     todo.is_done = !todo.is_done;
-                    crate::db::update_todo(&db, todo)?;
+                    crate::models::update_todo(&db, todo)?;
 
                     Ok(Redirect::see_other("/todos"))
                 },
@@ -242,9 +241,9 @@ mod routes {
 
     pub fn todos_routes() -> Scope {
         Scope::new()
-            .get("/", |State(db): State<DB>, auth: AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
+            .get("/", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
                 let AuthenticatedUser(user) = &auth;
-                let todos = crate::db::get_all_todos(&db, user.id)?;
+                let todos = crate::models::get_all_todos(&db, user.id)?;
 
                 Ok(html::html(|| {
                     Head(|| {
@@ -415,8 +414,8 @@ mod routes {
                     });
                 })
             })
-            .get("/edit/:todo_id", |State(db): State<DB>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
-                let todo = match crate::db::get_todo(&db, todo_id)? {
+            .get("/edit/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+                let todo = match crate::models::get_todo(&db, todo_id)? {
                     Some(x) => x,
                         None => {
                         return Err(ErrorStatusCode::NotFound.into())
@@ -478,8 +477,8 @@ mod routes {
                     });
                 }))
             })
-            .get("/:todo_id", |State(db): State<DB>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
-                let todo = match crate::db::get_todo(&db, todo_id)? {
+            .get("/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+                let todo = match crate::models::get_todo(&db, todo_id)? {
                     Some(x) => x,
                     None => {
                         return Err(ErrorStatusCode::NotFound.into())
@@ -671,36 +670,11 @@ mod components {
     }
 }
 
-mod db {
-    use std::{
-        any::Any,
-        collections::HashMap,
-        fmt::Display,
-        sync::{atomic::AtomicU64, Arc, RwLock},
-    };
+mod models {
 
     use http1::error::BoxError;
     use http1_web::impl_serde_struct;
-
     use crate::kv::KeyValueDatabase;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    pub enum Table {
-        User,
-        Todo,
-        Session,
-    }
-
-    struct Id(AtomicU64);
-    impl Id {
-        const fn new() -> Self {
-            Id(AtomicU64::new(0))
-        }
-
-        fn next(&self) -> u64 {
-            self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
-        }
-    }
 
     #[derive(Debug, Clone)]
     pub struct User {
@@ -741,78 +715,12 @@ mod db {
         user_id: u64,
    });
 
-    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    enum Key {
-        Number(u64),
-    }
-
-    #[derive(Clone)]
-    pub struct DB(Arc<RwLock<HashMap<Table, HashMap<Key, Box<dyn Any + Send + Sync>>>>>);
-
-    impl DB {
-        pub fn new() -> Self {
-            let tables = HashMap::from_iter([
-                (Table::Todo, Default::default()),
-            ]);
-
-            DB(Arc::new(RwLock::new(tables)))
-        }
-    }
-
-    static NEXT_TODO_ID: Id = Id::new();
-
-    #[derive(Debug)]
-    pub struct ValidationError {
-        field: String,
-        message: String,
-    }
-
-    impl ValidationError {
-        pub fn new(field: impl Into<String>, message: impl Into<String>) -> Self {
-            ValidationError {
-                field: field.into(),
-                message: message.into(),
-            }
-        }
-
-        pub fn field(&self) -> &str {
-            &self.field
-        }
-
-        pub fn message(&self) -> &str {
-            &self.message
-        }
-    }
-
-    #[derive(Debug)]
-    pub enum Error {
-        FailedToRead,
-        FailedToWrite,
-        Validation(ValidationError),
-    }
-
-    impl std::error::Error for Error {}
-
-    impl Display for Error {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Error::FailedToRead => write!(f, "failed to open database to read"),
-                Error::FailedToWrite => write!(f, "failed to open database to write"),
-                Error::Validation(ValidationError { field, message }) => {
-                    write!(f, "invalid `{field}`: {message}")
-                }
-            }
-        }
-    }
 
     struct Validation;
     impl Validation {
-        pub fn validate_user(user: &mut User) -> Result<(), Error> {
+        pub fn validate_user(user: &mut User) -> Result<(), BoxError> {
             if user.username.trim().is_empty() {
-                return Err(Error::Validation(ValidationError::new(
-                    "username",
-                    "cannot be empty",
-                )));
+                return Err(String::from("username cannot be empty").into());
             }
 
             user.username = user.username.trim().into();
@@ -820,20 +728,14 @@ mod db {
             Ok(())
         }
 
-        pub fn validate_todo(todo: &mut Todo) -> Result<(), Error> {
+        pub fn validate_todo(todo: &mut Todo) -> Result<(), BoxError> {
             if todo.title.trim().is_empty() {
-                return Err(Error::Validation(ValidationError::new(
-                    "title",
-                    "cannot be empty",
-                )));
+                return Err(String::from("title cannot be empty").into());
             }
 
             if let Some(description) = todo.description.as_deref().filter(|x| x.is_empty()) {
                 if description.trim().is_empty() {
-                    return Err(Error::Validation(ValidationError::new(
-                        "description",
-                        "cannot be empty",
-                    )));
+                    return Err(String::from("description cannot be empty").into());
                 }
             }
 
@@ -853,22 +755,40 @@ mod db {
         Ok(user)
     }
 
-    pub fn update_user(db: &KeyValueDatabase, mut user: User) -> Result<Option<User>, BoxError> {
-        let key = &format!("user/{}", user.id);
+    pub fn get_user(db: &KeyValueDatabase, user_id: u64) -> Result<Option<User>, BoxError> {
+        let key = &format!("user/{user_id}");
+        let user = db.get::<User>(key)?;
+        Ok(user)
+    }
+
+    pub fn insert_todo(
+        db: &KeyValueDatabase,
+        title: String,
+        description: Option<String>,
+        user_id: u64,
+    ) -> Result<Todo, BoxError> {
+        let id = db.incr("next_todo_id")? + 1;
+        let mut todo = Todo { id, title, description, user_id, is_done: false  };
+        Validation::validate_todo(&mut todo)?;
+        db.set(format!("todo/{id}"), todo.clone())?;
+        Ok(todo)
+    }
+
+    pub fn update_todo(db: &KeyValueDatabase, mut todo: Todo) -> Result<Option<Todo>, BoxError> {
+        let key = &format!("todo/{}", todo.id);
 
         if db.contains(key)? {
-            Validation::validate_user(&mut user)?;
-            db.set(key, user.clone())?;
-            Ok(Some(user))
+            Validation::validate_todo(&mut todo)?;
+            db.set(key, todo.clone())?;
+            Ok(Some(todo))
         }
         else {
             Ok(None)
         }
-
     }
 
-    pub fn delete_user(db: &KeyValueDatabase, id: u64) -> Result<Option<User>, BoxError> {
-        let key = &format!("user/{id}");
+    pub fn delete_todo(db: &KeyValueDatabase, id: u64) -> Result<Option<Todo>, BoxError> {
+        let key = &format!("todo/{id}");
 
         match db.get(key)? {
             Some(deleted) => {
@@ -879,97 +799,16 @@ mod db {
         }
     }
 
-    pub fn get_user(db: &KeyValueDatabase, user_id: u64) -> Result<Option<User>, BoxError> {
-        let key = &format!("user/{user_id}");
-        let user = db.get::<User>(key)?;
+    pub fn get_todo(db: &KeyValueDatabase, todo_id: u64) -> Result<Option<Todo>, BoxError> {
+        let key = &format!("todo/{todo_id}");
+        let user = db.get::<Todo>(key)?;
         Ok(user)
     }
 
-    pub fn get_all_user(db: &KeyValueDatabase) -> Result<Vec<User>, BoxError> {
-        let result = db.scan::<User>("user/")?;
-        Ok(result)
-    }
-
-    pub fn insert_todo(
-        db: &DB,
-        title: String,
-        description: Option<String>,
-        user_id: u64,
-    ) -> Result<Todo, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::Todo)
-            .expect("todos table should exists");
-
-        let id = NEXT_TODO_ID.next();
-        let mut todo = Todo {
-            id,
-            title,
-            description,
-            is_done: false,
-            user_id,
-        };
-
-        Validation::validate_todo(&mut todo)?;
-        records.insert(Key::Number(id), Box::new(todo.clone()));
-        Ok(todo)
-    }
-
-    pub fn update_todo(db: &DB, mut todo: Todo) -> Result<Option<Todo>, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::Todo)
-            .expect("todo table should exists");
-
-        Validation::validate_todo(&mut todo)?;
-
-        match records
-            .get_mut(&Key::Number(todo.id))
-            .and_then(|x| x.downcast_mut::<Todo>())
-        {
-            Some(to_update) => {
-                *to_update = todo;
-                Ok(Some(to_update.clone()))
-            }
-            None => Ok(None),
-        }
-    }
-
-    pub fn delete_todo(db: &DB, id: u64) -> Result<Option<Todo>, Error> {
-        let mut lock = db.0.write().map_err(|_| Error::FailedToWrite)?;
-        let records = lock
-            .get_mut(&Table::Todo)
-            .expect("todos table should exists");
-
-        let deleted = records
-            .remove(&Key::Number(id))
-            .and_then(|x| x.downcast::<Todo>().ok())
-            .map(|x| *x);
-
-        Ok(deleted)
-    }
-
-    pub fn get_todo(db: &DB, id: u64) -> Result<Option<Todo>, Error> {
-        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
-        let todos = lock.get(&Table::Todo).expect("todos table should exists");
-
-        todos
-            .get(&Key::Number(id))
-            .and_then(|x| x.downcast_ref::<Todo>())
-            .cloned()
-            .map(Ok)
-            .transpose()
-    }
-
-    pub fn get_all_todos(db: &DB, user_id: u64) -> Result<Vec<Todo>, Error> {
-        let lock = db.0.read().map_err(|_| Error::FailedToRead)?;
-        let todos = lock.get(&Table::Todo).expect("todos table should exists");
-
-        let todos = todos
-            .values()
-            .filter_map(|x| x.downcast_ref::<Todo>())
-            .filter(|t| t.user_id == user_id)
-            .cloned()
+    pub fn get_all_todos(db: &KeyValueDatabase, user_id: u64) -> Result<Vec<Todo>, BoxError> {
+        let todos = db.scan::<Todo>("todo/")?
+            .into_iter()
+            .filter(|x| x.user_id == user_id)
             .collect::<Vec<_>>();
 
         Ok(todos)
