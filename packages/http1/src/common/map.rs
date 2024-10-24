@@ -114,12 +114,43 @@ where
         }
     }
 
+    /// Remove all elements that does not matches the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        let mut i = 0;
+
+        while i < self.keys.len() {
+            let key = &self.keys[i];
+            let value = self.map.get_mut(key).expect("expected value");
+            let should_remove = !f(key, value);
+
+            if should_remove {
+                self.map.remove(key);
+                self.keys.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
     /// Returns an iterator over the key-value pairs in insertion order.
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
             keys: self.keys.iter(),
             map: &self.map,
         }
+    }
+}
+
+impl<K, V> OrderedMap<K, V>
+where
+    K: Eq + Hash + Ord,
+{
+    /// Sort the keys of this map.
+    pub fn sort_keys(&mut self) {
+        self.keys.sort();
     }
 }
 
@@ -251,5 +282,40 @@ mod tests {
         assert_eq!(iter.next(), Some(("second", 2)));
         assert_eq!(iter.next(), Some(("third", 3)));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut map = OrderedMap::new();
+        map.insert("a", 1);
+        map.insert("b", 2);
+        map.insert("c", 3);
+
+        // Retain only the entries where the value is even
+        map.retain(|_k, v| *v % 2 == 0);
+
+        // After retain, only the entry with key "b" should remain
+        let keys = map.keys().cloned().collect::<Vec<_>>();
+        assert_eq!(keys, vec!["b"]);
+
+        // The value for "b" should be 2
+        assert_eq!(map.get("b"), Some(&2));
+        assert_eq!(map.get("a"), None);
+        assert_eq!(map.get("c"), None);
+    }
+
+    #[test]
+    fn test_sort_keys() {
+        let mut map = OrderedMap::new();
+        map.insert("banana", 1);
+        map.insert("apple", 2);
+        map.insert("cherry", 3);
+
+        // Sort the keys
+        map.sort_keys();
+
+        // Keys should be in lexicographical order: ["apple", "banana", "cherry"]
+        let keys = map.keys().cloned().collect::<Vec<_>>();
+        assert_eq!(keys, vec!["apple", "banana", "cherry"]);
     }
 }
