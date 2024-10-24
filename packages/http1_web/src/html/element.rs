@@ -303,22 +303,25 @@ fn write_element(
     Ok(())
 }
 
-// TODO: Possible without allocation?
-fn escape_html(input: &str) -> String {
-    let mut escaped = String::new();
+fn escape_html<'a>(input: &'a str) -> Cow<'a, str> {
+    if !input.contains(|c| matches!(c, '&' | '<' | '>' | '"' | '\'')) {
+        return Cow::Borrowed(input);
+    }
+
+    let mut result = String::new();
 
     for c in input.chars() {
         match c {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            '\'' => escaped.push_str("&apos;"),
-            _ => escaped.push(c),
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&apos;"),
+            _ => result.push(c),
         }
     }
 
-    escaped
+    Cow::Owned(result)
 }
 
 pub struct Builder {
