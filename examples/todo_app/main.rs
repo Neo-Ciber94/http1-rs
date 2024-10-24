@@ -1,8 +1,7 @@
 
 use http1::server::Server;
 use http1_web::{
-    app::App,
-    middleware::{logging::Logging, redirection::Redirection},
+    app::App, fs::ServeDir, middleware::{logging::Logging, redirection::Redirection}
 };
 use kv::KeyValueDatabase;
 use routes::{api_routes, home_routes, not_found, todos_routes};
@@ -16,6 +15,7 @@ fn main() -> std::io::Result<()> {
         .state(KeyValueDatabase::new("examples/todo_app/db.json").unwrap())
         .middleware(Logging)
         .middleware(Redirection::new("/", "/login"))
+        .get("/*", ServeDir::new("/", "examples/todo_app/public"))
         .scope("/api", api_routes())
         .scope("/", home_routes())
         .scope("/todos", todos_routes())
@@ -90,10 +90,12 @@ mod routes {
                 .get(super::COOKIE_SESSION_NAME)
                 .ok_or_else(|| AuthenticatedUserRejection::RedirectToLogin)?;
 
-            match crate::models::get_session_user(&db, session_cookie.value().to_owned()) {
+            let session_id = session_cookie.value();
+
+            match crate::models::get_session_user(&db, session_id.to_owned()) {
                 Ok(Some(user)) => Ok(AuthenticatedUser(user)),
                 x => {
-                    log::error!("user session not found: {x:?}");
+                    log::error!("user session `{session_id}` not found: {x:?}");
                     Err(AuthenticatedUserRejection::RedirectToLogin)
                 }
             }
@@ -251,11 +253,13 @@ mod routes {
                         html::style(r#"
                          .animate-fade-in {
                             opacity: 0; 
+                            transform: scale(0.95);
                             animation: fadeIn 300ms ease-in forwards;
                         }
 
                          @keyframes fadeIn {
                                 to {
+                                    transform: scale(1);
                                     opacity: 1;
                                 }
                             }
@@ -328,7 +332,7 @@ mod routes {
                                                     html::button(|| {
                                                         if todo.is_done {
                                                             html::content("Completed");
-                                                            html::class("p-2 bg-red-500 text-white rounded hover:bg-green-600 transition w-full"); 
+                                                            html::class("p-2 bg-green-500 text-white rounded hover:bg-green-600 transition w-full"); 
                                                         } else {
                                                             html::content("Pending");
                                                             html::class("p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition w-full");
@@ -624,6 +628,11 @@ mod components {
             content.into_children();
 
             html::meta(|| html::attr("charset", "UTF-8"));
+            html::link(|| {
+                html::attr("rel", "icon");
+                html::attr("href", "/favicon.png");
+            });
+
             html::script(|| {
                 html::attr("src", "https://cdn.tailwindcss.com");
             });
@@ -639,9 +648,13 @@ mod components {
             html::header(|| {
                 html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
                 
-                html::h4(|| {
-                    html::content("TodoApp");
-                    html::class("text-xl font-bold text-blue-500");
+                html::a(|| {
+                    html::attr("href", "/");
+                    html::h4(|| {
+
+                        html::content("TodoApp");
+                        html::class("text-xl font-bold text-blue-500");
+                    });
                 });
 
                 if let Some(AuthenticatedUser(user)) = auth {
@@ -864,13 +877,13 @@ mod models {
     pub fn remove_expired_sessions(db: &KeyValueDatabase)  {
        fn try_remove_expired_sessions(db: &KeyValueDatabase)  -> Result<(), BoxError>{
         let now = DateTime::now_utc();
-        let user_sessions = db.scan::<Session>("session/")?
+        let expired_sessions = db.scan::<Session>("session/")?
             .into_iter()
             .filter(|s|  now > (s.created_at + SESSION_DURATION))
             .collect::<Vec<_>>();
 
         let deleted = db.retain(|key| {
-            user_sessions.iter().any(|s| s.id == key)
+            expired_sessions.iter().find(|s| s.id == key).is_some()
         })?;
 
         if deleted > 0 {
@@ -1029,13 +1042,13 @@ mod kv {
                 match json {
                     JsonValue::Object(ordered_map) => {
                         ordered_map.retain(|k, _| {
-                            let should_keep = f(k);
+                            let should_remove = !f(k);
                             
-                            if !should_keep {
+                            if should_remove {
                                 deleted_count += 1;
                             }
 
-                            should_keep
+                            should_remove
                         });
                     },
                     v => panic!("expected json object but was `{}`", v.variant())
