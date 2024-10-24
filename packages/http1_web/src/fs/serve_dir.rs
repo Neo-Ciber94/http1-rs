@@ -36,7 +36,11 @@ impl ServeDir {
         let from = from_route.into();
 
         assert!(from.starts_with("/"), "from route should starts with `/`");
-        assert!(!from.ends_with("/"), "from route cannot ends with `/`");
+
+        if from.len() > 1 {
+            assert!(!from.ends_with("/"), "from route cannot ends with `/`");
+        }
+
         assert!(to.is_dir(), "`{to:?}` is not a directory");
 
         ServeDir {
