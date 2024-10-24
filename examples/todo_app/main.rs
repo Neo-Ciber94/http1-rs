@@ -672,6 +672,9 @@ mod components {
 
 mod models {
 
+    use std::time::Duration;
+
+    use datetime::DateTime;
     use http1::error::BoxError;
     use http1_web::impl_serde_struct;
     use crate::kv::KeyValueDatabase;
@@ -708,13 +711,16 @@ mod models {
     pub struct Session {
         pub id: String,
         pub user_id: u64,
+        pub created_at: DateTime
     }
 
     impl_serde_struct!(Session => {
         id: String,
         user_id: u64,
+        created_at: DateTime
    });
 
+   const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
 
     struct Validation;
     impl Validation {
@@ -822,6 +828,7 @@ mod models {
         let session = Session {
             id: id.clone(),
             user_id,
+            created_at: DateTime::now_utc()
         };
 
         db.set(format!("session/{id}"), session.clone())?;
@@ -829,15 +836,15 @@ mod models {
     }
 
     pub fn get_session_by_id(db: &KeyValueDatabase, session_id: String) -> Result<Option<Session>, BoxError> {
+        remove_expired_sessions(db);
+
         let key = format!("session/{session_id}");
         let session = db.get::<Session>(key)?;
         Ok(session)
     }
 
     pub fn get_session_user(db: &KeyValueDatabase, session_id: String) -> Result<Option<User>, BoxError> {
-        log::warn!("Search session: {session_id}");
-
-        let session = match get_session_by_id(db, session_id)? {
+        let session: Session = match get_session_by_id(db, session_id)? {
             Some(s) => s,
             None => return Ok(None),
         };
@@ -846,9 +853,33 @@ mod models {
     }
 
     pub fn remove_session(db: &KeyValueDatabase, session_id: String) -> Result<(), BoxError> {
+        remove_expired_sessions(db);
+
         let key = format!("session/{session_id}");
         db.del(key)?;
         Ok(())
+    }
+
+    pub fn remove_expired_sessions(db: &KeyValueDatabase)  {
+       fn try_remove_expired_sessions(db: &KeyValueDatabase)  -> Result<(), BoxError>{
+        let now = DateTime::now_utc();
+        let user_sessions = db.scan::<Session>("session/")?
+            .into_iter()
+            .filter(|s|  now > (s.created_at + SESSION_DURATION))
+            .collect::<Vec<_>>();
+
+        let deleted = db.retain(|key| {
+            user_sessions.iter().any(|s| s.id == key)
+        })?;
+
+        log::debug!("`{deleted}` sessions deleted");
+
+        Ok(())
+       }
+    
+       if let Err(err) = try_remove_expired_sessions(db) {
+        log::error!("Failed to remove expired sessions: {err}");
+       }
     }
 }
 
@@ -981,10 +1012,33 @@ mod kv {
             })
         }
 
-        pub fn del(&self, key: impl AsRef<str>) -> std::io::Result<()> {
+        pub fn del(&self, key: impl AsRef<str>) -> std::io::Result<bool> {
             self.tap(|json| {
-                json.remove(key.as_ref());
-                Ok(())
+                let deleted = json.remove(key.as_ref()).is_some();
+                Ok(deleted)
+            })
+        }
+
+        pub fn retain(&self, f: impl Fn(&str) -> bool) -> std::io::Result<usize> {
+            self.tap(|json| {
+                let mut deleted_count = 0;
+
+                match json {
+                    JsonValue::Object(ordered_map) => {
+                        ordered_map.retain(|k, _| {
+                            let should_keep = f(k);
+                            
+                            if !should_keep {
+                                deleted_count += 1;
+                            }
+
+                            should_keep
+                        });
+                    },
+                    v => panic!("expected json object but was `{}`", v.variant())
+                }
+
+                Ok(deleted_count)
             })
         }
     }
