@@ -286,6 +286,16 @@ mod routes {
                     
                                 // Todo items container
                                 html::div(|| {
+                                    if todos.is_empty() {
+                                        html::div(|| {
+                                            html::class("flex flex-row items-center justify-center");
+                                            html::p(|| {
+                                                html::content("No todos");
+                                                html::class("font-bold text-gray-400 text-xl");
+                                            });
+                                        });
+                                    }
+
                                     todos.iter().for_each(|todo| {
                                         html::div(|| {
                                             html::class("bg-white shadow-lg rounded-lg p-4 mb-4 border border-gray-200 flex flex-row justify-between animate-fade-in");
@@ -303,7 +313,6 @@ mod routes {
                                                     html::content(&todo.title);
                                                     html::class(format!("text-xl font-bold text-gray-800 flex-grow {is_done_class}"));
                                                 });
-                    
                         
                                                 // Todo description
                                                 if let Some(desc) = &todo.description {
@@ -645,6 +654,10 @@ mod components {
 
     pub fn Layout(auth: Option<AuthenticatedUser>, content: impl IntoChildren) -> HTMLElement {
         html::div(|| {
+            html::div(|| {
+                html::class("w-full h-16");
+            });
+            
             html::header(|| {
                 html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
                 
