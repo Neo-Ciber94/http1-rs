@@ -1037,7 +1037,9 @@ mod kv {
 
                             match http1_web::serde::json::from_value::<T>(v.clone()) {
                                 Ok(x) => values.push(x),
-                                Err(_) => {},
+                                Err(err) => {
+                                    log::warn!("failed to scan value as `{}`: {err}", std::any::type_name::<T>());
+                                },
                             };
                         }
                     },
