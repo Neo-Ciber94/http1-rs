@@ -704,9 +704,7 @@ mod components {
 }
 
 mod models {
-
     use std::{fmt::Display, time::Duration};
-
     use datetime::DateTime;
     use http1::error::BoxError;
     use http1_web::impl_serde_struct;
