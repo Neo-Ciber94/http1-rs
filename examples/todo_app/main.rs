@@ -705,7 +705,7 @@ mod components {
 
 mod models {
 
-    use std::time::Duration;
+    use std::{fmt::Display, time::Duration};
 
     use datetime::DateTime;
     use http1::error::BoxError;
@@ -755,31 +755,56 @@ mod models {
 
    const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
 
-    struct Validation;
-    impl Validation {
-        pub fn validate_user(user: &mut User) -> Result<(), BoxError> {
-            if user.username.trim().is_empty() {
-                return Err(String::from("username cannot be empty").into());
+    #[derive(Debug)]
+    pub struct ValidationError { field: &'static str, message: String }
+    impl ValidationError {
+        pub fn new(field: &'static str, message: impl Into<String>) -> Self {
+            ValidationError { field, message: message.into()}
+        }
+    }
+
+    impl std::error::Error for ValidationError {}
+
+    impl Display for ValidationError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}: {}", self.field, self.message)
+        }
+    }
+
+    pub trait Validate: Sized {
+        fn validate_in_place(&mut self) -> Result<(), ValidationError>;
+        fn validate(mut self) -> Result<Self, ValidationError> {
+            self.validate_in_place()?;
+            Ok(self)
+        }
+    }
+
+    impl Validate for User {
+        fn validate_in_place(&mut self) -> Result<(), ValidationError> {
+            if self.username.trim().is_empty() {
+                return Err(ValidationError::new("username", "cannot be empty"));
             }
 
-            user.username = user.username.trim().into();
+            self.username = self.username.trim().into();
 
             Ok(())
         }
+    }
 
-        pub fn validate_todo(todo: &mut Todo) -> Result<(), BoxError> {
-            if todo.title.trim().is_empty() {
-                return Err(String::from("title cannot be empty").into());
+    impl Validate for Todo {
+        fn validate_in_place(&mut self) -> Result<(), ValidationError> {
+            if self.title.trim().is_empty() {
+                return Err(ValidationError::new("title", "cannot be empty"));
             }
 
-            if let Some(description) = todo.description.as_deref().filter(|x| x.is_empty()) {
+            if let Some(description) = self.description.as_deref().filter(|x| x.is_empty()) {
                 if description.trim().is_empty() {
-                    return Err(String::from("description cannot be empty").into());
+                    return Err(ValidationError::new("description", "cannot be empty"));
                 }
             }
 
-            todo.title = todo.title.trim().into();
-            todo.description = todo.description.as_deref().map(|x| x.trim().into());
+            self.title = self.title.trim().into();
+            self.description = self.description.as_deref().map(|x| x.trim().into());
 
             Ok(())
         }
@@ -792,8 +817,7 @@ mod models {
         }
 
         let id = db.incr("next_user_id")? + 1;
-        let mut user = User { id, username: username.trim().into() };
-        Validation::validate_user(&mut user)?;
+        let user = User { id, username }.validate()?;
         db.set(format!("user/{id}"), user.clone())?;
         Ok(user)
     }
@@ -816,8 +840,7 @@ mod models {
         user_id: u64,
     ) -> Result<Todo, BoxError> {
         let id = db.incr("next_todo_id")? + 1;
-        let mut todo = Todo { id, title, description, user_id, is_done: false  };
-        Validation::validate_todo(&mut todo)?;
+        let todo = Todo { id, title, description, user_id, is_done: false  }.validate()?;
         db.set(format!("todo/{id}"), todo.clone())?;
         Ok(todo)
     }
@@ -826,7 +849,7 @@ mod models {
         let key = &format!("todo/{}", todo.id);
 
         if db.contains(key)? {
-            Validation::validate_todo(&mut todo)?;
+            todo.validate_in_place()?;
             db.set(key, todo.clone())?;
             Ok(Some(todo))
         }
