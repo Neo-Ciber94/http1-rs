@@ -32,10 +32,29 @@ impl MethodRoute {
         (self.0 & other.0) != 0
     }
 
-    pub fn into_methods(self) -> impl Iterator<Item = MethodRoute> {
-        MethodRoute::all()
-            .into_iter()
-            .filter(move |m| self.contains(*m))
+    pub fn into_methods(self) -> impl Iterator<Item = Method> {
+        MethodRoute::all().into_iter().filter_map(move |m| {
+            if self.contains(m) {
+                m.as_method().ok()
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn as_method(self) -> Result<Method, MethodRoute> {
+        match self {
+            MethodRoute::GET => Ok(Method::GET),
+            MethodRoute::POST => Ok(Method::POST),
+            MethodRoute::PUT => Ok(Method::PUT),
+            MethodRoute::DELETE => Ok(Method::DELETE),
+            MethodRoute::PATCH => Ok(Method::PATCH),
+            MethodRoute::OPTIONS => Ok(Method::OPTIONS),
+            MethodRoute::HEAD => Ok(Method::HEAD),
+            MethodRoute::TRACE => Ok(Method::TRACE),
+            MethodRoute::CONNECT => Ok(Method::CONNECT),
+            _ => Err(self),
+        }
     }
 
     pub const fn all() -> [MethodRoute; 9] {
@@ -230,5 +249,49 @@ mod tests {
         route &= MethodRoute::GET;
         assert!(route.contains(MethodRoute::GET));
         assert!(!route.contains(MethodRoute::POST));
+    }
+
+    #[test]
+    fn should_return_correct_method_for_as_method() {
+        assert_eq!(MethodRoute::GET.as_method(), Ok(Method::GET));
+        assert_eq!(MethodRoute::POST.as_method(), Ok(Method::POST));
+        assert_eq!(MethodRoute::PUT.as_method(), Ok(Method::PUT));
+        assert_eq!(MethodRoute::DELETE.as_method(), Ok(Method::DELETE));
+        assert_eq!(MethodRoute::PATCH.as_method(), Ok(Method::PATCH));
+        assert_eq!(MethodRoute::OPTIONS.as_method(), Ok(Method::OPTIONS));
+        assert_eq!(MethodRoute::HEAD.as_method(), Ok(Method::HEAD));
+        assert_eq!(MethodRoute::TRACE.as_method(), Ok(Method::TRACE));
+        assert_eq!(MethodRoute::CONNECT.as_method(), Ok(Method::CONNECT));
+
+        // Invalid cases
+        assert!(MethodRoute::any().as_method().is_err());
+        assert!((MethodRoute::GET | MethodRoute::POST).as_method().is_err());
+    }
+
+    #[test]
+    fn should_return_correct_methods_for_into_methods() {
+        let route = MethodRoute::GET | MethodRoute::POST | MethodRoute::DELETE;
+        let methods: Vec<Method> = route.into_methods().collect();
+
+        assert_eq!(methods, vec![Method::GET, Method::POST, Method::DELETE]);
+
+        // Test with the `any` method
+        let all_routes = MethodRoute::any();
+        let all_methods: Vec<Method> = all_routes.into_methods().collect();
+
+        assert_eq!(
+            all_methods,
+            vec![
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::PATCH,
+                Method::OPTIONS,
+                Method::HEAD,
+                Method::TRACE,
+                Method::CONNECT,
+            ]
+        );
     }
 }
