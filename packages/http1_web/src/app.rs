@@ -5,7 +5,8 @@ use std::{
 };
 
 use http1::{
-    body::Body, handler::RequestHandler, request::Request, response::Response, status::StatusCode,
+    body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
+    status::StatusCode,
 };
 
 use crate::{
@@ -175,23 +176,9 @@ static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> =
 impl RequestHandler for App {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
         let middlewares = self.middleware.as_slice();
-
-        let fallback = self
-            .fallback
-            .as_ref()
-            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
-
         let method = MethodRoute::from_method(req.method());
-        let req_path = req.uri().path_and_query().path().to_owned();
-        let mtch = self
-            .scope
-            .method_router
-            .get(&method)
-            .and_then(|router| router.find(&req_path))
-            .unwrap_or_else(|| Match {
-                params: ParamsMap::default(),
-                value: fallback,
-            });
+        let req_path = req.uri().path_and_query().path();
+        let mtch = self.scope.0.find_handler(&req_path, req.method());
 
         // Add any additional extensions
         req.extensions_mut().insert(mtch.params.clone());
@@ -229,19 +216,15 @@ impl Handler<Request<Body>> for NotFoundHandler {
     }
 }
 
-pub struct Scope {
-    method_router: HashMap<MethodRoute, Router<BoxedHandler>>,
-}
+pub struct Scope(EndpointRouter);
 
 impl Scope {
     pub fn new() -> Self {
-        Scope {
-            method_router: HashMap::new(),
-        }
+        Scope(Default::default())
     }
 
     fn add_scope(&mut self, route: &str, scope: Scope) {
-        for (method, router) in scope.method_router {
+        for (method, router) in scope.0.method_router {
             for (r, handler) in router.into_entries() {
                 let sub_route = r.to_string();
                 let full_path = if route == "/" {
@@ -257,19 +240,7 @@ impl Scope {
     fn add_route(&mut self, method: MethodRoute, route: &str, handler: BoxedHandler) {
         log::debug!("Adding route: {method} => {route}");
 
-        match self.method_router.entry(method) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().insert(route, handler);
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let mut router = Router::new();
-                if router.insert(route, handler).is_some() {
-                    panic!("handler already exists on {method}: {route}");
-                }
-
-                entry.insert(router);
-            }
-        }
+        self.0.insert(route, method, handler)
     }
 
     pub fn scope(mut self, route: &str, scope: Scope) -> Self {
@@ -373,10 +344,50 @@ impl Debug for Scope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut map = f.debug_map();
 
-        for (method, handler) in self.method_router.iter() {
+        for (method, handler) in self.0.method_router.iter() {
             map.entry(&method, &handler);
         }
 
         map.finish()
+    }
+}
+
+#[derive(Default)]
+struct EndpointRouter {
+    method_router: HashMap<MethodRoute, Router<BoxedHandler>>,
+    fallback: Option<BoxedHandler>,
+}
+
+impl EndpointRouter {
+    fn insert(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
+        match self.method_router.entry(method) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(route, handler);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let mut router = Router::new();
+                if router.insert(route, handler).is_some() {
+                    panic!("handler already exists on {method}: {route}");
+                }
+
+                entry.insert(router);
+            }
+        }
+    }
+
+    fn find_handler(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
+        let fallback = self
+            .fallback
+            .as_ref()
+            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+
+        let method = MethodRoute::from_method(method);
+        self.method_router
+            .get(&method)
+            .and_then(|router| router.find(&route))
+            .unwrap_or_else(|| Match {
+                params: ParamsMap::default(),
+                value: fallback,
+            })
     }
 }
