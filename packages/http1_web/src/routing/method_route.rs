@@ -24,15 +24,21 @@ impl MethodRoute {
         MethodRoute::try_from(method).expect("invalid method")
     }
 
-    pub fn any() -> Self {
+    pub const fn any() -> Self {
         MethodRoute(u16::MAX)
     }
 
-    pub fn contains(&self, other: MethodRoute) -> bool {
+    pub const fn contains(&self, other: MethodRoute) -> bool {
         (self.0 & other.0) != 0
     }
 
-    pub fn all() -> [MethodRoute; 9] {
+    pub fn into_methods(self) -> impl Iterator<Item = MethodRoute> {
+        MethodRoute::all()
+            .into_iter()
+            .filter(move |m| self.contains(*m))
+    }
+
+    pub const fn all() -> [MethodRoute; 9] {
         [
             MethodRoute::GET,
             MethodRoute::POST,
