@@ -21,7 +21,7 @@ impl<T> SimpleRouter<T> {
         }
     }
 
-    pub fn insert(&mut self, route: impl Into<String>, value: T) {
+    pub fn insert(&mut self, route: impl Into<String>, value: T) -> Option<T> {
         let route = route.into();
         assert!(route.starts_with("/"), "route should start with '/'");
         let r = Route::from(route);
@@ -36,7 +36,7 @@ impl<T> SimpleRouter<T> {
             }
         }
 
-        self.routes.insert(r, value);
+        self.routes.insert(r, value)
     }
 
     pub fn find(&self, path: &str) -> Option<Match<&T>> {

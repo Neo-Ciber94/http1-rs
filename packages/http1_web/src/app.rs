@@ -169,7 +169,8 @@ impl App {
     }
 }
 
-static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> = LazyLock::new(|| BoxedHandler::new(NotFoundHandler));
+static NOT_FOUND_HANDLER: LazyLock<BoxedHandler> =
+    LazyLock::new(|| BoxedHandler::new(NotFoundHandler));
 
 impl RequestHandler for App {
     fn handle(&self, mut req: Request<Body>) -> Response<Body> {
@@ -262,7 +263,10 @@ impl Scope {
             }
             std::collections::hash_map::Entry::Vacant(entry) => {
                 let mut router = Router::new();
-                router.insert(route, handler);
+                if router.insert(route, handler).is_some() {
+                    panic!("handler already exists on {method}: {route}");
+                }
+
                 entry.insert(router);
             }
         }

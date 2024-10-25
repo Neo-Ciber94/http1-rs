@@ -22,8 +22,8 @@ impl<T> Router<T> {
     /// - static: /home
     /// - dynamic: /users/:user_id
     /// - catch-all: /toys/:rest*
-    pub fn insert(&mut self, route: impl Into<String>, value: T) {
-        self.0.insert(route, value);
+    pub fn insert(&mut self, route: impl Into<String>, value: T) -> Option<T> {
+        self.0.insert(route, value)
     }
 
     /// Finds the route that matches the given path and get a reference to it.
