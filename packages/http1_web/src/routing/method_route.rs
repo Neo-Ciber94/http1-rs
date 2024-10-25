@@ -79,12 +79,15 @@ impl<'a> TryFrom<&'a Method> for MethodRoute {
 
 impl Display for MethodRoute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let methods: [MethodRoute; 9] = MethodRoute::all();
-        for (idx, method) in methods.iter().enumerate() {
-            if self.contains(*method) {
-                write_method(f, *self)?;
+        let all_methods = MethodRoute::all();
+        let methods = all_methods.iter().filter(|m| self.contains(**m));
+        let count = methods.clone().count();
 
-                if idx < methods.len() - 1 {
+        for (idx, method) in methods.enumerate() {
+            if self.contains(*method) {
+                write_method(f, *method)?;
+
+                if idx < count - 1 {
                     write!(f, " ")?;
                 }
             }
