@@ -1264,7 +1264,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Null => visitor.visit_none(),
-            s => s.deserialize_any(visitor),
+            s => visitor.visit_some(s),
         }
     }
 

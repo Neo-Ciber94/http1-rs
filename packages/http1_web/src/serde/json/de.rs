@@ -1146,4 +1146,10 @@ mod tests {
 
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn should_deserialize_to_option() {
+        let value = from_str::<Option<u32>>("29001").unwrap();
+        assert_eq!(value, Some(29001));
+    }
 }
