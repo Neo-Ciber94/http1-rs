@@ -140,10 +140,16 @@ mod routes {
                 |State(db): State<KeyValueDatabase>,
                  Form(input): Form<LoginUser>|
                  -> Result<Response<Body>, ErrorResponse> {
-                    let user = crate::models::insert_user(&db, input.username)?;
-                    let session = crate::models::create_session(&db, user.id)?;
+                    let user = match crate::models::get_user_by_username(&db, &input.username)? {
+                        Some(x) => x,
+                        None => {
+                            let new_user = crate::models::insert_user(&db, input.username)?;        
+                            log::info!("User created: {new_user:?}");
+                            new_user
+                        },
+                    };
 
-                    log::info!("User created: {user:?}");
+                    let session = crate::models::create_session(&db, user.id)?;
 
                     Ok((
                         Redirect::see_other("/todos"),
@@ -657,7 +663,7 @@ mod components {
             html::div(|| {
                 html::class("w-full h-16");
             });
-            
+
             html::header(|| {
                 html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
                 
@@ -781,6 +787,10 @@ mod models {
 
 
     pub fn insert_user(db: &KeyValueDatabase, username: String) -> Result<User, BoxError> {
+        if get_user_by_username(db, &username)?.is_some() {
+            return Err(String::from("user already exists").into())
+        }
+
         let id = db.incr("next_user_id")? + 1;
         let mut user = User { id, username: username.trim().into() };
         Validation::validate_user(&mut user)?;
@@ -791,6 +801,11 @@ mod models {
     pub fn get_user(db: &KeyValueDatabase, user_id: u64) -> Result<Option<User>, BoxError> {
         let key = &format!("user/{user_id}");
         let user = db.get::<User>(key)?;
+        Ok(user)
+    }
+
+    pub fn get_user_by_username(db: &KeyValueDatabase, username: &str) -> Result<Option<User>, BoxError>  {
+        let user = db.scan::<User>("user/")?.into_iter().find(|x| x.username == username);
         Ok(user)
     }
 
