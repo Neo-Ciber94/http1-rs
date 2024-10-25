@@ -1,4 +1,7 @@
-use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::Rng;
 
@@ -6,12 +9,9 @@ use super::Rng;
 pub struct XorShiftRng128([u32; 4]);
 
 impl XorShiftRng128 {
-    pub fn timestamp() -> Result<Self, SystemTimeError> {
-        let duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        let ms = duration.as_millis() as u128;
-        let ns = duration.subsec_nanos() as u128;
-        let state = (ms << 64) | ns;
-        Ok(XorShiftRng128::with_state(state))
+    pub fn new() -> Self {
+        let state = get_seed();
+        XorShiftRng128::with_state(state)
     }
 
     pub fn with_state(state: u128) -> Self {
@@ -60,6 +60,28 @@ impl Rng for XorShiftRng128 {
     }
 }
 
+fn get_seed() -> u128 {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time went backwards");
+    let ms = duration.as_millis() as u128;
+    let ns = duration.subsec_nanos() as u128;
+    let timestamp = (ms << 64) | ns;
+
+    let mut hasher = DefaultHasher::new();
+
+    // Process & thread
+    std::process::id().hash(&mut hasher);
+    std::thread::current().id().hash(&mut hasher);
+    
+    // Pointer
+    (&0 as *const i32).hash(&mut hasher);
+
+    // Mix
+    let hash = hasher.finish() as u128;
+    timestamp ^ hash
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -79,7 +101,7 @@ mod tests {
 
     #[test]
     fn should_produce_unique_values() {
-        let mut rng = XorShiftRng128::timestamp().unwrap();
+        let mut rng = XorShiftRng128::new();
 
         let values = (0..1000).map(|_| rng.next()).collect::<HashSet<_>>();
         assert_eq!(values.len(), 1000);

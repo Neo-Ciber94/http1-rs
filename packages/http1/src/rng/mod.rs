@@ -22,7 +22,7 @@ pub trait Rng {
 }
 
 thread_local! {
-    static RNG: RefCell<xorshift_128::XorShiftRng128> = RefCell::new(xorshift_128::XorShiftRng128::timestamp().expect("failed to create random number generator"));
+    static RNG: RefCell<xorshift_128::XorShiftRng128> = RefCell::new(xorshift_128::XorShiftRng128::new());
 }
 
 #[derive(Clone, Copy)]
