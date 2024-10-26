@@ -720,4 +720,21 @@ mod tests {
         assert_eq!(get_response(nested_api_match.value), "items");
         assert_eq!(get_response(nested_fallback.value), "nested_fallback");
     }
+
+    #[test]
+    fn should_use_parent_fallback_in_nested() {
+        let scope = Scope::new()
+            .fallback(|| "root fallback")
+            .scope("/api", Scope::new().post("/items", || "items"));
+
+        let not_found_match = scope.find("/not-found", &Method::POST);
+        let items_match = scope.find("/api/items", &Method::POST);
+        let not_found_items_match = scope.find("/api/items", &Method::GET);
+        let parent_fallback_match = scope.find("/api/not-found", &Method::POST);
+
+        assert_eq!(get_response(not_found_match.value), "root fallback");
+        assert_eq!(get_response(items_match.value), "items");
+        assert_eq!(get_response(not_found_items_match.value), "root fallback");
+        assert_eq!(get_response(parent_fallback_match.value), "root fallback");
+    }
 }
