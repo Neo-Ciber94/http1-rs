@@ -9,12 +9,13 @@ use http1::headers::Headers;
 use crate::{from_request::FromRequest, into_response::IntoResponse};
 
 mod accept;
+mod authorization;
 mod entity;
 mod host;
 mod referer;
 mod user_agent;
 
-pub use {accept::*, entity::*, host::*, referer::*, user_agent::*};
+pub use {accept::*, authorization::*, entity::*, host::*, referer::*, user_agent::*};
 
 /// Allow to create a value from the request headers.
 pub trait FromHeaders: Sized {
