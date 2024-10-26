@@ -238,7 +238,7 @@ impl Scope {
     }
 
     fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
-        //log::debug!("Adding route: {method} => {route}");
+        log::debug!("Adding route: {method} => {route}");
 
         match self.path_to_route.get(route) {
             Some(route_id) => {
@@ -291,7 +291,6 @@ impl Scope {
                 format!("{route}{sub_route}")
             };
 
-            log::debug!("route? {full_path}");
             let methods = scope.route_to_methods.remove(&route_id).expect("no routes");
             for (m, handler) in methods {
                 let method_route = MethodRoute::from_method(&m);
