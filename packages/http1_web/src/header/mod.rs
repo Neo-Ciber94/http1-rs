@@ -1,8 +1,12 @@
-use std::convert::Infallible;
+use std::{
+    borrow::Borrow,
+    convert::Infallible,
+    ops::{Deref, DerefMut},
+};
 
 use http1::headers::Headers;
 
-use crate::into_response::IntoResponse;
+use crate::{from_request::FromRequest, into_response::IntoResponse};
 
 mod accept;
 mod entity;
@@ -43,8 +47,39 @@ impl FromHeaders for Headers {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetHeader<H: FromHeaders>(pub H);
 
+impl<H: FromHeaders> Deref for GetHeader<H> {
+    type Target = H;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<H: FromHeaders> DerefMut for GetHeader<H> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<H: FromHeaders> Borrow<H> for GetHeader<H> {
+    fn borrow(&self) -> &H {
+        &self.0
+    }
+}
+
 impl<H: FromHeaders> GetHeader<H> {
     pub fn into_inner(self) -> H {
         self.0
+    }
+}
+
+impl<H: FromHeaders> FromRequest for GetHeader<H> {
+    type Rejection = H::Rejection;
+
+    fn from_request(
+        req: http1::request::Request<http1::body::Body>,
+    ) -> Result<Self, Self::Rejection> {
+        let header = H::from_headers(req.headers())?;
+        Ok(GetHeader(header))
     }
 }
