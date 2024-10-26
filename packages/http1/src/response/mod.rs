@@ -110,6 +110,11 @@ impl<T> Response<T> {
 
         (status, headers, body)
     }
+
+    /// Returns a the body.
+    pub fn into_body(self) -> T {
+        self.body
+    }
 }
 
 impl Response<()> {
