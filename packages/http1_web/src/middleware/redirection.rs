@@ -1,4 +1,4 @@
-use crate::{into_response::IntoResponse, redirect::Redirect};
+use crate::{redirect::Redirect, IntoResponse};
 
 use super::Middleware;
 

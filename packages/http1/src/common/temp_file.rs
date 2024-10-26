@@ -20,9 +20,7 @@ impl TempFile {
 
     fn create<P: AsRef<Path>>(path: Option<P>) -> std::io::Result<Self> {
         let mut temp_path = std::env::temp_dir();
-        let file_name = rng::sequence::<Alphanumeric>()
-            .take(20)
-            .collect::<String>();
+        let file_name = rng::sequence::<Alphanumeric>().take(20).collect::<String>();
 
         if let Some(p) = path {
             temp_path.push(p.as_ref());

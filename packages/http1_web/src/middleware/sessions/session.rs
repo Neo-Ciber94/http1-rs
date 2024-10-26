@@ -10,8 +10,8 @@ use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 use crate::{
     from_request::FromRequestRef,
     impl_serde_enum_str, impl_serde_struct,
-    into_response::IntoResponse,
     serde::{de::Deserialize, ser::Serialize},
+    IntoResponse,
 };
 
 impl_serde_struct!(Session => {

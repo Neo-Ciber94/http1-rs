@@ -6,7 +6,7 @@ use std::{
 
 use http1::{common::any_map::AnyMap, status::StatusCode};
 
-use crate::{from_request::FromRequestRef, into_response::IntoResponse};
+use crate::{from_request::FromRequestRef, IntoResponse};
 
 /// A state to share within requests.
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

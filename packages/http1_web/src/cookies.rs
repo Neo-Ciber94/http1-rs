@@ -10,10 +10,7 @@ use http1::{
 
 use datetime::DateTime;
 
-use crate::{
-    from_request::FromRequestRef,
-    into_response::{IntoResponse, IntoResponseParts},
-};
+use crate::{from_request::FromRequestRef, IntoResponse, IntoResponseParts};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SameSite {
@@ -324,8 +321,8 @@ impl IntoResponseParts for Cookie {
 
     fn into_response_parts(
         self,
-        mut res: crate::into_response::ResponseParts,
-    ) -> Result<crate::into_response::ResponseParts, Self::Err> {
+        mut res: crate::ResponseParts,
+    ) -> Result<crate::ResponseParts, Self::Err> {
         res.headers_mut()
             .append(headers::SET_COOKIE, self.to_string());
         Ok(res)
@@ -348,7 +345,8 @@ pub struct Cookies {
     removed_cookies: Vec<Cookie>,
 }
 
-pub type CookiesIter<'a> = std::iter::Chain<std::slice::Iter<'a, Cookie>, std::slice::Iter<'a, Cookie>>;
+pub type CookiesIter<'a> =
+    std::iter::Chain<std::slice::Iter<'a, Cookie>, std::slice::Iter<'a, Cookie>>;
 
 impl Cookies {
     pub fn new() -> Self {
@@ -459,8 +457,8 @@ impl IntoResponseParts for Cookies {
 
     fn into_response_parts(
         self,
-        mut res: crate::into_response::ResponseParts,
-    ) -> Result<crate::into_response::ResponseParts, Self::Err> {
+        mut res: crate::ResponseParts,
+    ) -> Result<crate::ResponseParts, Self::Err> {
         res.headers_mut().extend(self);
         Ok(res)
     }

@@ -5,8 +5,8 @@ pub mod forms;
 pub mod from_request;
 pub mod fs;
 pub mod handler;
+pub mod header;
 pub mod html;
-pub mod into_response;
 pub mod json;
 pub mod middleware;
 pub mod mime;
@@ -16,4 +16,6 @@ pub mod redirect;
 pub mod routing;
 pub mod serde;
 pub mod state;
-pub mod header;
+
+mod response;
+pub use response::*;

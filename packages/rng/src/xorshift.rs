@@ -73,7 +73,7 @@ fn get_seed() -> u128 {
     // Process & thread
     std::process::id().hash(&mut hasher);
     std::thread::current().id().hash(&mut hasher);
-    
+
     // Pointer
     (&0 as *const i32).hash(&mut hasher);
 

@@ -6,7 +6,7 @@ use std::{
 
 use http1::headers::Headers;
 
-use crate::{from_request::FromRequest, into_response::IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 
 mod accept;
 mod authorization;

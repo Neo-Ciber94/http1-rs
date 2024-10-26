@@ -2,7 +2,7 @@ use std::{sync::mpsc::RecvTimeoutError, time::Duration};
 
 use http1::{body::Body, request::Request, response::Response, status::StatusCode};
 
-use crate::{handler::BoxedHandler, into_response::IntoResponse};
+use crate::{handler::BoxedHandler, IntoResponse};
 
 use super::Middleware;
 

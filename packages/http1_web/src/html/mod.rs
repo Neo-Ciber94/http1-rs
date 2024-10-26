@@ -1,6 +1,6 @@
 use http1::{headers::CONTENT_TYPE, response::Response};
 
-use crate::into_response::IntoResponse;
+use crate::IntoResponse;
 
 mod dsl;
 pub mod element;

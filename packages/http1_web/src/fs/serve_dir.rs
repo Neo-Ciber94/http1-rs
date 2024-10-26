@@ -9,8 +9,8 @@ use crate::{
     error_response::{ErrorResponse, ErrorStatusCode},
     handler::Handler,
     html::{self, element::HTMLElement},
-    into_response::IntoResponse,
     mime::Mime,
+    IntoResponse,
 };
 use datetime::DateTime;
 use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};

@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use http1::{body::Body, request::Request, response::Response};
 
-use crate::{from_request::FromRequest, into_response::IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 
 pub trait Handler<Args> {
     type Output: IntoResponse;

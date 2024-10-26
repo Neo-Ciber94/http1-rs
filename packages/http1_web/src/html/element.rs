@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Display};
 
-use crate::into_response::IntoResponse;
+use crate::IntoResponse;
 
 use super::Html;
 

@@ -1,10 +1,11 @@
-
 use http1::server::Server;
 use http1_web::{
-    app::App, fs::ServeDir, middleware::{logging::Logging, redirection::Redirection}
+    app::App,
+    fs::ServeDir,
+    middleware::{logging::Logging, redirection::Redirection},
 };
 use kv::KeyValueDatabase;
-use routes::{api_routes,  page_routes};
+use routes::{api_routes, page_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -18,7 +19,7 @@ fn main() -> std::io::Result<()> {
         .get("/*", ServeDir::new("/", "examples/todo_app/public"))
         .scope("/api", api_routes())
         .scope("/", page_routes());
-        
+
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
         .start(app)
@@ -39,14 +40,17 @@ mod routes {
         from_request::FromRequestRef,
         html::{self, element::HTMLElement},
         impl_serde_struct,
-        into_response::{IntoResponse, NotFound},
         path::Path,
         redirect::Redirect,
         state::State,
+        {IntoResponse, NotFound},
     };
 
     use crate::{
-        components::{Head, Layout, Title}, models::User, kv::KeyValueDatabase, COOKIE_SESSION_NAME
+        components::{Head, Layout, Title},
+        kv::KeyValueDatabase,
+        models::User,
+        COOKIE_SESSION_NAME,
     };
 
     #[derive(Debug)]
@@ -148,10 +152,10 @@ mod routes {
                     let user = match crate::models::get_user_by_username(&db, &input.username)? {
                         Some(x) => x,
                         None => {
-                            let new_user = crate::models::insert_user(&db, input.username)?;        
+                            let new_user = crate::models::insert_user(&db, input.username)?;
                             log::info!("User created: {new_user:?}");
                             new_user
-                        },
+                        }
                     };
 
                     let session = crate::models::create_session(&db, user.id)?;
@@ -169,24 +173,25 @@ mod routes {
             )
             .get(
                 "/logout",
-                |State(db): State<KeyValueDatabase>, mut cookies: Cookies, auth: Option<AuthenticatedUser>|
+                |State(db): State<KeyValueDatabase>,
+                 mut cookies: Cookies,
+                 auth: Option<AuthenticatedUser>|
                  -> Result<Response<Body>, ErrorResponse> {
-                   
-                   if auth.is_none() {
-                    return Ok(Redirect::see_other("/todos").into_response());
-                   }
-
-                   let session_cookie = match cookies.get(COOKIE_SESSION_NAME) {
-                    Some(c) => c,
-                    None => {
+                    if auth.is_none() {
                         return Ok(Redirect::see_other("/todos").into_response());
                     }
-                   };
 
-                   crate::models::remove_session(&db, session_cookie.value().to_owned())?;
-                   cookies.del(COOKIE_SESSION_NAME);
-                   
-                   Ok((Redirect::see_other("/"), cookies).into_response())
+                    let session_cookie = match cookies.get(COOKIE_SESSION_NAME) {
+                        Some(c) => c,
+                        None => {
+                            return Ok(Redirect::see_other("/todos").into_response());
+                        }
+                    };
+
+                    crate::models::remove_session(&db, session_cookie.value().to_owned())?;
+                    cookies.del(COOKIE_SESSION_NAME);
+
+                    Ok((Redirect::see_other("/"), cookies).into_response())
                 },
             )
             .post(
@@ -671,19 +676,18 @@ mod components {
 
             html::header(|| {
                 html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
-                
+
                 html::a(|| {
                     html::attr("href", "/");
                     html::h4(|| {
-
                         html::content("TodoApp");
                         html::class("text-xl font-bold text-blue-500");
                     });
                 });
 
                 if let Some(AuthenticatedUser(user)) = auth {
-                html::div(|| {
-                    html::class("flex flex-row gap-2 items-center");
+                    html::div(|| {
+                        html::class("flex flex-row gap-2 items-center");
                         html::h4(|| {
                             html::content(user.username);
                             html::class("font-bold text-xl");
@@ -697,8 +701,7 @@ mod components {
                             });
                         });
                     });
-                }
-                else {
+                } else {
                     html::div("");
                 }
             });
@@ -709,11 +712,11 @@ mod components {
 }
 
 mod models {
-    use std::{fmt::Display, time::Duration};
+    use crate::kv::KeyValueDatabase;
     use datetime::DateTime;
     use http1::error::BoxError;
     use http1_web::impl_serde_struct;
-    use crate::kv::KeyValueDatabase;
+    use std::{fmt::Display, time::Duration};
 
     #[derive(Debug, Clone)]
     pub struct User {
@@ -747,22 +750,28 @@ mod models {
     pub struct Session {
         pub id: String,
         pub user_id: u64,
-        pub created_at: DateTime
+        pub created_at: DateTime,
     }
 
     impl_serde_struct!(Session => {
-        id: String,
-        user_id: u64,
-        created_at: DateTime
-   });
+         id: String,
+         user_id: u64,
+         created_at: DateTime
+    });
 
-   const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
+    const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
 
     #[derive(Debug)]
-    pub struct ValidationError { field: &'static str, message: String }
+    pub struct ValidationError {
+        field: &'static str,
+        message: String,
+    }
     impl ValidationError {
         pub fn new(field: &'static str, message: impl Into<String>) -> Self {
-            ValidationError { field, message: message.into()}
+            ValidationError {
+                field,
+                message: message.into(),
+            }
         }
     }
 
@@ -813,10 +822,9 @@ mod models {
         }
     }
 
-
     pub fn insert_user(db: &KeyValueDatabase, username: String) -> Result<User, BoxError> {
         if get_user_by_username(db, &username)?.is_some() {
-            return Err(String::from("user already exists").into())
+            return Err(String::from("user already exists").into());
         }
 
         let id = db.incr("next_user_id")? + 1;
@@ -831,8 +839,14 @@ mod models {
         Ok(user)
     }
 
-    pub fn get_user_by_username(db: &KeyValueDatabase, username: &str) -> Result<Option<User>, BoxError>  {
-        let user = db.scan::<User>("user/")?.into_iter().find(|x| x.username == username);
+    pub fn get_user_by_username(
+        db: &KeyValueDatabase,
+        username: &str,
+    ) -> Result<Option<User>, BoxError> {
+        let user = db
+            .scan::<User>("user/")?
+            .into_iter()
+            .find(|x| x.username == username);
         Ok(user)
     }
 
@@ -843,7 +857,14 @@ mod models {
         user_id: u64,
     ) -> Result<Todo, BoxError> {
         let id = db.incr("next_todo_id")? + 1;
-        let todo = Todo { id, title, description, user_id, is_done: false  }.validate()?;
+        let todo = Todo {
+            id,
+            title,
+            description,
+            user_id,
+            is_done: false,
+        }
+        .validate()?;
         db.set(format!("todo/{id}"), todo.clone())?;
         Ok(todo)
     }
@@ -855,8 +876,7 @@ mod models {
             todo.validate_in_place()?;
             db.set(key, todo.clone())?;
             Ok(Some(todo))
-        }
-        else {
+        } else {
             Ok(None)
         }
     }
@@ -868,7 +888,7 @@ mod models {
             Some(deleted) => {
                 db.del(key)?;
                 Ok(Some(deleted))
-            },
+            }
             None => Ok(None),
         }
     }
@@ -880,7 +900,8 @@ mod models {
     }
 
     pub fn get_all_todos(db: &KeyValueDatabase, user_id: u64) -> Result<Vec<Todo>, BoxError> {
-        let todos = db.scan::<Todo>("todo/")?
+        let todos = db
+            .scan::<Todo>("todo/")?
             .into_iter()
             .filter(|x| x.user_id == user_id)
             .collect::<Vec<_>>();
@@ -896,14 +917,17 @@ mod models {
         let session = Session {
             id: id.clone(),
             user_id,
-            created_at: DateTime::now_utc()
+            created_at: DateTime::now_utc(),
         };
 
         db.set(format!("session/{id}"), session.clone())?;
         Ok(session)
     }
 
-    pub fn get_session_by_id(db: &KeyValueDatabase, session_id: String) -> Result<Option<Session>, BoxError> {
+    pub fn get_session_by_id(
+        db: &KeyValueDatabase,
+        session_id: String,
+    ) -> Result<Option<Session>, BoxError> {
         remove_expired_sessions(db);
 
         let key = format!("session/{session_id}");
@@ -911,7 +935,10 @@ mod models {
         Ok(session)
     }
 
-    pub fn get_session_user(db: &KeyValueDatabase, session_id: String) -> Result<Option<User>, BoxError> {
+    pub fn get_session_user(
+        db: &KeyValueDatabase,
+        session_id: String,
+    ) -> Result<Option<User>, BoxError> {
         let session: Session = match get_session_by_id(db, session_id)? {
             Some(s) => s,
             None => return Ok(None),
@@ -928,34 +955,37 @@ mod models {
         Ok(())
     }
 
-    pub fn remove_expired_sessions(db: &KeyValueDatabase)  {
-       fn try_remove_expired_sessions(db: &KeyValueDatabase)  -> Result<(), BoxError>{
-        let now = DateTime::now_utc();
-        let expired_sessions = db.scan::<Session>("session/")?
-            .into_iter()
-            .filter(|s|  now > (s.created_at + SESSION_DURATION))
-            .collect::<Vec<_>>();
+    pub fn remove_expired_sessions(db: &KeyValueDatabase) {
+        fn try_remove_expired_sessions(db: &KeyValueDatabase) -> Result<(), BoxError> {
+            let now = DateTime::now_utc();
+            let expired_sessions = db
+                .scan::<Session>("session/")?
+                .into_iter()
+                .filter(|s| now > (s.created_at + SESSION_DURATION))
+                .collect::<Vec<_>>();
 
-        let deleted = db.retain(|key| {
-            expired_sessions.iter().find(|s| s.id == key).is_some()
-        })?;
+            let deleted =
+                db.retain(|key| expired_sessions.iter().find(|s| s.id == key).is_some())?;
 
-        if deleted > 0 {
-            log::debug!("`{deleted}` sessions deleted");
+            if deleted > 0 {
+                log::debug!("`{deleted}` sessions deleted");
+            }
+
+            Ok(())
         }
 
-        Ok(())
-       }
-    
-       if let Err(err) = try_remove_expired_sessions(db) {
-        log::error!("Failed to remove expired sessions: {err}");
-       }
+        if let Err(err) = try_remove_expired_sessions(db) {
+            log::error!("Failed to remove expired sessions: {err}");
+        }
     }
 }
 
 mod kv {
-    use std::{fmt::Display,  path::{Path, PathBuf}};
     use http1_web::serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
+    use std::{
+        fmt::Display,
+        path::{Path, PathBuf},
+    };
 
     #[derive(Debug)]
     pub struct SetValueError;
@@ -967,7 +997,7 @@ mod kv {
     }
 
     #[derive(Debug, Clone)]
-    pub struct KeyValueDatabase(PathBuf); 
+    pub struct KeyValueDatabase(PathBuf);
 
     impl KeyValueDatabase {
         pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
@@ -975,7 +1005,7 @@ mod kv {
             let file_path = cwd.join(path);
 
             if !file_path.exists() {
-                let mut ancestors  = file_path.ancestors();
+                let mut ancestors = file_path.ancestors();
                 ancestors.next();
 
                 if let Some(dir) = ancestors.next() {
@@ -984,21 +1014,23 @@ mod kv {
 
                 std::fs::write(&file_path, "{}")?;
                 log::debug!("Created kv database file: {file_path:?}");
-            }
-            else {
+            } else {
                 log::debug!("kv database file exists: {file_path:?}");
             }
-
 
             Ok(KeyValueDatabase(file_path))
         }
 
-        fn tap<F, R>(&self, f: F) -> std::io::Result<R> where F: FnOnce(&mut JsonValue) -> std::io::Result<R> {
+        fn tap<F, R>(&self, f: F) -> std::io::Result<R>
+        where
+            F: FnOnce(&mut JsonValue) -> std::io::Result<R>,
+        {
             let bytes = std::fs::read(self.0.as_path())?;
             let mut json = if bytes.is_empty() {
                 JsonValue::Object(Default::default())
             } else {
-                http1_web::serde::json::from_bytes::<JsonValue>(bytes).map_err(|err| std::io::Error::other(err))?
+                http1_web::serde::json::from_bytes::<JsonValue>(bytes)
+                    .map_err(|err| std::io::Error::other(err))?
             };
 
             let result = f(&mut json);
@@ -1008,26 +1040,32 @@ mod kv {
 
         pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
             self.tap(|json| {
-                let new_value = http1_web::serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
-                json.try_insert(key.as_ref(), new_value).map_err(|err| std::io::Error::other(err))?;
+                let new_value = http1_web::serde::json::to_value(&value)
+                    .map_err(|err| std::io::Error::other(err))?;
+                json.try_insert(key.as_ref(), new_value)
+                    .map_err(|err| std::io::Error::other(err))?;
                 Ok(())
             })
         }
 
-        pub fn get<T: Deserialize + 'static>(&self, key: impl AsRef<str>) -> std::io::Result<Option<T>> {
-            self.tap(|json | {
+        pub fn get<T: Deserialize + 'static>(
+            &self,
+            key: impl AsRef<str>,
+        ) -> std::io::Result<Option<T>> {
+            self.tap(|json| {
                 let value = match json.get(key.as_ref()) {
                     Some(x) => x,
                     None => return Ok(None),
                 };
 
-                let value = http1_web::serde::json::from_value::<T>(value.clone()).map_err(|err| std::io::Error::other(err))?;
+                let value = http1_web::serde::json::from_value::<T>(value.clone())
+                    .map_err(|err| std::io::Error::other(err))?;
                 Ok(Some(value))
             })
         }
 
         pub fn scan<T: Deserialize>(&self, pattern: impl AsRef<str>) -> std::io::Result<Vec<T>> {
-            self.tap(|json | {
+            self.tap(|json| {
                 let pattern = pattern.as_ref();
                 let mut values = Vec::new();
 
@@ -1041,12 +1079,15 @@ mod kv {
                             match http1_web::serde::json::from_value::<T>(v.clone()) {
                                 Ok(x) => values.push(x),
                                 Err(err) => {
-                                    log::warn!("failed to scan value as `{}`: {err}", std::any::type_name::<T>());
-                                },
+                                    log::warn!(
+                                        "failed to scan value as `{}`: {err}",
+                                        std::any::type_name::<T>()
+                                    );
+                                }
                             };
                         }
-                    },
-                    v => panic!("expected json object but was `{}`", v.variant())
+                    }
+                    v => panic!("expected json object but was `{}`", v.variant()),
                 }
 
                 Ok(values)
@@ -1064,23 +1105,23 @@ mod kv {
 
                         let value = x.as_number().unwrap().as_u64().unwrap_or(0) + 1;
                         let new_value = JsonValue::from(value);
-                        json.try_insert(key, new_value).map_err(|err| std::io::Error::other(err))?;
+                        json.try_insert(key, new_value)
+                            .map_err(|err| std::io::Error::other(err))?;
                         Ok(value)
-                    },
+                    }
                     None => {
-                        json.try_insert(key, JsonValue::from(0)).map_err(|err| std::io::Error::other(err))?;
+                        json.try_insert(key, JsonValue::from(0))
+                            .map_err(|err| std::io::Error::other(err))?;
                         Ok(0)
-                    },
+                    }
                 }
             })
         }
 
         pub fn contains(&self, key: impl AsRef<str>) -> std::io::Result<bool> {
-            self.tap(|json | {
-                match json.get(key.as_ref()) {
-                    Some(_) => Ok(true),
-                    None => Ok(false),
-                }
+            self.tap(|json| match json.get(key.as_ref()) {
+                Some(_) => Ok(true),
+                None => Ok(false),
             })
         }
 
@@ -1099,15 +1140,15 @@ mod kv {
                     JsonValue::Object(ordered_map) => {
                         ordered_map.retain(|k, _| {
                             let should_remove = !f(k);
-                            
+
                             if should_remove {
                                 deleted_count += 1;
                             }
 
                             should_remove
                         });
-                    },
-                    v => panic!("expected json object but was `{}`", v.variant())
+                    }
+                    v => panic!("expected json object but was `{}`", v.variant()),
                 }
 
                 Ok(deleted_count)

@@ -7,12 +7,12 @@ use http1::{
 
 use crate::{
     from_request::FromRequestRef,
-    into_response::IntoResponse,
     serde::{
         de::{Deserialize, Deserializer, Error},
         string::{DeserializeFromStr, DeserializeOnlyString},
         visitor::MapAccess,
     },
+    IntoResponse,
 };
 
 /// Represents the query params in a request.

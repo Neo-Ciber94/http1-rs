@@ -1,6 +1,6 @@
 use http1::{body::Body, response::Response, status::StatusCode};
 
-use crate::into_response::IntoResponse;
+use crate::IntoResponse;
 
 /// Represents a client or server error code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

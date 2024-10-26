@@ -13,7 +13,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, into_response::IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 
 use super::form_field::{Disk, FormField, Memory, TempDisk};
 

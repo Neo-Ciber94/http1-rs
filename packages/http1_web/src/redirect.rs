@@ -1,6 +1,6 @@
 use http1::{body::Body, headers, response::Response, status::StatusCode};
 
-use crate::into_response::IntoResponse;
+use crate::IntoResponse;
 
 /// Represents the status codes for different types of redirections.
 ///

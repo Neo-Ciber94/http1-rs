@@ -5,7 +5,7 @@ use std::{
 
 use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};
 
-use crate::{handler::Handler, into_response::IntoResponse, mime::Mime};
+use crate::{handler::Handler, mime::Mime, IntoResponse};
 
 #[derive(Debug)]
 pub enum InvalidFile {

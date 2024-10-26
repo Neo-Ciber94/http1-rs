@@ -12,10 +12,10 @@ use http1::{
 use crate::{
     from_request::FromRequest,
     handler::{BoxedHandler, Handler},
-    into_response::IntoResponse,
     middleware::{BoxedMiddleware, Middleware},
     routing::{method_route::MethodRoute, params::ParamsMap, Match, Router},
     state::AppState,
+    IntoResponse,
 };
 
 #[derive(Debug)]

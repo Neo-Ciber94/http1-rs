@@ -10,13 +10,13 @@ use http1::{
 
 use crate::{
     from_request::FromRequest,
-    into_response::IntoResponse,
     serde::{
         bytes::BytesBufferDeserializer,
         de::{Deserialize, Deserializer},
         string::{DeserializeFromStr, DeserializeOnlyString},
         visitor::{MapAccess, Visitor},
     },
+    IntoResponse,
 };
 
 use super::{

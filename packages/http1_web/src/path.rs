@@ -2,13 +2,13 @@ use http1::{error::BoxError, status::StatusCode};
 
 use crate::{
     from_request::FromRequestRef,
-    into_response::IntoResponse,
     routing::params::ParamsMap,
     serde::{
         de::{Deserialize, Deserializer},
         string::{DeserializeFromStr, DeserializeOnlyString},
         visitor::{MapAccess, SeqAccess},
     },
+    IntoResponse,
 };
 use std::{fmt::Display, str::FromStr};
 

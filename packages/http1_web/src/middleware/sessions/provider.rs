@@ -9,8 +9,8 @@ use crate::{
     cookies::{Cookie, Cookies},
     error_response::{ErrorResponse, ErrorStatusCode},
     from_request::FromRequestRef,
-    into_response::IntoResponse,
     middleware::Middleware,
+    IntoResponse,
 };
 
 use super::{
@@ -191,5 +191,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
 }
 
 fn generate_session_id(_req: &Request<Body>) -> String {
-    rng::sequence::<rng::random::Alphanumeric>().take(36).collect::<String>()
+    rng::sequence::<rng::random::Alphanumeric>()
+        .take(36)
+        .collect::<String>()
 }

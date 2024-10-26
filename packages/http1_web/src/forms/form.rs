@@ -16,7 +16,6 @@ use http1::{
 
 use crate::{
     from_request::FromRequest,
-    into_response::IntoResponse,
     query::QueryDeserializer,
     serde::{
         de::Deserialize,
@@ -24,6 +23,7 @@ use crate::{
         ser::{MapSerializer, Serialize, Serializer},
         string::StringSerializer,
     },
+    IntoResponse,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
