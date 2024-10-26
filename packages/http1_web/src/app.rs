@@ -217,26 +217,26 @@ impl Handler<Request<Body>> for NotFoundHandler {
 }
 
 #[derive(Debug)]
-struct MethodRouter {
-    methods: HashMap<Method, BoxedHandler>,
-    fallback: Option<BoxedHandler>,
+pub struct Scope {
+    method_router: Router<HashMap<Method, BoxedHandler>>,
+    fallbacks: Router<BoxedHandler>,
 }
-
-#[derive(Debug)]
-pub struct Scope(Router<MethodRouter>);
 
 impl Scope {
     pub fn new() -> Self {
-        Scope(Default::default())
+        Scope {
+            method_router: Default::default(),
+            fallbacks: Default::default(),
+        }
     }
 
     fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
         log::debug!("Adding route: {method} => {route}");
 
-        match self.0.find_mut(route) {
+        match self.method_router.find_mut(route) {
             Some(mtch) => {
                 for m in method.into_methods() {
-                    if mtch.value.methods.insert(m, handler.clone()).is_some() {
+                    if mtch.value.insert(m, handler.clone()).is_some() {
                         panic!("handler already exists on {method}: {route}");
                     }
                 }
@@ -247,88 +247,68 @@ impl Scope {
                     methods.insert(m, handler.clone());
                 }
 
-                self.0.insert(
-                    route,
-                    MethodRouter {
-                        methods,
-                        fallback: None,
-                    },
-                );
+                self.method_router.insert(route, methods);
             }
         }
     }
 
     fn add_fallback(&mut self, fallback: BoxedHandler) {
-        match self.0.find_mut("/") {
-            Some(mtch) => mtch.value.fallback = Some(fallback),
-            None => {
-                self.0.insert(
-                    "/",
-                    MethodRouter {
-                        methods: HashMap::new(),
-                        fallback: Some(fallback.clone()),
-                    },
-                );
-
-                self.0.insert(
-                    "/*",
-                    MethodRouter {
-                        methods: HashMap::new(),
-                        fallback: Some(fallback),
-                    },
-                );
-            }
-        }
+        self.fallbacks.insert("/", fallback.clone());
+        self.fallbacks.insert("/*", fallback);
     }
 
     fn add_scope(&mut self, route: &str, scope: Scope) {
-        for (r, router) in scope.0.into_entries() {
+        // First add the fallbacks
+        for (r, fallback) in scope.fallbacks.into_entries() {
             let sub_route = r.to_string();
             let full_path = if route == "/" {
-                sub_route
+                route.to_owned()
             } else {
                 format!("{route}{sub_route}")
             };
 
-            // Keep existing handlers when merging scopes
-            match self.0.find_mut(&full_path) {
+            self.fallbacks.insert(full_path, fallback);
+        }
+
+        // Then merge the other routes
+        for (r, router) in scope.method_router.into_entries() {
+            let sub_route = r.to_string();
+            let full_path = if route == "/" {
+                route.to_owned()
+            } else {
+                format!("{route}{sub_route}")
+            };
+
+            match self.method_router.find_mut(&full_path) {
                 Some(existing) => {
-                    // Merge methods
-                    existing.value.methods.extend(router.methods);
-                    // Only set fallback if there isn't one already
-                    if existing.value.fallback.is_none() {
-                        existing.value.fallback = router.fallback;
-                    }
+                    existing.value.extend(router);
                 }
                 None => {
-                    self.0.insert(full_path, router);
+                    self.method_router.insert(&full_path, router);
                 }
             }
         }
     }
 
     fn find(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
-        match self.0.find(route) {
+        let fallback = self
+            .fallbacks
+            .find(route)
+            .as_ref()
+            .map(|m| m.value)
+            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+
+        match self.method_router.find(route) {
             Some(mtch) => {
-                let handler = match mtch.value.methods.get(method) {
-                    Some(handler) => handler,
-                    None => mtch
-                        .value
-                        .fallback
-                        .as_ref()
-                        .unwrap_or_else(|| &*NOT_FOUND_HANDLER),
-                };
-
-                dbg!(route, &mtch, method);
-
+                let value = mtch.value.get(method).unwrap_or(fallback);
                 Match {
                     params: mtch.params,
-                    value: handler,
+                    value,
                 }
             }
             None => Match {
                 params: ParamsMap::default(),
-                value: &NOT_FOUND_HANDLER,
+                value: &fallback,
             },
         }
     }
@@ -678,7 +658,6 @@ mod tests {
         let inner_match = scope.find("/outer/inner", &Method::GET);
         let not_found_match = scope.find("/outer/not-found", &Method::GET);
 
-        dbg!(&scope);
         assert_eq!(get_response(inner_match.value), "inner_handler");
         assert_eq!(get_response(not_found_match.value), "nested_fallback");
     }
@@ -704,5 +683,41 @@ mod tests {
             "global_fallback"
         );
         assert_eq!(get_response(api_not_found_match.value), "api_fallback");
+    }
+
+    #[test]
+    fn test_add_fallback_first() {
+        let scope = Scope::new()
+            .fallback(|| "fallback")
+            .post("/other", || "other");
+
+        let other_match = scope.find("/other", &Method::POST);
+        let not_found_match = scope.find("/not-found", &Method::PUT);
+
+        assert_eq!(get_response(other_match.value), "other");
+        assert_eq!(get_response(not_found_match.value), "fallback");
+    }
+
+    #[test]
+    fn test_add_fallback_first_nested() {
+        let scope = Scope::new()
+            .fallback(|| "fallback")
+            .scope(
+                "/api",
+                Scope::new()
+                    .fallback(|| "nested_fallback")
+                    .delete("/items", || "items"),
+            )
+            .post("/other", || "other");
+
+        let other_match = scope.find("/other", &Method::POST);
+        let nested_api_match = scope.find("/api/items", &Method::DELETE);
+        let not_found_match = scope.find("/not-found", &Method::PUT);
+        let nested_fallback = scope.find("/api/not-existing", &Method::PUT);
+
+        assert_eq!(get_response(other_match.value), "other");
+        assert_eq!(get_response(not_found_match.value), "fallback");
+        assert_eq!(get_response(nested_api_match.value), "items");
+        assert_eq!(get_response(nested_fallback.value), "nested_fallback");
     }
 }
