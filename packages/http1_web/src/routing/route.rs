@@ -47,9 +47,9 @@ impl Display for RouteSegment {
             RouteSegment::Dynamic(s) => write!(f, "/:{s}"),
             RouteSegment::CatchAll(s) => {
                 if s.is_empty() {
-                    write!(f, "/:{s}*")
-                } else {
                     write!(f, "/*")
+                } else {
+                    write!(f, "/:{s}*")
                 }
             }
         }
