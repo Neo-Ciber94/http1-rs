@@ -55,6 +55,11 @@ impl Mime {
         let type_: Cow<'static, str> = type_.into();
         let subtype: Cow<'static, str> = subtype.into();
 
+        match Mime::get_any_mime(type_.as_ref(), subtype.as_ref(), parameter.as_deref()) {
+            Some(mime) => return mime,
+            _ => {}
+        }
+
         match Mime::get_mime(type_.as_ref(), subtype.as_ref(), parameter.as_deref()) {
             Some(mime) => mime,
             None => Self::new_(type_, subtype, parameter).expect("invalid mime values"),
@@ -73,12 +78,61 @@ impl Mime {
         }
     }
 
+    #[inline]
     pub fn ty(&self) -> &str {
         &self.type_.as_ref()
     }
 
+    #[inline]
     pub fn subtype(&self) -> &str {
         &self.subtype.as_ref()
+    }
+
+    pub fn matches(&self, other: &Mime) -> bool {
+        match (self.ty(), other.ty()) {
+            ("*", "*") | ("*", _) | (_, "*") => {}
+            (t1, t2) if t1 != t2 => return false,
+            _ => {}
+        }
+
+        match (self.subtype(), other.subtype()) {
+            ("*", "*") | ("*", _) | (_, "*") => {}
+            (s1, s2) if s1 != s2 => return false,
+            _ => {}
+        }
+
+        match ((&self.parameter, &other.parameter)) {
+            (None, None) => true,
+            (Some(p1), Some(p2)) => p1 == p2,
+            _ => false,
+        }
+    }
+}
+
+impl Mime {
+    /// Any content-type: `*/*`
+    pub const ANY: Mime = Mime::const_static("*", "*", None);
+
+    /// Any content-type: `image/*`
+    pub const ANY_IMAGE: Mime = Mime::const_static("image", "*", None);
+
+    /// Any content-type: `audio/*`
+    pub const ANY_AUDIO: Mime = Mime::const_static("audio", "*", None);
+
+    /// Any content-type: `video/*`
+    pub const ANY_VIDEO: Mime = Mime::const_static("video", "*", None);
+
+    /// Any content-type: `text/*`
+    pub const ANY_TEXT: Mime = Mime::const_static("text", "*", None);
+
+    fn get_any_mime(type_: &str, subtype: &str, parameter: Option<&str>) -> Option<Mime> {
+        match (type_, subtype, parameter) {
+            ("*", "*", None) => Some(Mime::ANY),
+            ("image", "*", None) => Some(Mime::ANY_IMAGE),
+            ("audio", "*", None) => Some(Mime::ANY_AUDIO),
+            ("text", "*", None) => Some(Mime::ANY_TEXT),
+            _ => None,
+        }
     }
 }
 
@@ -356,5 +410,57 @@ mod tests {
         let mime = Mime::from_extension("7z").unwrap();
         assert_eq!(mime.ty(), "application");
         assert_eq!(mime.subtype(), "x-7z-compressed");
+    }
+
+    #[test]
+    fn should_correctly_match_mime_types() {
+        // Test identical MIME types
+        let mime1 = Mime::new("text", "plain", None);
+        let mime2 = Mime::new("text", "plain", None);
+        assert!(mime1.matches(&mime2));
+
+        let mime3 = Mime::new("image", "png", None);
+        let mime4 = Mime::new("image", "png", None);
+        assert!(mime3.matches(&mime4));
+
+        // Test different MIME types
+        let mime5 = Mime::new("text", "plain", None);
+        let mime6 = Mime::new("text", "html", None);
+        assert!(!mime5.matches(&mime6));
+
+        let mime7 = Mime::new("image", "png", None);
+        let mime8 = Mime::new("image", "jpeg", None);
+        assert!(!mime7.matches(&mime8));
+
+        // Test matching with wildcard types
+        let mime9 = Mime::new("*", "json", None);
+        let mime10 = Mime::new("application", "json", None);
+        assert!(mime9.matches(&mime10));
+
+        let mime11 = Mime::new("*", "json", None);
+        let mime12 = Mime::new("image", "png", None);
+        assert!(!mime11.matches(&mime12));
+
+        // Test matching with wildcard subtypes
+        let mime13 = Mime::new("text", "*", None);
+        let mime14 = Mime::new("text", "plain", None);
+        assert!(mime13.matches(&mime14));
+
+        let mime15 = Mime::new("text", "*", None);
+        let mime16 = Mime::new("application", "json", None);
+        assert!(!mime15.matches(&mime16));
+
+        // Test matching with both wildcards
+        let mime17 = Mime::new("*", "*", None);
+        let mime18 = Mime::new("text", "plain", None);
+        assert!(mime17.matches(&mime18));
+
+        let mime19 = Mime::new("*", "*", None);
+        let mime20 = Mime::new("image", "png", None);
+        assert!(mime19.matches(&mime20));
+
+        let mime21 = Mime::new("*", "*", None);
+        let mime22 = Mime::new("application", "json", None);
+        assert!(mime21.matches(&mime22));
     }
 }
