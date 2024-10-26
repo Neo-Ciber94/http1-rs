@@ -142,6 +142,19 @@ pub enum InvalidMimeType {
     EmptyOrWhitespace,
 }
 
+impl std::error::Error for InvalidMimeType {}
+
+impl Display for InvalidMimeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InvalidMimeType::InvalidStr => write!(f, "invalid mime string"),
+            InvalidMimeType::EmptyOrWhitespace => {
+                write!(f, "mime type cannot be empty or a whitespace")
+            }
+        }
+    }
+}
+
 impl FromStr for Mime {
     type Err = InvalidMimeType;
 

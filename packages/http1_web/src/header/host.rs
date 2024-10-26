@@ -6,6 +6,7 @@ use crate::error_response::ErrorStatusCode;
 
 use super::FromHeaders;
 
+/// Represents the `Host` request header: [`https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Host(pub Uri);
 

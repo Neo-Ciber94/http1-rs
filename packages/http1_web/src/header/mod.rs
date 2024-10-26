@@ -4,9 +4,13 @@ use http1::headers::Headers;
 
 use crate::into_response::IntoResponse;
 
-mod referer;
+mod accept;
+mod entity;
 mod host;
+mod referer;
 mod user_agent;
+
+pub use {accept::*, entity::*, host::*, referer::*, user_agent::*};
 
 /// Allow to create a value from the request headers.
 pub trait FromHeaders: Sized {

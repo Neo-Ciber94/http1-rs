@@ -6,6 +6,7 @@ use crate::error_response::ErrorStatusCode;
 
 use super::FromHeaders;
 
+/// Represents the `Referer` request header: [`https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Referer(pub Uri);
 
