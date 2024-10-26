@@ -1,4 +1,7 @@
-use std::{fmt::Display, str::Split};
+use std::{
+    fmt::{Debug, Display},
+    str::Split,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RouteSegment {
@@ -53,7 +56,7 @@ impl Display for RouteSegment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Route(Vec<RouteSegment>);
 
 impl Route {
@@ -76,7 +79,7 @@ impl From<String> for Route {
     }
 }
 
-impl Display for Route {
+impl Debug for Route {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0.is_empty() {
             write!(f, "/")?;
@@ -87,6 +90,12 @@ impl Display for Route {
         }
 
         Ok(())
+    }
+}
+
+impl Display for Route {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self, f)
     }
 }
 

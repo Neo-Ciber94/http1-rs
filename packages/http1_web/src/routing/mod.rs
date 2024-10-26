@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use params::ParamsMap;
 use route::Route;
 
@@ -7,7 +9,7 @@ mod route;
 mod simple_router;
 
 /// A route matcher.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Router<T>(simple_router::SimpleRouter<T>);
 
 impl<T> Router<T> {
@@ -52,6 +54,18 @@ impl<T> Router<T> {
 impl<T> Default for Router<T> {
     fn default() -> Self {
         Router::new()
+    }
+}
+
+impl<T: Debug> Debug for Router<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut map = f.debug_map();
+
+        for (route, value) in self.entries() {
+            map.entry(route, value);
+        }
+
+        map.finish()
     }
 }
 
