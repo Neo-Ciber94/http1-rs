@@ -238,7 +238,7 @@ impl Scope {
     }
 
     fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
-        log::debug!("Adding route: {method} => {route}");
+        //log::debug!("Adding route: {method} => {route}");
 
         match self.path_to_route.get(route) {
             Some(route_id) => {
@@ -275,7 +275,7 @@ impl Scope {
         for (r, fallback) in scope.fallbacks.into_entries() {
             let sub_route = r.to_string();
             let full_path = if route == "/" {
-                route.to_owned()
+                sub_route
             } else {
                 format!("{route}{sub_route}")
             };
@@ -286,11 +286,12 @@ impl Scope {
         for (r, route_id) in scope.method_router.into_entries() {
             let sub_route = r.to_string();
             let full_path = if route == "/" {
-                route.to_owned()
+                sub_route
             } else {
                 format!("{route}{sub_route}")
             };
 
+            log::debug!("route? {full_path}");
             let methods = scope.route_to_methods.remove(&route_id).expect("no routes");
             for (m, handler) in methods {
                 let method_route = MethodRoute::from_method(&m);
@@ -450,7 +451,6 @@ impl Debug for Scope {
             let methods = self.route_to_methods.get(route_id).expect("no methods");
             map.entry(route, methods);
         }
-
 
         map.finish()
     }
