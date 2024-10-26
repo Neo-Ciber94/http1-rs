@@ -10,6 +10,7 @@ dependencies = [
  "http1",
  "http1_web",
  "log",
+ "rng",
 ]
 
 [[package]]

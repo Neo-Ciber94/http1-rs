@@ -17,4 +17,4 @@ http1 = { path = "packages/http1" }
 http1_web = { path = "packages/http1_web" }
 log = { path = "packages/log" }
 datetime = { path = "packages/datetime" }
-rng = { path = "packages/eng" }
+rng = { path = "packages/rng" }

@@ -23,6 +23,21 @@ pub trait Rng {
         let low = self.next_64();
         (high as u128) << 64 | low as u128
     }
+
+    /// Fill a buffer with random bytes.
+    fn fill(&mut self, buffer: &mut [u8]) {
+        let mut i = 0;
+
+        while i < buffer.len() {
+            let value = self.next_128();
+
+            // Try to copy at least the entire 128 bits (16 bytes).
+            let bytes = (buffer.len() - i).min(16);
+            let chunk = &mut buffer[i..(i + bytes)];
+            chunk.copy_from_slice(&value.to_be_bytes()[..bytes]);
+            i += bytes;
+        }
+    }
 }
 
 thread_local! {
@@ -76,4 +91,51 @@ where
     assert!(min < max, "max must be greater than min: {max} < {min}");
     let n = T::random(rng);
     min + (n % (max - min))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{local_rng, Rng};
+
+    #[test]
+    fn should_fill_specific_buffer_sizes() {
+        let mut rng = local_rng();
+
+        // Test an empty buffer
+        let mut buffer_empty = [];
+        rng.fill(&mut buffer_empty);
+        assert!(buffer_empty.is_empty(), "Empty buffer should remain empty.");
+
+        // Test a 1-byte buffer
+        let mut buffer_1 = [0u8; 1];
+        rng.fill(&mut buffer_1);
+        assert!(
+            buffer_1.iter().any(|&b| b != 0),
+            "1-byte buffer should contain random bytes."
+        );
+
+        // Test a 2-byte buffer
+        let mut buffer_2 = [0u8; 2];
+        rng.fill(&mut buffer_2);
+        assert!(
+            buffer_2.iter().any(|&b| b != 0),
+            "2-byte buffer should contain random bytes."
+        );
+
+        // Test a 32-byte buffer
+        let mut buffer_32 = [0u8; 32];
+        rng.fill(&mut buffer_32);
+        assert!(
+            buffer_32.iter().any(|&b| b != 0),
+            "32-byte buffer should contain random bytes."
+        );
+
+        // Test a 1024-byte buffer
+        let mut buffer_1024 = [0u8; 1024];
+        rng.fill(&mut buffer_1024);
+        assert!(
+            buffer_1024.iter().any(|&b| b != 0),
+            "1024-byte buffer should contain random bytes."
+        );
+    }
 }
