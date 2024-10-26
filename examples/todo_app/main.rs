@@ -4,7 +4,7 @@ use http1_web::{
     app::App, fs::ServeDir, middleware::{logging::Logging, redirection::Redirection}
 };
 use kv::KeyValueDatabase;
-use routes::{api_routes, home_routes, not_found, todos_routes};
+use routes::{api_routes, not_found, page_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -17,8 +17,7 @@ fn main() -> std::io::Result<()> {
         .middleware(Redirection::new("/", "/login"))
         .get("/*", ServeDir::new("/", "examples/todo_app/public"))
         .scope("/api", api_routes())
-        .scope("/", home_routes())
-        .scope("/todos", todos_routes())
+        .scope("/", page_routes())
         .fallback(not_found);
 
     Server::new(addr)
@@ -100,6 +99,12 @@ mod routes {
                 }
             }
         }
+    }
+
+    pub fn page_routes() -> Scope {
+        Scope::new()
+            .scope("/", home_routes())
+            .scope("/todos", todos_routes())
     }
 
     pub fn api_routes() -> Scope {
@@ -247,7 +252,7 @@ mod routes {
             )
     }
 
-    pub fn todos_routes() -> Scope {
+    fn todos_routes() -> Scope {
         Scope::new()
             .get("/", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser| -> Result<HTMLElement, ErrorResponse> {
                 let AuthenticatedUser(user) = &auth;
@@ -541,7 +546,7 @@ mod routes {
             })
     }
 
-    pub fn home_routes() -> Scope {
+    fn home_routes() -> Scope {
         Scope::new()
             .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
                 if auth.is_some() {

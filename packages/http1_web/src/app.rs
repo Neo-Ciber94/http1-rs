@@ -74,7 +74,7 @@ impl App {
         R: IntoResponse,
     {
         self.scope
-            .add_route(method, route, BoxedHandler::new(handler));
+            .add_route(route, method, BoxedHandler::new(handler));
         self
     }
 
@@ -178,7 +178,7 @@ impl RequestHandler for App {
         let middlewares = self.middleware.as_slice();
         let method = MethodRoute::from_method(req.method());
         let req_path = req.uri().path_and_query().path();
-        let mtch = self.scope.0.find_handler(&req_path, req.method());
+        let mtch = self.scope.find(&req_path, req.method());
 
         // Add any additional extensions
         req.extensions_mut().insert(mtch.params.clone());
@@ -216,31 +216,115 @@ impl Handler<Request<Body>> for NotFoundHandler {
     }
 }
 
-pub struct Scope(EndpointRouter);
+#[derive(Debug)]
+struct MethodRouter {
+    methods: HashMap<Method, BoxedHandler>,
+    fallback: Option<BoxedHandler>,
+}
+
+#[derive(Debug)]
+pub struct Scope(Router<MethodRouter>);
 
 impl Scope {
     pub fn new() -> Self {
         Scope(Default::default())
     }
 
-    fn add_scope(&mut self, route: &str, scope: Scope) {
-        for (method, router) in scope.0.method_router {
-            for (r, handler) in router.into_entries() {
-                let sub_route = r.to_string();
-                let full_path = if route == "/" {
-                    sub_route
-                } else {
-                    format!("{route}{sub_route}")
-                };
-                self.add_route(method.clone(), &full_path, handler);
+    fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
+        log::debug!("Adding route: {method} => {route}");
+
+        match self.0.find_mut(route) {
+            Some(mtch) => {
+                for m in method.into_methods() {
+                    if mtch.value.methods.insert(m, handler.clone()).is_some() {
+                        panic!("handler already exists on {method}: {route}");
+                    }
+                }
+            }
+            None => {
+                let mut methods = HashMap::new();
+                for m in method.into_methods() {
+                    methods.insert(m, handler.clone());
+                }
+
+                self.0.insert(
+                    route,
+                    MethodRouter {
+                        methods,
+                        fallback: None,
+                    },
+                );
             }
         }
     }
 
-    fn add_route(&mut self, method: MethodRoute, route: &str, handler: BoxedHandler) {
-        log::debug!("Adding route: {method} => {route}");
+    fn add_fallback(&mut self, fallback: BoxedHandler) {
+        match self.0.find_mut("/*") {
+            Some(mtch) => mtch.value.fallback = Some(fallback),
+            None => {
+                self.0.insert(
+                    "/*",
+                    MethodRouter {
+                        methods: HashMap::new(),
+                        fallback: Some(fallback),
+                    },
+                );
+            }
+        }
+    }
 
-        self.0.insert(route, method, handler)
+    fn add_scope(&mut self, route: &str, scope: Scope) {
+        for (r, router) in scope.0.into_entries() {
+            let sub_route = r.to_string();
+            let full_path = if route == "/" {
+                sub_route
+            } else {
+                format!("{route}{sub_route}")
+            };
+
+            if let Some(fallback) = router.fallback {
+                self.add_fallback(fallback);
+            }
+
+            for (method, handler) in router.methods {
+                let method_route = MethodRoute::from_method(&method);
+                self.add_route(&full_path, method_route, handler);
+            }
+        }
+    }
+
+    fn find(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
+        match self.0.find(route) {
+            Some(mtch) => {
+                let fallback = mtch
+                    .value
+                    .fallback
+                    .as_ref()
+                    .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+
+                dbg!(route, &mtch, method);
+                let handler = mtch.value.methods.get(method).unwrap_or(fallback);
+
+                Match {
+                    params: mtch.params,
+                    value: handler,
+                }
+            }
+            None => Match {
+                params: ParamsMap::default(),
+                value: &NOT_FOUND_HANDLER,
+            },
+        }
+    }
+
+    pub fn fallback<H, Args, R>(mut self, fallback: H) -> Self
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self.add_fallback(BoxedHandler::new(fallback));
+        self
     }
 
     pub fn scope(mut self, route: &str, scope: Scope) -> Self {
@@ -254,7 +338,7 @@ impl Scope {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.add_route(method, route, BoxedHandler::new(handler));
+        self.add_route(route, method, BoxedHandler::new(handler));
         self
     }
 
@@ -340,54 +424,301 @@ impl Scope {
     }
 }
 
-impl Debug for Scope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut map = f.debug_map();
+// impl Debug for Scope {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         // let mut map = f.debug_map();
 
-        for (method, handler) in self.0.method_router.iter() {
-            map.entry(&method, &handler);
-        }
+//         // for (method, handler) in self.0.method_router.iter() {
+//         //     map.entry(&method, &handler);
+//         // }
 
-        map.finish()
-    }
-}
+//         // map.finish()
+//         f.debug_struct("Scope").finish_non_exhaustive()
+//     }
+// }
 
-#[derive(Default)]
-struct EndpointRouter {
-    method_router: HashMap<MethodRoute, Router<BoxedHandler>>,
-    fallback: Option<BoxedHandler>,
-}
+#[cfg(test)]
+mod tests {
+    use http1::body::http_body::HttpBody;
 
-impl EndpointRouter {
-    fn insert(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
-        match self.method_router.entry(method) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().insert(route, handler);
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let mut router = Router::new();
-                if router.insert(route, handler).is_some() {
-                    panic!("handler already exists on {method}: {route}");
-                }
+    use super::*;
 
-                entry.insert(router);
-            }
-        }
+    fn test_handler(response: &'static str) -> &'static str {
+        response
     }
 
-    fn find_handler(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
-        let fallback = self
-            .fallback
-            .as_ref()
-            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+    fn get_response(handler: &BoxedHandler, method: Method) -> String {
+        let req = Request::builder()
+            .method(method)
+            .body(Body::empty())
+            .unwrap();
+        let res = handler.call(req);
+        let bytes = res
+            .into_body()
+            .read_all_bytes()
+            .expect("failed to read bytes");
+        String::from_utf8(bytes).expect("failed to read bytes as utf-8")
+    }
 
-        let method = MethodRoute::from_method(method);
-        self.method_router
-            .get(&method)
-            .and_then(|router| router.find(&route))
-            .unwrap_or_else(|| Match {
-                params: ParamsMap::default(),
-                value: fallback,
-            })
+    #[test]
+    fn test_all_http_methods() {
+        let scope = Scope::new()
+            .get("/test", || test_handler("get"))
+            .post("/test", || test_handler("post"))
+            .put("/test", || test_handler("put"))
+            .delete("/test", || test_handler("delete"))
+            .patch("/test", || test_handler("patch"))
+            .options("/test", || test_handler("options"))
+            .head("/test", || test_handler("head"))
+            .trace("/test", || test_handler("trace"));
+
+        // Test each method
+        assert_eq!(
+            get_response(scope.find("/test", &Method::GET).value, Method::GET),
+            "get"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::POST).value, Method::POST),
+            "post"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::PUT).value, Method::PUT),
+            "put"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::DELETE).value, Method::DELETE),
+            "delete"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::PATCH).value, Method::PATCH),
+            "patch"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::OPTIONS).value, Method::OPTIONS),
+            "options"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::HEAD).value, Method::HEAD),
+            "head"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::TRACE).value, Method::TRACE),
+            "trace"
+        );
+    }
+
+    #[test]
+    fn test_method_precedence() {
+        let scope = Scope::new()
+            .get("/api", || test_handler("get_handler"))
+            .post("/api", || test_handler("post_handler"));
+
+        // Specific methods should take precedence over any()
+        assert_eq!(
+            get_response(scope.find("/api", &Method::GET).value, Method::GET),
+            "get_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/api", &Method::POST).value, Method::POST),
+            "post_handler"
+        );
+    }
+
+    #[test]
+    fn test_nested_routes() {
+        let nested = Scope::new()
+            .get("/users", || test_handler("get_users"))
+            .post("/users", || test_handler("create_user"))
+            .put("/users", || test_handler("update_user"))
+            .delete("/users", || test_handler("delete_user"));
+
+        let scope = Scope::new()
+            .scope("/api", nested)
+            .get("/health", || test_handler("health"))
+            .any("/*", || test_handler("fallback"));
+
+        assert_eq!(
+            get_response(scope.find("/api/users", &Method::GET).value, Method::GET),
+            "get_users"
+        );
+        assert_eq!(
+            get_response(scope.find("/api/users", &Method::POST).value, Method::POST),
+            "create_user"
+        );
+        assert_eq!(
+            get_response(scope.find("/api/users", &Method::PUT).value, Method::PUT),
+            "update_user"
+        );
+        assert_eq!(
+            get_response(
+                scope.find("/api/users", &Method::DELETE).value,
+                Method::DELETE
+            ),
+            "delete_user"
+        );
+        assert_eq!(
+            get_response(scope.find("/health", &Method::GET).value, Method::GET),
+            "health"
+        );
+        assert_eq!(
+            get_response(scope.find("/not-found", &Method::GET).value, Method::GET),
+            "fallback"
+        );
+    }
+
+    #[test]
+    fn test_any_method() {
+        let scope = Scope::new().any("/test", || test_handler("any_handler"));
+
+        // Test all methods with the any() route
+        assert_eq!(
+            get_response(scope.find("/test", &Method::GET).value, Method::GET),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::POST).value, Method::POST),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::PUT).value, Method::PUT),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::DELETE).value, Method::DELETE),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::PATCH).value, Method::PATCH),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::OPTIONS).value, Method::OPTIONS),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::HEAD).value, Method::HEAD),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::TRACE).value, Method::TRACE),
+            "any_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/test", &Method::CONNECT).value, Method::CONNECT),
+            "any_handler"
+        );
+    }
+
+    #[test]
+    fn test_wildcard_routes() {
+        let scope = Scope::new()
+            .get("/api/users/*", || test_handler("users_wildcard"))
+            .post("/api/users/create/:path*", || {
+                test_handler("create_wildcard")
+            });
+
+        assert_eq!(
+            get_response(
+                scope.find("/api/users/123", &Method::GET).value,
+                Method::GET
+            ),
+            "users_wildcard"
+        );
+
+        assert_eq!(
+            get_response(
+                scope.find("/api/users/123/profile", &Method::GET).value,
+                Method::GET
+            ),
+            "users_wildcard"
+        );
+
+        assert_eq!(
+            get_response(
+                scope.find("/api/users/create", &Method::POST).value,
+                Method::POST
+            ),
+            "create_wildcard"
+        );
+    }
+
+    #[test]
+    fn test_combined_method_routes() {
+        let scope = Scope::new().route(MethodRoute::GET | MethodRoute::POST, "/combined", || {
+            test_handler("combined_handler")
+        });
+
+        // Test GET and POST combined method
+        assert_eq!(
+            get_response(scope.find("/combined", &Method::GET).value, Method::GET),
+            "combined_handler"
+        );
+        assert_eq!(
+            get_response(scope.find("/combined", &Method::POST).value, Method::POST),
+            "combined_handler"
+        );
+    }
+
+    #[test]
+    fn test_fallback_handler() {
+        let scope = Scope::new()
+            .fallback(|| test_handler("fallback_handler")) // Set fallback handler
+            .get("/test", || test_handler("get_handler"));
+
+        let get_match = scope.find("/test", &Method::GET);
+        let not_found_match = scope.find("/not-found", &Method::GET);
+
+        assert_eq!(get_response(get_match.value, Method::GET), "get_handler");
+        assert_eq!(
+            get_response(not_found_match.value, Method::GET),
+            "fallback_handler"
+        );
+    }
+
+    #[test]
+    fn test_fallback_with_nested_scope() {
+        let nested_scope = Scope::new()
+            .fallback(|| test_handler("nested_fallback"))
+            .get("/inner", || test_handler("inner_handler"));
+
+        let scope = Scope::new().scope("/outer", nested_scope);
+
+        let inner_match = scope.find("/outer/inner", &Method::GET);
+        let not_found_match = scope.find("/outer/not-found", &Method::GET);
+
+        assert_eq!(
+            get_response(inner_match.value, Method::GET),
+            "inner_handler"
+        );
+        assert_eq!(
+            get_response(not_found_match.value, Method::GET),
+            "nested_fallback"
+        );
+    }
+
+    #[test]
+    fn test_multiple_fallbacks() {
+        let scope = Scope::new()
+            .fallback(|| test_handler("global_fallback"))
+            .scope(
+                "/api",
+                Scope::new()
+                    .fallback(|| test_handler("api_fallback"))
+                    .get("/test", || test_handler("api_handler")),
+            );
+
+        let api_match = scope.find("/api/test", &Method::GET);
+        let global_not_found_match = scope.find("/not-found", &Method::GET);
+        let api_not_found_match = scope.find("/api/not-found", &Method::GET);
+
+        assert_eq!(get_response(api_match.value, Method::GET), "api_handler");
+        assert_eq!(
+            get_response(global_not_found_match.value, Method::GET),
+            "global_fallback"
+        );
+        assert_eq!(
+            get_response(api_not_found_match.value, Method::GET),
+            "api_fallback"
+        );
     }
 }
