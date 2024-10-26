@@ -101,7 +101,7 @@ impl Mime {
             _ => {}
         }
 
-        match ((&self.parameter, &other.parameter)) {
+        match (&self.parameter, &other.parameter) {
             (None, None) => true,
             (Some(p1), Some(p2)) => p1 == p2,
             _ => false,
