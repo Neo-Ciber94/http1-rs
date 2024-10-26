@@ -236,9 +236,7 @@ impl Scope {
         match self.method_router.find_mut(route) {
             Some(mtch) => {
                 for m in method.into_methods() {
-                    if mtch.value.insert(m, handler.clone()).is_some() {
-                        panic!("handler already exists on {method}: {route}");
-                    }
+                    mtch.value.insert(m, handler.clone());
                 }
             }
             None => {
@@ -420,28 +418,11 @@ impl Scope {
     }
 }
 
-// impl Debug for Scope {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         // let mut map = f.debug_map();
-
-//         // for (method, handler) in self.0.method_router.iter() {
-//         //     map.entry(&method, &handler);
-//         // }
-
-//         // map.finish()
-//         f.debug_struct("Scope").finish_non_exhaustive()
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use http1::body::http_body::HttpBody;
 
     use super::*;
-
-    fn test_handler(response: &'static str) -> &'static str {
-        response
-    }
 
     fn get_response(handler: &BoxedHandler) -> String {
         let req = Request::builder().body(Body::empty()).unwrap();
@@ -456,14 +437,14 @@ mod tests {
     #[test]
     fn test_all_http_methods() {
         let scope = Scope::new()
-            .get("/test", || test_handler("get"))
-            .post("/test", || test_handler("post"))
-            .put("/test", || test_handler("put"))
-            .delete("/test", || test_handler("delete"))
-            .patch("/test", || test_handler("patch"))
-            .options("/test", || test_handler("options"))
-            .head("/test", || test_handler("head"))
-            .trace("/test", || test_handler("trace"));
+            .get("/test", || "get")
+            .post("/test", || "post")
+            .put("/test", || "put")
+            .delete("/test", || "delete")
+            .patch("/test", || "patch")
+            .options("/test", || "options")
+            .head("/test", || "head")
+            .trace("/test", || "trace");
 
         // Test each method
         assert_eq!(get_response(scope.find("/test", &Method::GET).value), "get");
@@ -497,8 +478,8 @@ mod tests {
     #[test]
     fn test_method_precedence() {
         let scope = Scope::new()
-            .get("/api", || test_handler("get_handler"))
-            .post("/api", || test_handler("post_handler"));
+            .get("/api", || "get_handler")
+            .post("/api", || "post_handler");
 
         // Specific methods should take precedence over any()
         assert_eq!(
@@ -514,15 +495,15 @@ mod tests {
     #[test]
     fn test_nested_routes() {
         let nested = Scope::new()
-            .get("/users", || test_handler("get_users"))
-            .post("/users", || test_handler("create_user"))
-            .put("/users", || test_handler("update_user"))
-            .delete("/users", || test_handler("delete_user"));
+            .get("/users", || "get_users")
+            .post("/users", || "create_user")
+            .put("/users", || "update_user")
+            .delete("/users", || "delete_user");
 
         let scope = Scope::new()
             .scope("/api", nested)
-            .get("/health", || test_handler("health"))
-            .any("/*", || test_handler("fallback"));
+            .get("/health", || "health")
+            .any("/*", || "fallback");
 
         assert_eq!(
             get_response(scope.find("/api/users", &Method::GET).value),
@@ -552,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_any_method() {
-        let scope = Scope::new().any("/test", || test_handler("any_handler"));
+        let scope = Scope::new().any("/test", || "any_handler");
 
         // Test all methods with the any() route
         assert_eq!(
@@ -596,23 +577,19 @@ mod tests {
     #[test]
     fn test_wildcard_routes() {
         let scope = Scope::new()
-            .get("/api/users/*", || test_handler("users_wildcard"))
-            .post("/api/users/create/:path*", || {
-                test_handler("create_wildcard")
-            });
+            .get("/api/users/*", || "users_wildcard")
+            .post("/api/users/create/:path*", || "create_wildcard");
 
         assert_eq!(
             get_response(scope.find("/api/users/123", &Method::GET).value),
             "users_wildcard"
         );
-
         assert_eq!(
-            get_response(scope.find("/api/users/123/profile", &Method::GET).value,),
+            get_response(scope.find("/api/users/123/profile", &Method::GET).value),
             "users_wildcard"
         );
-
         assert_eq!(
-            get_response(scope.find("/api/users/create", &Method::POST).value,),
+            get_response(scope.find("/api/users/create", &Method::POST).value),
             "create_wildcard"
         );
     }
@@ -620,7 +597,7 @@ mod tests {
     #[test]
     fn test_combined_method_routes() {
         let scope = Scope::new().route(MethodRoute::GET | MethodRoute::POST, "/combined", || {
-            test_handler("combined_handler")
+            "combined_handler"
         });
 
         // Test GET and POST combined method
@@ -637,8 +614,8 @@ mod tests {
     #[test]
     fn test_fallback_handler() {
         let scope = Scope::new()
-            .get("/test", || test_handler("get_handler"))
-            .fallback(|| test_handler("fallback_handler")); // Set fallback handler
+            .get("/test", || "get_handler")
+            .fallback(|| "fallback_handler"); // Set fallback handler
 
         let get_match = scope.find("/test", &Method::GET);
         let not_found_match = scope.find("/not-found", &Method::GET);
@@ -650,8 +627,8 @@ mod tests {
     #[test]
     fn test_fallback_with_nested_scope() {
         let nested_scope = Scope::new()
-            .get("/inner", || test_handler("inner_handler"))
-            .fallback(|| test_handler("nested_fallback"));
+            .get("/inner", || "inner_handler")
+            .fallback(|| "nested_fallback");
 
         let scope = Scope::new().scope("/outer", nested_scope);
 
@@ -668,10 +645,10 @@ mod tests {
             .scope(
                 "/api",
                 Scope::new()
-                    .get("/test", || test_handler("api_handler"))
-                    .fallback(|| test_handler("api_fallback")),
+                    .get("/test", || "api_handler")
+                    .fallback(|| "api_fallback"),
             )
-            .fallback(|| test_handler("global_fallback"));
+            .fallback(|| "global_fallback");
 
         let api_match = scope.find("/api/test", &Method::GET);
         let global_not_found_match = scope.find("/not-found", &Method::GET);
@@ -736,5 +713,53 @@ mod tests {
         assert_eq!(get_response(items_match.value), "items");
         assert_eq!(get_response(not_found_items_match.value), "root fallback");
         assert_eq!(get_response(parent_fallback_match.value), "root fallback");
+    }
+
+    #[test]
+    fn should_list_routes() {
+        let scope = Scope::new().get("/hello", || "hello").scope(
+            "/api",
+            Scope::new()
+                .get("/*", || "static files")
+                .get("/users", || "user_list")
+                .post("/users", || "create_user")
+                .scope(
+                    "/admin",
+                    Scope::new()
+                        .get("/settings", || "admin_settings")
+                        .post("/settings", || "update_settings")
+                        .get("/settings/:id", || "get_setting"),
+                )
+                .scope(
+                    "/posts",
+                    Scope::new()
+                        .get("/", || "list_posts")
+                        .get("/new", || "new_post")
+                        .post("/", || "create_post")
+                        .get("/*", || "catch_all_posts") // Unnamed catch-all
+                        .get("/featured/:post*", || "featured_posts"), // Named catch-all
+                )
+                .get("/items/:item_id", || "get_item") // Parameterized route
+                .get("/items/:item_id/details/*", || "item_details"), // Parameterized route with catch-all
+        );
+
+        let entries = scope
+            .method_router
+            .into_entries()
+            .map(|(r, _)| r.to_string())
+            .collect::<Vec<_>>();
+
+        // Assert existing routes
+        assert!(entries.iter().any(|x| x == "/hello"));
+        assert!(entries.iter().any(|x| x == "/*")); // root catch-all
+        assert!(entries.iter().any(|x| x == "/api/users"));
+        assert!(entries.iter().any(|x| x == "/api/admin/settings"));
+        assert!(entries.iter().any(|x| x == "/api/admin/settings/:id")); // Parameterized
+        assert!(entries.iter().any(|x| x == "/api/posts"));
+        assert!(entries.iter().any(|x| x == "/api/posts/new"));
+        assert!(entries.iter().any(|x| x == "/api/posts/*")); // Unnamed catch-all
+        assert!(entries.iter().any(|x| x == "/api/posts/featured/:post*")); // Named catch-all
+        assert!(entries.iter().any(|x| x == "/api/items/:item_id")); // Parameterized route
+        assert!(entries.iter().any(|x| x == "/api/items/:item_id/details/*")); // Parameterized route with catch-all
     }
 }
