@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use super::Rng;
 
+/// An iterator for a random sequence of values.
 pub struct RandomSequence<R, T> {
     rng: R,
     marker: PhantomData<T>,

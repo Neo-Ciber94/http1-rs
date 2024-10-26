@@ -5,15 +5,19 @@ use random::{Random, RandomSequence};
 pub mod random;
 mod xorshift;
 
+/// A random number generator source.
 pub trait Rng {
+    /// Returns a random 32 bits number.
     fn next_32(&mut self) -> u32;
 
+    /// Returns a random 64 bits number.
     fn next_64(&mut self) -> u64 {
         let high = self.next_32() as u64;
         let low = self.next_32() as u64;
         (high << 32) | low
     }
 
+    /// Returns a random 128 bits number.
     fn next_128(&mut self) -> u128 {
         let high = self.next_64();
         let low = self.next_64();
