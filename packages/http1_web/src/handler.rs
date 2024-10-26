@@ -10,11 +10,22 @@ pub trait Handler<Args> {
 }
 
 #[derive(Clone)]
-pub struct BoxedHandler(Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>);
+pub struct BoxedHandler {
+    inner: Arc<dyn Fn(Request<Body>) -> Response<Body> + Sync + Send + 'static>,
+
+    #[cfg(debug_assertions)]
+    type_name: &'static str,
+}
 
 impl Debug for BoxedHandler {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("BoxedHandler").finish()
+        if cfg!(debug_assertions) {
+            f.debug_tuple("BoxedHandler")
+                .field(&self.type_name)
+                .finish()
+        } else {
+            f.debug_struct("BoxedHandler").finish_non_exhaustive()
+        }
     }
 }
 
@@ -25,17 +36,22 @@ impl BoxedHandler {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        BoxedHandler(Arc::new(move |req| match Args::from_request(req) {
-            Ok(args) => {
-                let result = handler.call(args);
-                result.into_response()
-            }
-            Err(err) => err.into_response(),
-        }))
+        BoxedHandler {
+            inner: Arc::new(move |req| match Args::from_request(req) {
+                Ok(args) => {
+                    let result = handler.call(args);
+                    result.into_response()
+                }
+                Err(err) => err.into_response(),
+            }),
+
+            #[cfg(debug_assertions)]
+            type_name: std::any::type_name::<H>(),
+        }
     }
 
     pub fn call(&self, req: Request<Body>) -> Response<Body> {
-        (self.0)(req)
+        (self.inner)(req)
     }
 }
 

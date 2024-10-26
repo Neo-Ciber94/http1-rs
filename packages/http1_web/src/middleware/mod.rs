@@ -24,25 +24,39 @@ where
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub struct BoxedMiddleware(
-    Arc<dyn Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static>,
-);
+pub struct BoxedMiddleware {
+    inner: Arc<dyn Fn(Request<Body>, &BoxedHandler) -> Response<Body> + Send + Sync + 'static>,
+
+    #[cfg(debug_assertions)]
+    type_name: &'static str,
+}
 
 impl BoxedMiddleware {
     pub fn new<F>(handler: F) -> Self
     where
         F: Middleware + Send + Sync + 'static,
     {
-        BoxedMiddleware(Arc::new(move |req, next| handler.on_request(req, next)))
+        BoxedMiddleware {
+            inner: Arc::new(move |req, next| handler.on_request(req, next)),
+
+            #[cfg(debug_assertions)]
+            type_name: std::any::type_name::<F>(),
+        }
     }
 
     pub fn on_request(&self, req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
-        (self.0)(req, next)
+        (self.inner)(req, next)
     }
 }
 
 impl std::fmt::Debug for BoxedMiddleware {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("BoxedMiddleware").finish()
+        if cfg!(debug_assertions) {
+            f.debug_tuple("BoxedMiddleware")
+                .field(&self.type_name)
+                .finish()
+        } else {
+            f.debug_struct("BoxedMiddleware").finish_non_exhaustive()
+        }
     }
 }
