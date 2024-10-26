@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    sync::{Arc, LazyLock},
+    sync::{atomic::AtomicUsize, Arc, LazyLock},
 };
 
 use http1::{
@@ -216,27 +216,41 @@ impl Handler<Request<Body>> for NotFoundHandler {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct RouteId(usize);
+impl RouteId {
+    pub fn next() -> Self {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        let next = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        RouteId(next)
+    }
+}
+
+#[derive(Default, Debug)]
 pub struct Scope {
-    method_router: Router<HashMap<Method, BoxedHandler>>,
+    method_router: Router<RouteId>,
+    path_to_route: HashMap<String, RouteId>,
+    route_to_methods: HashMap<RouteId, HashMap<Method, BoxedHandler>>,
     fallbacks: Router<BoxedHandler>,
 }
 
 impl Scope {
     pub fn new() -> Self {
-        Scope {
-            method_router: Default::default(),
-            fallbacks: Default::default(),
-        }
+        Default::default()
     }
 
     fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
         log::debug!("Adding route: {method} => {route}");
 
-        match self.method_router.find_mut(route) {
-            Some(mtch) => {
+        match self.path_to_route.get(route) {
+            Some(route_id) => {
+                let methods = self
+                    .route_to_methods
+                    .get_mut(route_id)
+                    .expect("no handler route");
+
                 for m in method.into_methods() {
-                    mtch.value.insert(m, handler.clone());
+                    methods.insert(m, handler.clone());
                 }
             }
             None => {
@@ -245,7 +259,10 @@ impl Scope {
                     methods.insert(m, handler.clone());
                 }
 
-                self.method_router.insert(route, methods);
+                let route_id = RouteId::next();
+                self.method_router.insert(route, route_id);
+                self.path_to_route.insert(route.to_owned(), route_id);
+                self.route_to_methods.insert(route_id, methods);
             }
         }
     }
@@ -255,7 +272,7 @@ impl Scope {
         self.fallbacks.insert("/*", fallback);
     }
 
-    fn add_scope(&mut self, route: &str, scope: Scope) {
+    fn add_scope(&mut self, route: &str, mut scope: Scope) {
         // First add the fallbacks
         for (r, fallback) in scope.fallbacks.into_entries() {
             let sub_route = r.to_string();
@@ -268,8 +285,7 @@ impl Scope {
             self.fallbacks.insert(full_path, fallback);
         }
 
-        // Then merge the other routes
-        for (r, router) in scope.method_router.into_entries() {
+        for (r, route_id) in scope.method_router.into_entries() {
             let sub_route = r.to_string();
             let full_path = if route == "/" {
                 route.to_owned()
@@ -277,13 +293,10 @@ impl Scope {
                 format!("{route}{sub_route}")
             };
 
-            match self.method_router.find_mut(&full_path) {
-                Some(existing) => {
-                    existing.value.extend(router);
-                }
-                None => {
-                    self.method_router.insert(&full_path, router);
-                }
+            let methods = scope.route_to_methods.remove(&route_id).expect("no routes");
+            for (m, handler) in methods {
+                let method_route = MethodRoute::from_method(&m);
+                self.add_route(&full_path, method_route, handler);
             }
         }
     }
@@ -297,12 +310,25 @@ impl Scope {
             .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
 
         match self.method_router.find(route) {
-            Some(mtch) => {
-                let value = mtch.value.get(method).unwrap_or(fallback);
-                Match {
-                    params: mtch.params,
-                    value,
-                }
+            Some(Match {
+                params,
+                value: route_id,
+            }) => {
+                // let value = mtch.value.get(method).unwrap_or(fallback);
+
+                // Match {
+                //     params: mtch.params,
+                //     value,
+                // }
+
+                let methods = self
+                    .route_to_methods
+                    .get(route_id)
+                    .expect("route id it's define to methods are");
+
+                let value = methods.get(method).unwrap_or(fallback);
+
+                Match { params, value }
             }
             None => Match {
                 params: ParamsMap::default(),
@@ -717,37 +743,41 @@ mod tests {
 
     #[test]
     fn should_list_routes() {
-        let scope = Scope::new().get("/hello", || "hello").scope(
-            "/api",
-            Scope::new()
-                .get("/*", || "static files")
-                .get("/users", || "user_list")
-                .post("/users", || "create_user")
-                .scope(
-                    "/admin",
-                    Scope::new()
-                        .get("/settings", || "admin_settings")
-                        .post("/settings", || "update_settings")
-                        .get("/settings/:id", || "get_setting"),
-                )
-                .scope(
-                    "/posts",
-                    Scope::new()
-                        .get("/", || "list_posts")
-                        .get("/new", || "new_post")
-                        .post("/", || "create_post")
-                        .get("/*", || "catch_all_posts") // Unnamed catch-all
-                        .get("/featured/:post*", || "featured_posts"), // Named catch-all
-                )
-                .get("/items/:item_id", || "get_item") // Parameterized route
-                .get("/items/:item_id/details/*", || "item_details"), // Parameterized route with catch-all
-        );
+        let scope = Scope::new()
+            .get("/hello", || "hello")
+            .get("/*", || "static files")
+            .scope(
+                "/api",
+                Scope::new()
+                    .get("/users", || "user_list")
+                    .post("/users", || "create_user")
+                    .scope(
+                        "/admin",
+                        Scope::new()
+                            .get("/settings", || "admin_settings")
+                            .post("/settings", || "update_settings")
+                            .get("/settings/:id", || "get_setting"),
+                    )
+                    .scope(
+                        "/posts",
+                        Scope::new()
+                            .get("/", || "list_posts")
+                            .get("/new", || "new_post")
+                            .post("/", || "create_post")
+                            .get("/*", || "catch_all_posts") // Unnamed catch-all
+                            .get("/featured/:post*", || "featured_posts"), // Named catch-all
+                    )
+                    .get("/items/:item_id", || "get_item") // Parameterized route
+                    .get("/items/:item_id/details/*", || "item_details"), // Parameterized route with catch-all
+            );
 
         let entries = scope
             .method_router
             .into_entries()
             .map(|(r, _)| r.to_string())
             .collect::<Vec<_>>();
+
+        dbg!(&entries);
 
         // Assert existing routes
         assert!(entries.iter().any(|x| x == "/hello"));
