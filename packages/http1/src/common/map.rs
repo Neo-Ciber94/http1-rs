@@ -1,9 +1,10 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 /// A map that preserves the insertion order of keys.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OrderedMap<K, V> {
     map: HashMap<K, V>,
     keys: Vec<K>,
@@ -175,6 +176,23 @@ impl<K, V> Default for OrderedMap<K, V> {
             map: Default::default(),
             keys: Default::default(),
         }
+    }
+}
+
+impl<K, V> Debug for OrderedMap<K, V>
+where
+    K: Debug + Eq + Hash,
+    V: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut map = f.debug_map();
+
+        for k in self.keys() {
+            let v = self.map.get(k).expect("value should exists");
+            map.entry(k, v);
+        }
+
+        map.finish()
     }
 }
 
