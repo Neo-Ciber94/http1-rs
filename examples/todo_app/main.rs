@@ -17,10 +17,7 @@ fn main() -> std::io::Result<()> {
         .middleware(Redirection::new("/", "/login"))
         .get("/*", ServeDir::new("/", "examples/todo_app/public"))
         .scope("/api", api_routes())
-        .get("/hello", || "Adios")
         .scope("/", page_routes());
-
-        dbg!(&app);
         
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
@@ -602,7 +599,7 @@ mod routes {
             })
     }
 
-    pub fn not_found() -> NotFound<HTMLElement> {
+    fn not_found() -> NotFound<HTMLElement> {
         NotFound(html::html(|| {
             Head(|| {
                 Title("Todo App | Not Found");
