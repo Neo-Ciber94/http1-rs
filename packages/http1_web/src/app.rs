@@ -290,13 +290,19 @@ impl Scope {
                 format!("{route}{sub_route}")
             };
 
-            if let Some(fallback) = router.fallback {
-                self.add_fallback(fallback);
-            }
-
-            for (method, handler) in router.methods {
-                let method_route = MethodRoute::from_method(&method);
-                self.add_route(&full_path, method_route, handler);
+            // Keep existing handlers when merging scopes
+            match self.0.find_mut(&full_path) {
+                Some(existing) => {
+                    // Merge methods
+                    existing.value.methods.extend(router.methods);
+                    // Only set fallback if there isn't one already
+                    if existing.value.fallback.is_none() {
+                        existing.value.fallback = router.fallback;
+                    }
+                }
+                None => {
+                    self.0.insert(full_path, router);
+                }
             }
         }
     }
@@ -304,14 +310,16 @@ impl Scope {
     fn find(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
         match self.0.find(route) {
             Some(mtch) => {
-                let fallback = mtch
-                    .value
-                    .fallback
-                    .as_ref()
-                    .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+                let handler = match mtch.value.methods.get(method) {
+                    Some(handler) => handler,
+                    None => mtch
+                        .value
+                        .fallback
+                        .as_ref()
+                        .unwrap_or_else(|| &*NOT_FOUND_HANDLER),
+                };
 
                 dbg!(route, &mtch, method);
-                let handler = mtch.value.methods.get(method).unwrap_or(fallback);
 
                 Match {
                     params: mtch.params,
@@ -675,29 +683,26 @@ mod tests {
         assert_eq!(get_response(not_found_match.value), "nested_fallback");
     }
 
-    // #[test]
-    // fn test_multiple_fallbacks() {
-    //     let scope = Scope::new()
-    //         .scope(
-    //             "/api",
-    //             Scope::new()
-    //                 .fallback(|| test_handler("api_fallback"))
-    //                 .get("/test", || test_handler("api_handler")),
-    //         )
-    //         .fallback(|| test_handler("global_fallback"));
+    #[test]
+    fn test_multiple_fallbacks() {
+        let scope = Scope::new()
+            .scope(
+                "/api",
+                Scope::new()
+                    .get("/test", || test_handler("api_handler"))
+                    .fallback(|| test_handler("api_fallback")),
+            )
+            .fallback(|| test_handler("global_fallback"));
 
-    //     let api_match = scope.find("/api/test", &Method::GET);
-    //     let global_not_found_match = scope.find("/not-found", &Method::GET);
-    //     let api_not_found_match = scope.find("/api/not-found", &Method::GET);
+        let api_match = scope.find("/api/test", &Method::GET);
+        let global_not_found_match = scope.find("/not-found", &Method::GET);
+        let api_not_found_match = scope.find("/api/not-found", &Method::GET);
 
-    //     assert_eq!(get_response(api_match.value, Method::GET), "api_handler");
-    //     assert_eq!(
-    //         get_response(global_not_found_match.value, Method::GET),
-    //         "global_fallback"
-    //     );
-    //     assert_eq!(
-    //         get_response(api_not_found_match.value, Method::GET),
-    //         "api_fallback"
-    //     );
-    // }
+        assert_eq!(get_response(api_match.value), "api_handler");
+        assert_eq!(
+            get_response(global_not_found_match.value),
+            "global_fallback"
+        );
+        assert_eq!(get_response(api_not_found_match.value), "api_fallback");
+    }
 }
