@@ -6,11 +6,10 @@ use std::{
 };
 
 use crate::{
-    error_response::{ErrorResponse, ErrorStatusCode},
     handler::Handler,
     html::{self, element::HTMLElement},
     mime::Mime,
-    IntoResponse,
+    ErrorResponse, ErrorStatusCode, IntoResponse,
 };
 use datetime::DateTime;
 use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};

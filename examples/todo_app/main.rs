@@ -35,7 +35,6 @@ mod routes {
     use http1_web::{
         app::Scope,
         cookies::{Cookie, Cookies},
-        error_response::{ErrorResponse, ErrorStatusCode},
         forms::form::Form,
         from_request::FromRequestRef,
         html::{self, element::HTMLElement},
@@ -43,7 +42,7 @@ mod routes {
         path::Path,
         redirect::Redirect,
         state::State,
-        {IntoResponse, NotFound},
+        ErrorResponse, ErrorStatusCode, {IntoResponse, NotFound},
     };
 
     use crate::{

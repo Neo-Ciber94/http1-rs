@@ -2,7 +2,7 @@ use std::{ops::Deref, str::FromStr};
 
 use http1::{headers, uri::uri::Uri};
 
-use crate::error_response::ErrorStatusCode;
+use crate::ErrorStatusCode;
 
 use super::FromHeaders;
 

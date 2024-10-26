@@ -1,10 +1,7 @@
-use std::ops::Deref;
-
-use http1::headers;
-
-use crate::error_response::ErrorStatusCode;
-
 use super::FromHeaders;
+use crate::ErrorStatusCode;
+use http1::headers;
+use std::ops::Deref;
 
 /// Represents the raw `User-Agent` request header: [`https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent`].
 #[derive(Debug, Clone, PartialEq, Eq)]

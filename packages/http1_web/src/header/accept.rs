@@ -2,7 +2,7 @@ use std::{ops::Deref, str::FromStr};
 
 use http1::headers;
 
-use crate::{error_response::ErrorStatusCode, mime::Mime};
+use crate::{mime::Mime, ErrorStatusCode};
 
 use super::FromHeaders;
 

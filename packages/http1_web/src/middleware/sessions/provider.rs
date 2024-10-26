@@ -7,10 +7,9 @@ use http1::{body::Body, headers, request::Request, status::StatusCode};
 
 use crate::{
     cookies::{Cookie, Cookies},
-    error_response::{ErrorResponse, ErrorStatusCode},
     from_request::FromRequestRef,
     middleware::Middleware,
-    IntoResponse,
+    ErrorResponse, ErrorStatusCode, IntoResponse,
 };
 
 use super::{
