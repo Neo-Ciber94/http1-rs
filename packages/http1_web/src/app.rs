@@ -758,6 +758,7 @@ mod tests {
         let scope = Scope::new()
             .get("/hello", || "hello")
             .get("/*", || "static files")
+            .scope("/", Scope::new().get("/health", || "ok"))
             .scope(
                 "/api",
                 Scope::new()
@@ -793,6 +794,7 @@ mod tests {
 
         // Assert existing routes
         assert!(entries.iter().any(|x| x == "/hello"));
+        assert!(entries.iter().any(|x| x == "/health"));
         assert!(entries.iter().any(|x| x == "/*")); // root catch-all
         assert!(entries.iter().any(|x| x == "/api/users"));
         assert!(entries.iter().any(|x| x == "/api/admin/settings"));
