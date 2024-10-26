@@ -21,7 +21,6 @@ use crate::{
 #[derive(Debug)]
 pub struct App {
     scope: Scope,
-    fallback: Option<BoxedHandler>,
     middleware: Vec<BoxedMiddleware>,
     app_state: Arc<AppState>,
 }
@@ -30,7 +29,6 @@ impl App {
     pub fn new() -> App {
         App {
             scope: Scope::new(),
-            fallback: None,
             middleware: Vec::new(),
             app_state: Arc::new(AppState::default()),
         }
@@ -84,7 +82,7 @@ impl App {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.fallback = Some(BoxedHandler::new(handler));
+        self.scope.add_fallback(BoxedHandler::new(handler));
         self
     }
 
@@ -226,7 +224,7 @@ impl RouteId {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Scope {
     method_router: Router<RouteId>,
     path_to_route: HashMap<String, RouteId>,
@@ -441,6 +439,20 @@ impl Scope {
         R: IntoResponse,
     {
         self.route(MethodRoute::any(), route, handler)
+    }
+}
+
+impl Debug for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut map = f.debug_map();
+
+        for (route, route_id) in self.method_router.entries() {
+            let methods = self.route_to_methods.get(route_id).expect("no methods");
+            map.entry(route, methods);
+        }
+
+
+        map.finish()
     }
 }
 
