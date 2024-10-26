@@ -7,7 +7,6 @@ pub mod method;
 pub mod protocol;
 pub mod request;
 pub mod response;
-pub mod rng;
 pub mod runtime;
 pub mod server;
 pub mod status;

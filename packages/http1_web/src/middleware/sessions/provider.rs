@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use http1::{body::Body, headers, request::Request, rng::random::Alphanumeric, status::StatusCode};
+use http1::{body::Body, headers, request::Request, status::StatusCode};
 
 use crate::{
     cookies::{Cookie, Cookies},
@@ -191,7 +191,5 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
 }
 
 fn generate_session_id(_req: &Request<Body>) -> String {
-    http1::rng::sequence::<Alphanumeric>()
-        .take(36)
-        .collect::<String>()
+    rng::sequence::<rng::random::Alphanumeric>().take(36).collect::<String>()
 }

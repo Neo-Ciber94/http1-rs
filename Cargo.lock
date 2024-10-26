@@ -22,6 +22,7 @@ version = "0.1.0"
 dependencies = [
  "datetime",
  "log",
+ "rng",
 ]
 
 [[package]]
@@ -31,6 +32,7 @@ dependencies = [
  "datetime",
  "http1",
  "log",
+ "rng",
 ]
 
 [[package]]
@@ -39,3 +41,7 @@ version = "0.1.0"
 dependencies = [
  "datetime",
 ]
+
+[[package]]
+name = "rng"
+version = "0.1.0"

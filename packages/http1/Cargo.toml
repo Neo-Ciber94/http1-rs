@@ -6,4 +6,5 @@ edition = "2021"
 
 [dependencies]
 datetime = { path = "../datetime" }
-log = { path = "../log"}
+log = { path = "../log" }
+rng = { path = "../rng" }

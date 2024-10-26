@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use random::{Random, RandomSequence};
 
 pub mod random;
-mod xorshift_128;
+mod xorshift;
 
 pub trait Rng {
     fn next_32(&mut self) -> u32;
@@ -22,7 +22,7 @@ pub trait Rng {
 }
 
 thread_local! {
-    static RNG: RefCell<xorshift_128::XorShiftRng128> = RefCell::new(xorshift_128::XorShiftRng128::new());
+    static RNG: RefCell<xorshift::XorShiftRng128> = RefCell::new(xorshift::XorShiftRng128::new());
 }
 
 #[derive(Clone, Copy)]

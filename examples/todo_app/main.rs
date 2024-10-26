@@ -4,7 +4,7 @@ use http1_web::{
     app::App, fs::ServeDir, middleware::{logging::Logging, redirection::Redirection}
 };
 use kv::KeyValueDatabase;
-use routes::{api_routes, not_found, page_routes};
+use routes::{api_routes,  page_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -17,8 +17,7 @@ fn main() -> std::io::Result<()> {
         .middleware(Redirection::new("/", "/login"))
         .get("/*", ServeDir::new("/", "examples/todo_app/public"))
         .scope("/api", api_routes())
-        .scope("/", page_routes())
-        .fallback(not_found);
+        .scope("/", page_routes());
 
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
@@ -105,6 +104,7 @@ mod routes {
         Scope::new()
             .scope("/", home_routes())
             .scope("/todos", todos_routes())
+            .fallback(not_found)
     }
 
     pub fn api_routes() -> Scope {
@@ -889,7 +889,7 @@ mod models {
     }
 
     pub fn create_session(db: &KeyValueDatabase, user_id: u64) -> Result<Session, BoxError> {
-        let id = http1::rng::sequence::<http1::rng::random::Alphanumeric>()
+        let id = rng::sequence::<rng::random::Alphanumeric>()
             .take(32)
             .collect::<String>();
 

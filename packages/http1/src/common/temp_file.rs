@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::rng::random::Alphanumeric;
+use rng::random::Alphanumeric;
 
 /// Represents a temporal file which is deleted after drop.
 #[derive(Debug)]
@@ -20,7 +20,7 @@ impl TempFile {
 
     fn create<P: AsRef<Path>>(path: Option<P>) -> std::io::Result<Self> {
         let mut temp_path = std::env::temp_dir();
-        let file_name = crate::rng::sequence::<Alphanumeric>()
+        let file_name = rng::sequence::<Alphanumeric>()
             .take(20)
             .collect::<String>();
 

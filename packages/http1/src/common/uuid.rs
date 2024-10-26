@@ -28,8 +28,7 @@ impl Uuid {
     /// Generates a new random UUID following version 4 (random).
     pub fn new_v4() -> Self {
         Uuid::from_u128(
-            crate::rng::random::<u128>() & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF
-                | 0x40008000000000000000,
+            rng::random::<u128>() & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000,
         )
     }
 

@@ -144,7 +144,7 @@ impl Random for Alphabetic {
         static ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
         let len = ALPHABET.len();
-        let idx = crate::rng::random_range(rng, 0, len);
+        let idx = crate::random_range(rng, 0, len);
         let n = ALPHABET.as_bytes()[idx] as u32;
         char::from_u32(n).expect("failed to get char")
     }
@@ -157,7 +157,7 @@ impl Random for Alphanumeric {
         static ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
         let len = ALPHABET.len();
-        let idx = crate::rng::random_range(rng, 0, len);
+        let idx = crate::random_range(rng, 0, len);
         let n = ALPHABET.as_bytes()[idx] as u32;
         char::from_u32(n).expect("failed to get char")
     }
@@ -172,7 +172,7 @@ impl Random for Ascii {
         let min = 32;
         let max = 126;
 
-        let n = crate::rng::random_range(rng, min, max + 1) as u32;
+        let n = crate::random_range(rng, min, max + 1) as u32;
         char::from_u32(n).expect("failed to get char")
     }
 }
