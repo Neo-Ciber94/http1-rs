@@ -22,6 +22,36 @@ use crate::{
     models::{User, ValidationError},
 };
 
+macro_rules! tri {
+    ($location:expr, $body:expr) => {{
+        let mut res = HttpResponse::see_other("/todos");
+
+        match $body {
+            Err(err) if err.is::<ValidationError>() => {
+                let err = err.downcast::<ValidationError>().unwrap();
+                let json = http1_web::serde::json::to_string(&ToastProps::new(
+                    err.to_string(),
+                    ToastKind::Error,
+                ))?;
+
+                res.headers_mut().insert(headers::LOCATION, $location);
+                res.headers_mut().insert(
+                    headers::SET_COOKIE,
+                    Cookie::new(COOKIE_FLASH_MESSAGE, json)
+                    .max_age(1)
+                    .path("/")
+                        .build()
+                        .to_string(),
+                );
+
+                res.finish()
+            }
+            Err(err) => return Err(err.into()),
+            _ => res.finish()
+        }
+    }};
+}
+
 #[derive(Debug)]
 pub struct AuthenticatedUser(pub User);
 
@@ -168,41 +198,19 @@ pub fn api_routes() -> Scope {
              AuthenticatedUser(user): AuthenticatedUser,
              Form(todo): Form<CreateTodo>|
              -> Result<HttpResponse, ErrorResponse> {
-                let mut res = HttpResponse::see_other("/todos/create");
-
-                match crate::models::insert_todo(
+                Ok(tri!("/todos/create", crate::models::insert_todo(
                     &db,
                     todo.title,
                     todo.description.filter(|x| !x.is_empty()),
                     user.id,
-                ) {
-                    Err(err) if err.is::<ValidationError>() => {
-                        let err = err.downcast::<ValidationError>().unwrap();
-                        let json = http1_web::serde::json::to_string(&ToastProps::new(
-                            err.to_string(),
-                            ToastKind::Error,
-                        ))?;
-                        res.headers_mut().insert(
-                            headers::SET_COOKIE,
-                            Cookie::new(COOKIE_FLASH_MESSAGE, json)
-                            .max_age(1000)
-                            .path("/")
-                                .build()
-                                .to_string(),
-                        );
-                    }
-                    Err(err) => return Err(err.into()),
-                    _ => {}
-                }
-
-                Ok(res.finish())
+                )))
             },
         )
         .post(
             "/todos/update",
             |State(db): State<KeyValueDatabase>,
              Form(form): Form<UpdateTodo>|
-             -> Result<Redirect, ErrorResponse> {
+             -> Result<HttpResponse, ErrorResponse> {
                 let mut todo = match crate::models::get_todo(&db, form.id)? {
                     Some(x) => x,
                     None => return Err(ErrorStatusCode::NotFound.into()),
@@ -213,8 +221,8 @@ pub fn api_routes() -> Scope {
                 todo.description = form.description;
 
                 // Save
-                crate::models::update_todo(&db, todo)?;
-                Ok(Redirect::see_other("/todos"))
+                let todo_id = todo.id;
+                Ok(tri!(format!("/todos/edit/{todo_id}"), crate::models::update_todo(&db, todo)))
             },
         )
         .post(
@@ -222,7 +230,10 @@ pub fn api_routes() -> Scope {
             |State(db): State<KeyValueDatabase>,
              Path(todo_id): Path<u64>|
              -> Result<Redirect, ErrorResponse> {
-                crate::models::delete_todo(&db, todo_id)?;
+                crate::models::delete_todo(
+                    &db,
+                    todo_id
+                )?;
 
                 Ok(Redirect::see_other("/todos"))
             },
@@ -376,8 +387,6 @@ fn todos_routes() -> Scope {
 
                 let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
 
-                dbg!(&toast);
-
                 html::body(|| {
                     Layout(LayoutProps { auth: Some(auth), toast }, || {
                         html::div(|| {
@@ -422,7 +431,7 @@ fn todos_routes() -> Scope {
                 });
             })
         })
-        .get("/edit/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+        .get("/edit/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
             let todo = match crate::models::get_todo(&db, todo_id)? {
                 Some(x) => x,
                     None => {
@@ -430,13 +439,15 @@ fn todos_routes() -> Scope {
                 }
             };
 
+            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+
             Ok(html::html(|| {
                 Head(|| {
                     Title("TodoApp | Edit Todo");
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast: None }, || {
+                    Layout(LayoutProps { auth: Some(auth), toast }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
     
@@ -485,7 +496,7 @@ fn todos_routes() -> Scope {
                 });
             }))
         })
-        .get("/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>| -> Result<HTMLElement, ErrorResponse> {
+        .get("/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
             let todo = match crate::models::get_todo(&db, todo_id)? {
                 Some(x) => x,
                 None => {
@@ -493,13 +504,15 @@ fn todos_routes() -> Scope {
                 }
             };
 
+            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+
             Ok(html::html(|| {
                 Head(|| {
                     Title(format!("TodoApp | {}", todo.title));
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast: None }, || {
+                    Layout(LayoutProps { auth: Some(auth), toast }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
     
@@ -532,10 +545,12 @@ fn todos_routes() -> Scope {
 
 fn home_routes() -> Scope {
     Scope::new()
-        .get("/login", |auth: Option<AuthenticatedUser>| -> Result<HTMLElement, Redirect> {
+        .get("/login", |auth: Option<AuthenticatedUser>, cookies: Cookies| -> Result<HTMLElement, Redirect> {
             if auth.is_some() {
                 return Err(Redirect::see_other("/todos"));
             }
+
+            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -543,7 +558,7 @@ fn home_routes() -> Scope {
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth, toast: None }, || {
+                    Layout(LayoutProps { auth, toast }, || {
                         html::div(|| {
                             html::class("min-h-screen flex items-center justify-center bg-gray-100");
     
@@ -619,3 +634,4 @@ fn not_found() -> NotFound<HTMLElement> {
         });
     }))
 }
+
