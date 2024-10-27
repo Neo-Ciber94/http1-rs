@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -120,20 +121,36 @@ where
     where
         F: FnMut(&K, &mut V) -> bool,
     {
+        self.try_retain(|k, v| Ok::<bool, Infallible>(f(k, v)))
+            .expect("no error");
+    }
+
+    /// Remove all elements that does not matches the predicate.
+    /// If the predicate returns an error, the operation is stopped and the error is returned.
+    pub fn try_retain<F, E>(&mut self, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(&K, &mut V) -> Result<bool, E>,
+    {
         let mut i = 0;
 
         while i < self.keys.len() {
             let key = &self.keys[i];
             let value = self.map.get_mut(key).expect("expected value");
-            let should_remove = !f(key, value);
 
-            if should_remove {
-                self.map.remove(key);
-                self.keys.remove(i);
-            } else {
-                i += 1;
+            match f(key, value) {
+                Ok(keep) => {
+                    if !keep {
+                        self.map.remove(key);
+                        self.keys.remove(i);
+                    } else {
+                        i += 1;
+                    }
+                }
+                Err(e) => return Err(e),
             }
         }
+
+        Ok(())
     }
 
     /// Returns an iterator over the key-value pairs in insertion order.
