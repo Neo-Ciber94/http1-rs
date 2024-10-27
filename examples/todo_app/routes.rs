@@ -16,7 +16,7 @@ use http1_web::{
 };
 
 use crate::{
-    components::{Head, Layout, LayoutProps, Title, ToastKind, ToastProps},
+    components::{Head, Layout, LayoutProps, Title, AlertKind, AlertProps},
     consts::{COOKIE_FLASH_MESSAGE, COOKIE_SESSION_NAME},
     db::KeyValueDatabase,
     models::{User, ValidationError},
@@ -30,7 +30,7 @@ macro_rules! tri {
             Err(err) if err.is::<ValidationError>() => {
                 let err = err.downcast::<ValidationError>().unwrap();
                 res.headers_mut().insert(headers::LOCATION, $location);
-                if let Err(err) = set_flash_message(&mut res, ToastKind::Error, err.to_string()) {
+                if let Err(err) = set_flash_message(&mut res, AlertKind::Error, err.to_string()) {
                     return Err(err.into());
                 }
 
@@ -213,7 +213,7 @@ pub fn api_routes() -> Scope {
                 // Save
                 let todo_id = todo.id;
                 let mut res = tri!(format!("/todos/edit/{todo_id}"), crate::models::update_todo(&db, todo));
-                set_flash_message(&mut res, ToastKind::Success, "Successfully updated")?;
+                set_flash_message(&mut res, AlertKind::Success, "Successfully updated")?;
                 Ok(res)
             },
         )
@@ -253,7 +253,7 @@ fn todos_routes() -> Scope {
         .get("/", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
             let AuthenticatedUser(user) = &auth;
             let todos = crate::models::get_all_todos(&db, user.id)?;
-            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -261,7 +261,7 @@ fn todos_routes() -> Scope {
                 });
             
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast }, || {
+                    Layout(LayoutProps { auth: Some(auth), alert }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6");
                 
@@ -377,10 +377,10 @@ fn todos_routes() -> Scope {
                     Title("TodoApp | Create Todo");
                 });
 
-                let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+                let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast }, || {
+                    Layout(LayoutProps { auth: Some(auth), alert }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
     
@@ -430,7 +430,7 @@ fn todos_routes() -> Scope {
                 }
             };
 
-            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
             
             Ok(html::html(|| {
                 Head(|| {
@@ -438,7 +438,7 @@ fn todos_routes() -> Scope {
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast }, || {
+                    Layout(LayoutProps { auth: Some(auth), alert }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
     
@@ -495,7 +495,7 @@ fn todos_routes() -> Scope {
                 }
             };
 
-            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -503,7 +503,7 @@ fn todos_routes() -> Scope {
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth: Some(auth), toast }, || {
+                    Layout(LayoutProps { auth: Some(auth), alert }, || {
                         html::div(|| {
                             html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
     
@@ -541,7 +541,7 @@ fn home_routes() -> Scope {
                 return Err(Redirect::see_other("/todos"));
             }
 
-            let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
+            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -549,7 +549,7 @@ fn home_routes() -> Scope {
                 });
 
                 html::body(|| {
-                    Layout(LayoutProps { auth, toast }, || {
+                    Layout(LayoutProps { auth, alert }, || {
                         html::div(|| {
                             html::class("min-h-screen flex items-center justify-center bg-gray-100");
     
@@ -627,8 +627,8 @@ fn not_found() -> NotFound<HTMLElement> {
 }
 
 
-fn set_flash_message<B>(res: &mut HttpResponse<B>,  kind: ToastKind, message: impl Into<String>) -> Result<(), BoxError> {
-    let json = http1_web::serde::json::to_string(&ToastProps::new(message, kind))?;
+fn set_flash_message<B>(res: &mut HttpResponse<B>,  kind: AlertKind, message: impl Into<String>) -> Result<(), BoxError> {
+    let json = http1_web::serde::json::to_string(&AlertProps::new(message, kind))?;
     res.headers_mut().insert(headers::SET_COOKIE, Cookie::new(COOKIE_FLASH_MESSAGE, json).max_age(1).build().to_string());
     Ok(())
 }

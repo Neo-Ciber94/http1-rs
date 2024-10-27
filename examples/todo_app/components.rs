@@ -33,17 +33,17 @@ pub fn Title(title: impl Into<String>) -> HTMLElement {
 
 pub struct LayoutProps {
     pub auth: Option<AuthenticatedUser>,
-    pub toast: Option<ToastProps>,
+    pub alert: Option<AlertProps>,
 }
 
-pub fn Layout(LayoutProps { auth, toast }: LayoutProps, content: impl IntoChildren) -> HTMLElement {
+pub fn Layout(LayoutProps { auth, alert }: LayoutProps, content: impl IntoChildren) -> HTMLElement {
     html::div(|| {
         html::div(|| {
             html::class("w-full h-16");
         });
 
-        if let Some(props) = toast {
-            Toast(props);
+        if let Some(props) = alert {
+            Alert(props);
         }
 
         html::header(|| {
@@ -83,46 +83,46 @@ pub fn Layout(LayoutProps { auth, toast }: LayoutProps, content: impl IntoChildr
 }
 
 #[derive(Debug, Clone)]
-pub enum ToastKind {
+pub enum AlertKind {
     Success,
     Error,
     Warn,
 }
 
-impl_serde_enum_str!(ToastKind => {
+impl_serde_enum_str!(AlertKind => {
     Success,
     Error,
     Warn,
 });
 
 #[derive(Debug, Clone)]
-pub struct ToastProps {
+pub struct AlertProps {
     message: String,
-    kind: ToastKind,
+    kind: AlertKind,
 }
 
-impl_serde_struct!(ToastProps => {
+impl_serde_struct!(AlertProps => {
     message: String,
-    kind: ToastKind,
+    kind: AlertKind,
 });
 
-impl ToastProps {
-    pub fn new(message: impl Into<String>, kind: ToastKind) -> Self {
-        ToastProps {
+impl AlertProps {
+    pub fn new(message: impl Into<String>, kind: AlertKind) -> Self {
+        AlertProps {
             message: message.into(),
             kind,
         }
     }
 }
 
-fn Toast(ToastProps { message, kind }: ToastProps) {
+fn Alert(AlertProps { message, kind }: AlertProps) {
     html::div(|| {
         html::class("animate-fade-out");
         html::div(|| {
             let style = match kind {
-                ToastKind::Success => "text-white bg-green-500",
-                ToastKind::Error => "text-white bg-red-500",
-                ToastKind::Warn => "text-black bg-amber-500",
+                AlertKind::Success => "text-white bg-green-500",
+                AlertKind::Error => "text-white bg-red-500",
+                AlertKind::Warn => "text-black bg-amber-500",
             };
 
             html::class(format!("fixed top-10 left-1/2 -translate-x-1/2 p-4 rounded-md shadow-md flex flex-row items-center justify-center cursor-pointer hover:opacity-80 {style}"));
