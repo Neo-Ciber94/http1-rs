@@ -45,7 +45,7 @@ impl_serde_struct!(Session => {
      created_at: DateTime
 });
 
-const SESSION_DURATION: Duration = Duration::from_secs(10);
+const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug)]
 pub struct ValidationError {
