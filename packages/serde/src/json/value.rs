@@ -1025,9 +1025,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_u16()
-                    .ok_or_else(|| Error::error("expected u16"))?;
+                let n = value.as_u16().ok_or_else(|| Error::error("expected u16"))?;
                 visitor.visit_u16(n)
             }
             _ => Err(Error::error("expected u16")),
@@ -1040,9 +1038,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_u32()
-                    .ok_or_else(|| Error::error("expected u32"))?;
+                let n = value.as_u32().ok_or_else(|| Error::error("expected u32"))?;
                 visitor.visit_u32(n)
             }
             _ => Err(Error::error("expected u32")),
@@ -1055,9 +1051,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_u64()
-                    .ok_or_else(|| Error::error("expected u64"))?;
+                let n = value.as_u64().ok_or_else(|| Error::error("expected u64"))?;
                 visitor.visit_u64(n)
             }
             _ => Err(Error::error("expected u64")),
@@ -1098,9 +1092,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_i16()
-                    .ok_or_else(|| Error::error("expected i16"))?;
+                let n = value.as_i16().ok_or_else(|| Error::error("expected i16"))?;
                 visitor.visit_i16(n)
             }
             _ => Err(Error::error("expected i16")),
@@ -1113,9 +1105,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_i32()
-                    .ok_or_else(|| Error::error("expected i32"))?;
+                let n = value.as_i32().ok_or_else(|| Error::error("expected i32"))?;
                 visitor.visit_i32(n)
             }
             _ => Err(Error::error("expected i32")),
@@ -1128,9 +1118,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_i64()
-                    .ok_or_else(|| Error::error("expected i64"))?;
+                let n = value.as_i64().ok_or_else(|| Error::error("expected i64"))?;
                 visitor.visit_i64(n)
             }
             _ => Err(Error::error("expected i64")),
@@ -1158,9 +1146,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_f32()
-                    .ok_or_else(|| Error::error("expected f32"))?;
+                let n = value.as_f32().ok_or_else(|| Error::error("expected f32"))?;
                 visitor.visit_f32(n)
             }
             _ => Err(Error::error("expected f32")),
@@ -1173,9 +1159,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value
-                    .as_f64()
-                    .ok_or_else(|| Error::error("expected f64"))?;
+                let n = value.as_f64().ok_or_else(|| Error::error("expected f64"))?;
                 visitor.visit_f64(n)
             }
             _ => Err(Error::error("expected f64")),

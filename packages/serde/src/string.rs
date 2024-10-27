@@ -47,9 +47,9 @@ impl Deserializer for DeserializeFromStr {
                 let value = bool::from_str(&x).map_err(Error::error)?;
                 visitor.visit_bool(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
-                "cannot deserialize list to `bool`",
-            )),
+            DeserializeFromStr::List(_) => {
+                Err(crate::de::Error::error("cannot deserialize list to `bool`"))
+            }
         }
     }
 
@@ -122,9 +122,9 @@ impl Deserializer for DeserializeFromStr {
                 let value = u128::from_str(&x).map_err(Error::error)?;
                 visitor.visit_u128(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
-                "cannot deserialize list to `u128`",
-            )),
+            DeserializeFromStr::List(_) => {
+                Err(crate::de::Error::error("cannot deserialize list to `u128`"))
+            }
         }
     }
 
@@ -197,9 +197,9 @@ impl Deserializer for DeserializeFromStr {
                 let value = i128::from_str(&x).map_err(Error::error)?;
                 visitor.visit_i128(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
-                "cannot deserialize list to `i128`",
-            )),
+            DeserializeFromStr::List(_) => {
+                Err(crate::de::Error::error("cannot deserialize list to `i128`"))
+            }
         }
     }
 
@@ -252,9 +252,9 @@ impl Deserializer for DeserializeFromStr {
                 let char = s.pop().expect("unable to get char");
                 visitor.visit_char(char)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
-                "cannot deserialize list to `char`",
-            )),
+            DeserializeFromStr::List(_) => {
+                Err(crate::de::Error::error("cannot deserialize list to `char`"))
+            }
         }
     }
 
@@ -300,18 +300,14 @@ impl Deserializer for DeserializeFromStr {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
-            "cannot deserialize str to `bytes`",
-        ))
+        Err(crate::de::Error::error("cannot deserialize str to `bytes`"))
     }
 
     fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
-            "cannot deserialize str to `bytes`",
-        ))
+        Err(crate::de::Error::error("cannot deserialize str to `bytes`"))
     }
 }
 
@@ -498,9 +494,7 @@ impl Deserializer for DeserializeOnlyString {
     where
         V: Visitor,
     {
-        Err(super::de::Error::error(
-            "cannot deserialize str to `bytes`",
-        ))
+        Err(super::de::Error::error("cannot deserialize str to `bytes`"))
     }
 }
 

@@ -99,7 +99,7 @@ impl<T: Deserialize> FromRequest for Form<T> {
                 let bytes = req
                     .body_mut()
                     .read_all_bytes()
-                    .map_err( RejectFormError::FailedReadForm)?;
+                    .map_err(RejectFormError::FailedReadForm)?;
 
                 let s =
                     String::from_utf8(bytes).map_err(|e| RejectFormError::Utf8Error(e.into()))?;

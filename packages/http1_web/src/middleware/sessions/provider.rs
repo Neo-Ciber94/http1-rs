@@ -34,7 +34,6 @@ impl SessionProvider<()> {
     }
 }
 
-
 pub struct Builder {
     cookie_name: String,
     id_generator: IdGenerator,

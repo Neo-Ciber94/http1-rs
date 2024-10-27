@@ -40,10 +40,7 @@ impl<T: Deserialize> FromRequest for Json<T> {
     fn from_request(
         mut req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
-        let bytes = req
-            .body_mut()
-            .read_all_bytes()
-            .map_err(InvalidJsonError)?;
+        let bytes = req.body_mut().read_all_bytes().map_err(InvalidJsonError)?;
         let value = serde::json::from_bytes::<T>(bytes).map_err(|e| InvalidJsonError(e.into()))?;
         Ok(Json(value))
     }

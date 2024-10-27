@@ -299,7 +299,7 @@ impl Deserializer for PathDeserializer {
         V: serde::visitor::Visitor,
     {
         Err(serde::de::Error::error(String::from(
-            "cannot deserialize `path` to option"
+            "cannot deserialize `path` to option",
         )))
     }
 
