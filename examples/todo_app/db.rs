@@ -1,3 +1,4 @@
+use http1::error::BoxError;
 use http1_web::serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
 use std::{
     fmt::Display,
@@ -55,6 +56,7 @@ impl KeyValueDatabase {
         result
     }
 
+    /// Sets a key-value entry.
     pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
         self.tap(|json| {
             let new_value = http1_web::serde::json::to_value(&value)
@@ -65,6 +67,7 @@ impl KeyValueDatabase {
         })
     }
 
+    /// Gets a value with the given key.
     pub fn get<T: Deserialize + 'static>(
         &self,
         key: impl AsRef<str>,
@@ -81,6 +84,7 @@ impl KeyValueDatabase {
         })
     }
 
+    /// Get all the values that starts with the given pattern and can be deserialized to the given type.
     pub fn scan<T: Deserialize>(&self, pattern: impl AsRef<str>) -> std::io::Result<Vec<T>> {
         self.tap(|json| {
             let pattern = pattern.as_ref();
@@ -111,6 +115,7 @@ impl KeyValueDatabase {
         })
     }
 
+    /// Increment the given entry by 1, if it does not exist add it and returns 0.
     pub fn incr(&self, key: impl AsRef<str>) -> std::io::Result<u64> {
         self.tap(|json| {
             let key = key.as_ref();
@@ -135,6 +140,7 @@ impl KeyValueDatabase {
         })
     }
 
+    /// Checks if the given entry exists.
     pub fn contains(&self, key: impl AsRef<str>) -> std::io::Result<bool> {
         self.tap(|json| match json.get(key.as_ref()) {
             Some(_) => Ok(true),
@@ -142,6 +148,7 @@ impl KeyValueDatabase {
         })
     }
 
+    /// Removes the given key-value entry.
     pub fn del(&self, key: impl AsRef<str>) -> std::io::Result<bool> {
         self.tap(|json| {
             let deleted = json.remove(key.as_ref()).is_some();
@@ -149,21 +156,34 @@ impl KeyValueDatabase {
         })
     }
 
-    pub fn retain(&self, f: impl Fn(&str) -> bool) -> std::io::Result<usize> {
+    /// Keep all the entries for which the predicate function returns true, remove all the others.
+    pub fn retain<T: Deserialize>(
+        &self,
+        pattern: impl AsRef<str>,
+        predicate: impl Fn(&str, T) -> bool,
+    ) -> std::io::Result<usize> {
         self.tap(|json| {
             let mut deleted_count = 0;
+            let pattern = pattern.as_ref();
 
             match json {
                 JsonValue::Object(ordered_map) => {
-                    ordered_map.retain(|k, _| {
-                        let should_remove = !f(k);
+                    ordered_map
+                        .try_retain(|k, v| {
+                            if !k.starts_with(pattern) {
+                                return Ok(true);
+                            }
 
-                        if should_remove {
-                            deleted_count += 1;
-                        }
+                            let value = http1_web::serde::json::from_value(v.clone())?;
+                            let should_keep = predicate(k, value);
 
-                        should_remove
-                    });
+                            if !should_keep {
+                                deleted_count += 1;
+                            }
+
+                            Ok::<bool, BoxError>(should_keep)
+                        })
+                        .map_err(|err| std::io::Error::other(err))?;
                 }
                 v => panic!("expected json object but was `{}`", v.variant()),
             }
