@@ -150,11 +150,19 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
 fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
     let str = buf.trim();
     let (name, rest) = str.split_once(": ")?;
-    let values = rest
-        .split(",")
-        .map(|s| s.trim())
-        .map(|s| s.to_owned())
-        .collect::<Vec<_>>();
+
+    // Special case for cookies because are separated by `;` instead of `,`
+    let values = if name.eq_ignore_ascii_case(headers::COOKIE.as_str()) {
+        rest.split(";")
+            .map(|s| s.trim())
+            .map(|s| s.to_owned())
+            .collect::<Vec<_>>()
+    } else {
+        rest.split(",")
+            .map(|s| s.trim())
+            .map(|s| s.to_owned())
+            .collect::<Vec<_>>()
+    };
 
     Some((name, values))
 }
