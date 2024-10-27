@@ -286,25 +286,31 @@ fn write_element<W: std::fmt::Write>(
     if !el.is_void {
         write!(f, ">")?;
         let len = el.children.len();
+        let mut has_text = false;
+        let mut has_newline = false;
+        let mut has_element = false;
 
         for node in el.children() {
             match node {
                 Node::Element(element) => {
-                    if len > 0 {
+                    if !has_newline {
                         writeln!(f)?;
+                        has_newline = true;
                     }
 
                     write_element(element, f, indent_str, level + 1)?;
-
-                    if len > 0 {
-                        write_indent(f, indent_str, level)?;
-                    }
+                    has_element = true;
                 }
                 Node::Text(text) => {
                     let text = escape_html(text);
+                    has_text = true;
                     write!(f, "{text}")?;
                 }
             }
+        }
+
+        if (!has_text || has_element) && len > 0 {
+            write_indent(f, indent_str, level)?;
         }
 
         writeln!(f, "</{}>", el.tag)?;
@@ -430,7 +436,6 @@ mod tests {
   <head>
     <title>This is HTML</title>
   </head>
-
   <body>
     <h1 class="text-red">Hello World!
       <hr />

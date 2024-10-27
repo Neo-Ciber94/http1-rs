@@ -482,7 +482,6 @@ mod tests {
   <head>
     <title>This is a Title</title>
   </head>
-
   <body>
     <h1 class="text-red">Hello World!
       <hr />
