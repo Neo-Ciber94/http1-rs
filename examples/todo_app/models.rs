@@ -45,7 +45,7 @@ impl_serde_struct!(Session => {
      created_at: DateTime
 });
 
-const SESSION_DURATION: Duration = Duration::from_secs(60 * 60);
+const SESSION_DURATION: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
 pub struct ValidationError {
@@ -244,16 +244,12 @@ pub fn remove_session(db: &KeyValueDatabase, session_id: String) -> Result<(), B
 pub fn remove_expired_sessions(db: &KeyValueDatabase) {
     fn try_remove_expired_sessions(db: &KeyValueDatabase) -> Result<(), BoxError> {
         let now = DateTime::now_utc();
-        let expired_sessions = db
-            .scan::<Session>("session/")?
-            .into_iter()
-            .filter(|s| now > (s.created_at + SESSION_DURATION))
-            .collect::<Vec<_>>();
-
-        let deleted = db.retain(|key| expired_sessions.iter().find(|s| s.id == key).is_some())?;
+        let deleted = db.retain::<Session>("session/", |_, session| {
+            now < (session.created_at + SESSION_DURATION)
+        })?;
 
         if deleted > 0 {
-            log::debug!("`{deleted}` sessions deleted");
+            log::debug!("{deleted} expired sessions deleted");
         }
 
         Ok(())

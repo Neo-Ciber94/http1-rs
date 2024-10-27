@@ -148,10 +148,7 @@ impl FromRequestRef for AlertProps {
                     Err(ErrorStatusCode::InternalServerError)
                 }
             },
-            None => {
-                log::error!("AlertProps should be injected with Option<AlertProps>");
-                Err(ErrorStatusCode::InternalServerError)
-            }
+            None => Err(ErrorStatusCode::InternalServerError),
         }
     }
 }
