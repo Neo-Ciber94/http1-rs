@@ -1,7 +1,7 @@
 [package]
-name = "datetime"
+name = "serde"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { path = "../serde" }
+orderedmap = { path = "../orderedmap" }

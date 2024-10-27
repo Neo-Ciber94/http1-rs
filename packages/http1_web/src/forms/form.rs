@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use http1::{
     body::http_body::HttpBody,
-    common::map::OrderedMap,
     error::BoxError,
     headers,
     response::Response,
@@ -14,17 +13,15 @@ use http1::{
     },
 };
 
-use crate::{
-    from_request::FromRequest,
-    query::QueryDeserializer,
-    serde::{
-        de::Deserialize,
-        impossible::Impossible,
-        ser::{MapSerializer, Serialize, Serializer},
-        string::StringSerializer,
-    },
-    IntoResponse,
+use crate::{from_request::FromRequest, query::QueryDeserializer, IntoResponse};
+use serde::{
+    de::Deserialize,
+    impossible::Impossible,
+    ser::{MapSerializer, Serialize, Serializer},
+    string::StringSerializer,
 };
+
+use orderedmap::OrderedMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Form<T>(pub T);
@@ -199,7 +196,7 @@ impl MapSerializer for FormMapSerializer {
             .serialize(StringSerializer)
             .map_err(|_| SerializeFormError)?;
 
-        let v = crate::serde::json::to_string(value).map_err(|_| SerializeFormError)?;
+        let v = serde::json::to_string(value).map_err(|_| SerializeFormError)?;
 
         if self.0.contains_key(&k) {
             let query_value = self.0.get_mut(&k).unwrap();

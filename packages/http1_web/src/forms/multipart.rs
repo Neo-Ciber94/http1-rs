@@ -8,15 +8,12 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{
-    from_request::FromRequest,
-    serde::{
-        bytes::BytesBufferDeserializer,
-        de::{Deserialize, Deserializer},
-        string::{DeserializeFromStr, DeserializeOnlyString},
-        visitor::{MapAccess, Visitor},
-    },
-    IntoResponse,
+use crate::{from_request::FromRequest, IntoResponse};
+use serde::{
+    bytes::BytesBufferDeserializer,
+    de::{Deserialize, Deserializer},
+    string::{DeserializeFromStr, DeserializeOnlyString},
+    visitor::{MapAccess, Visitor},
 };
 
 use super::{
@@ -64,7 +61,7 @@ impl<T> Multipart<T> {
 
 #[derive(Debug)]
 pub enum MultipartError {
-    DeserializationError(crate::serde::de::Error),
+    DeserializationError(serde::de::Error),
     FormError(FormDataError),
 }
 
@@ -104,7 +101,7 @@ impl<T: Deserialize> FromRequest for Multipart<T> {
 }
 
 impl Deserialize for FormFile {
-    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, crate::serde::de::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, serde::de::Error> {
         struct FormFileVisitor;
         impl Visitor for FormFileVisitor {
             type Value = FormFile;
@@ -113,47 +110,43 @@ impl Deserialize for FormFile {
                 "file"
             }
 
-            fn visit_string(self, value: String) -> Result<Self::Value, crate::serde::de::Error> {
-                let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
+            fn visit_string(self, value: String) -> Result<Self::Value, serde::de::Error> {
+                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(crate::serde::de::Error::error)?;
+                    .map_err(serde::de::Error::error)?;
 
                 f.write_all(value.as_bytes())
-                    .map_err(crate::serde::de::Error::error)?;
+                    .map_err(serde::de::Error::error)?;
 
                 Ok(FormFile(temp_file))
             }
 
-            fn visit_bytes_buf(
-                self,
-                bytes: Vec<u8>,
-            ) -> Result<Self::Value, crate::serde::de::Error> {
-                let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
+            fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, serde::de::Error> {
+                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(crate::serde::de::Error::error)?;
+                    .map_err(serde::de::Error::error)?;
 
-                f.write_all(&bytes)
-                    .map_err(crate::serde::de::Error::error)?;
+                f.write_all(&bytes).map_err(serde::de::Error::error)?;
 
                 Ok(FormFile(temp_file))
             }
 
-            fn visit_bytes_seq<B: crate::serde::visitor::BytesAccess>(
+            fn visit_bytes_seq<B: serde::visitor::BytesAccess>(
                 self,
                 mut bytes: B,
-            ) -> Result<Self::Value, crate::serde::de::Error> {
-                let temp_file = TempFile::random().map_err(crate::serde::de::Error::error)?;
+            ) -> Result<Self::Value, serde::de::Error> {
+                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(crate::serde::de::Error::error)?;
+                    .map_err(serde::de::Error::error)?;
 
                 bytes.next_bytes(&mut f)?;
                 Ok(FormFile(temp_file))
@@ -167,178 +160,154 @@ impl Deserialize for FormFile {
 pub struct MultipartDeserializer(FormMap);
 
 impl Deserializer for MultipartDeserializer {
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `any`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `any`"))
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
         visitor.visit_unit()
     }
 
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `bool`",
         ))
     }
 
-    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `u8`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `u8`"))
     }
 
-    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `u16`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `u16`"))
     }
 
-    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `u32`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `u32`"))
     }
 
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `u64`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `u64`"))
     }
 
-    fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `u128`",
         ))
     }
 
-    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `i8`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `i8`"))
     }
 
-    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `i16`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `i16`"))
     }
 
-    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `i32`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `i32`"))
     }
 
-    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `i64`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `i64`"))
     }
 
-    fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `i128`",
         ))
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `f32`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `f32`"))
     }
 
-    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `f64`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `f64`"))
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `char`",
         ))
     }
 
-    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `string`",
         ))
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
-            "cannot deserialize form to `seq`",
-        ))
+        Err(serde::de::Error::custom("cannot deserialize form to `seq`"))
     }
 
-    fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `bytes`",
         ))
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
         visitor.visit_map(FormMapAccess {
             iter: self.0.into_iter(),
@@ -346,20 +315,20 @@ impl Deserializer for MultipartDeserializer {
         })
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: serde::visitor::Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `option`",
         ))
     }
 
-    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(serde::de::Error::custom(
             "cannot deserialize form to `bytes`",
         ))
     }
@@ -371,9 +340,7 @@ struct FormMapAccess<I> {
 }
 
 impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<I> {
-    fn next_key<K: crate::serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<K>, crate::serde::de::Error> {
+    fn next_key<K: serde::de::Deserialize>(&mut self) -> Result<Option<K>, serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
                 self.value = Some(v);
@@ -384,18 +351,16 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
         }
     }
 
-    fn next_value<V: crate::serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<V>, crate::serde::de::Error> {
+    fn next_value<V: serde::de::Deserialize>(&mut self) -> Result<Option<V>, serde::de::Error> {
         match self.value.take() {
             Some(field) => {
                 if field.filename().is_some() {
-                    let s = field.bytes().map_err(crate::serde::de::Error::error)?;
+                    let s = field.bytes().map_err(serde::de::Error::error)?;
                     let deserializer = BytesBufferDeserializer(s);
                     let value = V::deserialize(deserializer)?;
                     Ok(Some(value))
                 } else {
-                    let s = field.text().map_err(crate::serde::de::Error::error)?;
+                    let s = field.text().map_err(serde::de::Error::error)?;
                     let value = V::deserialize(DeserializeFromStr::Str(s))?;
                     Ok(Some(value))
                 }

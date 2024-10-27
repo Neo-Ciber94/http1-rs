@@ -1,7 +1,6 @@
 use crate::db::KeyValueDatabase;
 use datetime::DateTime;
 use http1::error::BoxError;
-use http1_web::impl_serde_struct;
 use std::{fmt::Display, time::Duration};
 
 #[derive(Debug, Clone)]
@@ -10,7 +9,7 @@ pub struct User {
     pub username: String,
 }
 
-impl_serde_struct!(User => {
+serde::impl_serde_struct!(User => {
      id: u64,
      username: String,
 });
@@ -24,7 +23,7 @@ pub struct Todo {
     pub user_id: u64,
 }
 
-impl_serde_struct!(Todo => {
+serde::impl_serde_struct!(Todo => {
      id: u64,
      title: String,
      description: Option<String>,
@@ -39,7 +38,7 @@ pub struct Session {
     pub created_at: DateTime,
 }
 
-impl_serde_struct!(Session => {
+serde::impl_serde_struct!(Session => {
      id: String,
      user_id: u64,
      created_at: DateTime

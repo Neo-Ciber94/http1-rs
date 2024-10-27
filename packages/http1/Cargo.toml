@@ -8,3 +8,5 @@ edition = "2021"
 datetime = { path = "../datetime" }
 log = { path = "../log" }
 rng = { path = "../rng" }
+serde = { path = "../serde" }
+orderedmap = { path = "../orderedmap" }

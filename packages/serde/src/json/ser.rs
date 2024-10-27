@@ -1,6 +1,6 @@
 use std::{fmt::Display, io::Write};
 
-use crate::serde::{
+use crate::{
     impossible::Impossible,
     ser::{BytesSerializer, MapSerializer, SequenceSerializer, Serialize, Serializer},
 };
@@ -313,9 +313,9 @@ fn map_key_error() -> JsonSerializationError {
 
 #[cfg(test)]
 mod tests {
-    use http1::common::map::OrderedMap;
+    use orderedmap::OrderedMap;
 
-    use crate::serde::json::{number::Number, to_pretty_string, to_string, value::JsonValue};
+    use crate::json::{number::Number, to_pretty_string, to_string, value::JsonValue};
 
     #[test]
     fn should_serialize_number() {

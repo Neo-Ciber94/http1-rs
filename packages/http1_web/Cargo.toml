@@ -8,3 +8,5 @@ http1 = { path = "../http1" }
 log = { path = "../log" }
 datetime = { path = "../datetime" }
 rng = { path = "../rng" }
+serde = { path = "../serde" }
+orderedmap = { path = "../orderedmap" }

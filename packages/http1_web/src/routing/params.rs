@@ -1,4 +1,4 @@
-use http1::common::map::{IntoIter, Iter, OrderedMap};
+use orderedmap::{IntoIter, Iter, OrderedMap};
 
 pub type ParamsIter<'a> = Iter<'a, String, String>;
 

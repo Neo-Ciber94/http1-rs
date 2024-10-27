@@ -1,35 +1,37 @@
 pub mod bytes;
-pub mod de;
 pub mod expected;
 pub mod impossible;
 pub mod json;
-pub mod ser;
 pub mod string;
 pub mod visitor;
+
+//
+pub mod de;
+pub mod ser;
 
 /// Implement `Deserialize` for a struct.
 #[macro_export]
 macro_rules! impl_deserialize_struct {
     ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
-        impl $crate::serde::de::Deserialize for $struct {
-            fn deserialize<D: $crate::serde::de::Deserializer>(
+        impl $crate::de::Deserialize for $struct {
+            fn deserialize<D: $crate::de::Deserializer>(
                 deserializer: D,
-            ) -> Result<Self, $crate::serde::de::Error> {
+            ) -> Result<Self, $crate::de::Error> {
                 struct StructVisitor;
 
-                impl $crate::serde::visitor::Visitor for StructVisitor {
+                impl $crate::visitor::Visitor for StructVisitor {
                     type Value = $struct;
 
                     fn expected(&self) -> &'static str {
                         "struct"
                     }
 
-                    fn visit_map<Map: $crate::serde::visitor::MapAccess>(
+                    fn visit_map<Map: $crate::visitor::MapAccess>(
                         self,
                         mut map: Map,
-                    ) -> Result<Self::Value, $crate::serde::de::Error>  {
+                    ) -> Result<Self::Value, $crate::de::Error>  {
                         $(
-                            let mut $field: Result<$value, $crate::serde::de::Error> = Err($crate::serde::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
+                            let mut $field: Result<$value, $crate::de::Error> = Err($crate::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
                         )*
 
                         while let Some(k) = map.next_key::<String>()?  {
@@ -39,14 +41,14 @@ macro_rules! impl_deserialize_struct {
                                         $field = match map.next_value::<$value>()? {
                                             Some(x) => Ok(x),
                                             None => {
-                                                return Err($crate::serde::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
+                                                return Err($crate::de::Error::custom(concat!("missing field '", stringify!($field), "'")));
                                             }
                                         };
                                     }
                                 )*
 
                                 _ => {
-                                    return Err($crate::serde::de::Error::custom(format!(
+                                    return Err($crate::de::Error::custom(format!(
                                         "Unknown field '{k}'"
                                     )));
                                 }
@@ -71,9 +73,9 @@ macro_rules! impl_deserialize_struct {
 #[macro_export]
 macro_rules! impl_serialize_struct {
     ($struct:ident => { $($field:ident : $value:ty),* $(,)? }) => {
-        impl $crate::serde::ser::Serialize for $struct {
-            fn serialize<S: $crate::serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-                use $crate::serde::ser::MapSerializer;
+        impl $crate::ser::Serialize for $struct {
+            fn serialize<S: $crate::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+                use $crate::ser::MapSerializer;
 
                 let mut map = serializer.serialize_map()?;
 
@@ -100,8 +102,8 @@ macro_rules! impl_serde_struct {
 #[macro_export]
 macro_rules! impl_serialize_enum_str {
     ($enum:ident => { $($variant:ident),* $(,)? }) => {
-        impl $crate::serde::ser::Serialize for $enum {
-            fn serialize<S: $crate::serde::ser::Serializer>(
+        impl $crate::ser::Serialize for $enum {
+            fn serialize<S: $crate::ser::Serializer>(
                 &self,
                 serializer: S,
             ) -> Result<S::Ok, S::Err> {
@@ -121,24 +123,24 @@ macro_rules! impl_serialize_enum_str {
 #[macro_export]
 macro_rules! impl_deserialize_enum_str {
     ($enum:ident => { $($variant:ident),* $(,)? }) => {
-        impl $crate::serde::de::Deserialize for $enum {
-            fn deserialize<D: $crate::serde::de::Deserializer>(
+        impl $crate::de::Deserialize for $enum {
+            fn deserialize<D: $crate::de::Deserializer>(
                 deserializer: D,
-            ) -> Result<Self, $crate::serde::de::Error> {
+            ) -> Result<Self, $crate::de::Error> {
                 static KNOWN_VARIANTS: &[&str] = &[
                     $(
                         stringify!($variant)
                     ),*
                 ];
 
-                let variant = deserializer.deserialize_string($crate::serde::de::StringVisitor)?;
+                let variant = deserializer.deserialize_string($crate::de::StringVisitor)?;
 
                 match variant.as_str() {
                     $(
                         stringify!($variant) => Ok($enum :: $variant),
                     )*
                     v => {
-                        Err($crate::serde::de::Error::custom(format!(
+                        Err($crate::de::Error::custom(format!(
                             "Unknown enum variant `{v}`, valid variants: {KNOWN_VARIANTS:?}"
                         )))
                     },
@@ -232,4 +234,9 @@ mod tests {
     }
 
     impl_serde_enum_str!(Fruits => { Apple, Pear, Grape });
+}
+
+#[doc(hidden)]
+pub mod re_exports {
+    pub use orderedmap::*;
 }

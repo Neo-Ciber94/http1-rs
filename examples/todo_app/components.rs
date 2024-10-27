@@ -3,7 +3,7 @@ use http1_web::{
     cookies::Cookies,
     from_request::FromRequestRef,
     html::{self, element::HTMLElement, IntoChildren},
-    impl_serde_enum_str, impl_serde_struct, ErrorStatusCode,
+    ErrorStatusCode,
 };
 
 use crate::{consts::COOKIE_FLASH_MESSAGE, routes::models::AuthenticatedUser};
@@ -91,7 +91,7 @@ pub enum AlertKind {
     Warn,
 }
 
-impl_serde_enum_str!(AlertKind => {
+serde::impl_serde_enum_str!(AlertKind => {
     Success,
     Error,
     Warn,
@@ -103,7 +103,7 @@ pub struct AlertProps {
     kind: AlertKind,
 }
 
-impl_serde_struct!(AlertProps => {
+serde::impl_serde_struct!(AlertProps => {
     message: String,
     kind: AlertKind,
 });
@@ -141,7 +141,7 @@ impl FromRequestRef for AlertProps {
     ) -> Result<Self, Self::Rejection> {
         let cookies = Cookies::from_request_ref(req).unwrap_or_default();
         match cookies.get(COOKIE_FLASH_MESSAGE) {
-            Some(cookie) => match http1_web::serde::json::from_str::<AlertProps>(cookie.value()) {
+            Some(cookie) => match serde::json::from_str::<AlertProps>(cookie.value()) {
                 Ok(alert) => Ok(alert),
                 Err(err) => {
                     log::error!("AlertProps should be injected with Option<AlertProps>: {err}");

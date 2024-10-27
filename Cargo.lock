@@ -11,11 +11,15 @@ dependencies = [
  "http1_web",
  "log",
  "rng",
+ "serde",
 ]
 
 [[package]]
 name = "datetime"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "http1"
@@ -23,7 +27,9 @@ version = "0.1.0"
 dependencies = [
  "datetime",
  "log",
+ "orderedmap",
  "rng",
+ "serde",
 ]
 
 [[package]]
@@ -33,7 +39,9 @@ dependencies = [
  "datetime",
  "http1",
  "log",
+ "orderedmap",
  "rng",
+ "serde",
 ]
 
 [[package]]
@@ -44,5 +52,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "orderedmap"
+version = "0.1.0"
+
+[[package]]
 name = "rng"
 version = "0.1.0"
+
+[[package]]
+name = "serde"
+version = "0.1.0"
+dependencies = [
+ "orderedmap",
+]

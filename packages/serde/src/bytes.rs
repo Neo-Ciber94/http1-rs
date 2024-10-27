@@ -1,156 +1,156 @@
-use super::{
+use crate::{
     de::{Deserialize, Deserializer},
     visitor::{BytesAccess, SeqAccess, Visitor},
 };
 
-pub struct BytesBufferDeserializer(pub(crate) Vec<u8>);
+pub struct BytesBufferDeserializer(pub Vec<u8>);
 
 impl Deserializer for BytesBufferDeserializer {
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `any`",
         ))
     }
 
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `unit`",
         ))
     }
 
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `bool`",
         ))
     }
 
-    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `u8`",
         ))
     }
 
-    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `u16`",
         ))
     }
 
-    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `u32`",
         ))
     }
 
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `u64`",
         ))
     }
 
-    fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `u128`",
         ))
     }
 
-    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `i8`",
         ))
     }
 
-    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `i16`",
         ))
     }
 
-    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `i32`",
         ))
     }
 
-    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `i64`",
         ))
     }
 
-    fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `i128`",
         ))
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `f32`",
         ))
     }
 
-    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `f64`",
         ))
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `char`",
         ))
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
@@ -158,23 +158,23 @@ impl Deserializer for BytesBufferDeserializer {
         visitor.visit_string(s.into_owned())
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `sequence`",
         ))
     }
 
-    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
         visitor.visit_bytes_buf(self.0)
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
@@ -182,11 +182,11 @@ impl Deserializer for BytesBufferDeserializer {
         visitor.visit_seq(seq)
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize bytes to `option`",
         ))
     }
@@ -218,7 +218,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `any`",
         ))
     }
@@ -227,7 +227,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `unit`",
         ))
     }
@@ -338,7 +338,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `string`",
         ))
     }
@@ -347,7 +347,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `seq`",
         ))
     }
@@ -364,7 +364,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `map`",
         ))
     }
@@ -373,7 +373,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::serde::de::Error::custom(
+        Err(crate::de::Error::custom(
             "failed to deserialize byte to `option`",
         ))
     }
@@ -404,7 +404,7 @@ impl Deserializer for ByteDeserializer {
 
 struct BytesSeqAccess(std::vec::IntoIter<u8>);
 impl SeqAccess for BytesSeqAccess {
-    fn next_element<D: Deserialize>(&mut self) -> Result<Option<D>, crate::serde::de::Error> {
+    fn next_element<D: Deserialize>(&mut self) -> Result<Option<D>, crate::de::Error> {
         match self.0.next() {
             Some(byte) => {
                 let v = D::deserialize(ByteDeserializer(byte))?;

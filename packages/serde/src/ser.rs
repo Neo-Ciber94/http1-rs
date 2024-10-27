@@ -11,8 +11,7 @@ use std::{
     },
 };
 
-use datetime::DateTime;
-use http1::common::map::OrderedMap;
+use orderedmap::OrderedMap;
 
 /// Serialize a sequence of items like a `Vec<T>` or array,
 pub trait SequenceSerializer {
@@ -426,12 +425,6 @@ impl<T: Serialize> Serialize for RwLock<T> {
             .read()
             .expect("failed to lock RwLock<T> for serialization");
         (*lock).serialize(serializer)
-    }
-}
-
-impl Serialize for DateTime {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-        serializer.serialize_u128(self.as_millis())
     }
 }
 

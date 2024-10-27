@@ -12,9 +12,6 @@ use std::{
     },
 };
 
-use datetime::DateTime;
-use http1::common::map::OrderedMap;
-
 use super::{
     expected::{Expected, TypeMismatchError},
     visitor::Visitor,
@@ -313,6 +310,7 @@ impl_deserialize_seq!(LinkedListVisitor => LinkedList<V> => push_back);
 impl_deserialize_seq!(BTreeSetVisitor => BTreeSet<V> => insert where V: Ord);
 impl_deserialize_seq!(BinaryHeapVisitor => BinaryHeap<V> => push where V: Ord);
 
+#[macro_export]
 macro_rules! impl_deserialize_map {
     ($visitor:ident => $T:ty => $insert_method:ident $(where $($tt:tt)*)?) => {
         struct $visitor<K, V>(PhantomData<(K,V)>);
@@ -323,7 +321,7 @@ macro_rules! impl_deserialize_map {
                 "map"
             }
 
-            fn visit_map<Map: super::visitor::MapAccess>(self, mut map: Map) -> Result<Self::Value, Error> {
+            fn visit_map<Map: $crate::visitor::MapAccess>(self, mut map: Map) -> Result<Self::Value, Error> {
                 let mut collection : $T = Default::default();
 
                 loop {
@@ -344,13 +342,12 @@ macro_rules! impl_deserialize_map {
                 deserializer.deserialize_map($visitor(PhantomData))
             }
         }
-
     };
 }
 
 impl_deserialize_map!(BTreeMapVisitor => BTreeMap<K, V> => insert where K: Ord);
 impl_deserialize_map!(HashMapVisitor => HashMap<K, V> => insert where K: Eq + std::hash::Hash);
-impl_deserialize_map!(OrderedMapVisitor => OrderedMap<K, V> => insert where K: Clone + Eq + std::hash::Hash);
+// impl_deserialize_map!(OrderedMapVisitor => OrderedMap<K, V> => insert where K: Clone + Eq + std::hash::Hash);
 
 struct F32Visitor;
 impl Visitor for F32Visitor {
@@ -887,12 +884,5 @@ impl<T: Deserialize> Deserialize for RwLock<T> {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
         let value = T::deserialize(deserializer)?;
         Ok(RwLock::new(value))
-    }
-}
-
-impl Deserialize for DateTime {
-    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error> {
-        let ms = deserializer.deserialize_u128(U128Visitor)?;
-        Ok(DateTime::with_millis(ms))
     }
 }

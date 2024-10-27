@@ -7,8 +7,9 @@ use http1::{
     response::Response,
     status::StatusCode,
 };
+use serde::ser::Serialize;
 
-use crate::{cookies::Cookie, mime, serde::ser::Serialize};
+use crate::{cookies::Cookie, mime};
 
 use super::IntoResponse;
 
@@ -73,7 +74,7 @@ where
 impl HttpResponse<()> {
     /// Creates a JSON `HttpResponse` from a serializable value.
     pub fn json<T: Serialize>(value: &T) -> Result<HttpResponse<String>, BoxError> {
-        let json = crate::serde::json::to_string(&value)?;
+        let json = serde::json::to_string(&value)?;
         let res = HttpResponse::ok(json)
             .append_header(headers::CONTENT_TYPE, mime::Mime::APPLICATION_JSON_UTF8);
         Ok(res)

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use http1::common::map::OrderedMap;
+use orderedmap::OrderedMap;
 
 use crate::routing::route::RouteSegment;
 

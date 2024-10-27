@@ -1,8 +1,8 @@
 use std::io::{BufReader, Read};
 
-use http1::common::map::OrderedMap;
+use orderedmap::OrderedMap;
 
-use crate::serde::de::{Deserializer, Error, Unexpected};
+use crate::de::{Deserializer, Error, Unexpected};
 
 use super::{
     number::Number,
@@ -383,25 +383,25 @@ impl<R: Read> JsonDeserializer<R> {
 }
 
 impl<R: Read> Deserializer for JsonDeserializer<R> {
-    fn deserialize_unit<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_unit<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         self.parse_null()?;
         visitor.visit_unit()
     }
 
-    fn deserialize_bool<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_bool<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_bool()?;
         visitor.visit_bool(value)
     }
 
-    fn deserialize_u8<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u8<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -414,9 +414,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_u16<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u16<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -429,9 +429,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_u32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u32<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -444,9 +444,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_u64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u64<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -459,9 +459,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_u128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_u128<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -474,9 +474,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_i8<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i8<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -486,9 +486,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_i16<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i16<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -498,9 +498,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_i32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i32<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -510,9 +510,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_i64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i64<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -522,9 +522,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_i128<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_i128<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -534,9 +534,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_f32<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f32<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -546,9 +546,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_f64<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_f64<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let value = self.parse_number()?;
 
@@ -558,9 +558,9 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         }
     }
 
-    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let mut string = self.parse_string()?;
 
@@ -578,25 +578,25 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         visitor.visit_char(c)
     }
 
-    fn deserialize_string<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_string<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let string = self.parse_string()?;
         visitor.visit_string(string)
     }
 
-    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let seq = self.parse_array()?;
         visitor.visit_seq(JsonSeqAccess(seq.into_iter()))
     }
 
-    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value, crate::serde::de::Error>
+    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let map = self.parse_object()?;
         visitor.visit_map(JsonObjectAccess::new(map.into_iter()))
@@ -604,7 +604,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
 
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let json_value = self.parse_json()?;
         json_value.deserialize_any(visitor)
@@ -612,7 +612,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
 
     fn deserialize_option<V>(mut self, visitor: V) -> Result<V::Value, Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let json_value = self.parse_json()?;
         json_value.deserialize_option(visitor)
@@ -620,7 +620,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
 
     fn deserialize_bytes_buf<V>(mut self, visitor: V) -> Result<V::Value, Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let json_value = self.parse_json()?;
         match json_value {
@@ -628,16 +628,13 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
                 let bytes = s.into_bytes();
                 visitor.visit_bytes_buf(bytes)
             }
-            _ => Err(Error::mismatch(
-                crate::serde::de::Unexpected::Bytes,
-                "bytes",
-            )),
+            _ => Err(Error::mismatch(crate::de::Unexpected::Bytes, "bytes")),
         }
     }
 
     fn deserialize_bytes_seq<V>(mut self, visitor: V) -> Result<V::Value, Error>
     where
-        V: crate::serde::visitor::Visitor,
+        V: crate::visitor::Visitor,
     {
         let json_value = self.parse_json()?;
         match json_value {
@@ -654,7 +651,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
 mod tests {
     use crate::{
         impl_deserialize_struct,
-        serde::json::{from_str, value::JsonValue},
+        json::{from_str, value::JsonValue},
     };
 
     #[test]
@@ -972,30 +969,30 @@ mod tests {
             friends: Vec<BluePeriodCharacter>,
         }
 
-        impl crate::serde::de::Deserialize for BluePeriodCharacter {
-            fn deserialize<D: crate::serde::de::Deserializer>(
+        impl crate::de::Deserialize for BluePeriodCharacter {
+            fn deserialize<D: crate::de::Deserializer>(
                 deserializer: D,
-            ) -> Result<Self, crate::serde::de::Error> {
+            ) -> Result<Self, crate::de::Error> {
                 struct BluePeriodCharacterVisitor;
-                impl crate::serde::visitor::Visitor for BluePeriodCharacterVisitor {
+                impl crate::visitor::Visitor for BluePeriodCharacterVisitor {
                     type Value = BluePeriodCharacter;
 
                     fn expected(&self) -> &'static str {
                         "character"
                     }
 
-                    fn visit_map<Map: crate::serde::visitor::MapAccess>(
+                    fn visit_map<Map: crate::visitor::MapAccess>(
                         self,
                         mut map: Map,
-                    ) -> Result<Self::Value, crate::serde::de::Error> {
-                        let mut name: Result<String, crate::serde::de::Error> =
-                            Err(crate::serde::de::Error::custom("missing field 'name'"));
-                        let mut age: Result<u32, crate::serde::de::Error> =
-                            Err(crate::serde::de::Error::custom("missing field 'age'"));
-                        let mut likes_art: Result<bool, crate::serde::de::Error> =
-                            Err(crate::serde::de::Error::custom("missing field 'likes_art'"));
-                        let mut friends: Result<Vec<BluePeriodCharacter>, crate::serde::de::Error> =
-                            Err(crate::serde::de::Error::custom("missing field 'friends'"));
+                    ) -> Result<Self::Value, crate::de::Error> {
+                        let mut name: Result<String, crate::de::Error> =
+                            Err(crate::de::Error::custom("missing field 'name'"));
+                        let mut age: Result<u32, crate::de::Error> =
+                            Err(crate::de::Error::custom("missing field 'age'"));
+                        let mut likes_art: Result<bool, crate::de::Error> =
+                            Err(crate::de::Error::custom("missing field 'likes_art'"));
+                        let mut friends: Result<Vec<BluePeriodCharacter>, crate::de::Error> =
+                            Err(crate::de::Error::custom("missing field 'friends'"));
 
                         while let Some(k) = map.next_key::<String>()? {
                             match k.as_str() {
@@ -1003,7 +1000,7 @@ mod tests {
                                     name = match map.next_value::<String>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::serde::de::Error::custom(
+                                            return Err(crate::de::Error::custom(
                                                 "missing field 'name'",
                                             ))
                                         }
@@ -1013,7 +1010,7 @@ mod tests {
                                     age = match map.next_value::<u32>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::serde::de::Error::custom(
+                                            return Err(crate::de::Error::custom(
                                                 "missing field 'age'",
                                             ))
                                         }
@@ -1023,7 +1020,7 @@ mod tests {
                                     likes_art = match map.next_value::<bool>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::serde::de::Error::custom(
+                                            return Err(crate::de::Error::custom(
                                                 "missing field 'likes_art'",
                                             ))
                                         }
@@ -1033,14 +1030,14 @@ mod tests {
                                     friends = match map.next_value::<Vec<BluePeriodCharacter>>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::serde::de::Error::custom(
+                                            return Err(crate::de::Error::custom(
                                                 "missing field 'friends'",
                                             ))
                                         }
                                     };
                                 }
                                 _ => {
-                                    return Err(crate::serde::de::Error::custom(format!(
+                                    return Err(crate::de::Error::custom(format!(
                                         "Unknown field '{k}'"
                                     )));
                                 }

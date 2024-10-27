@@ -6,7 +6,6 @@ use http1_web::{
     app::Scope,
     cookies::{Cookie, Cookies},
     forms::form::Form,
-    impl_serde_struct,
     path::Path,
     redirect::Redirect,
     state::State,
@@ -47,7 +46,7 @@ struct LoginUser {
     pub username: String,
 }
 
-impl_serde_struct!(LoginUser => {
+serde::impl_serde_struct!(LoginUser => {
      username: String
 });
 
@@ -56,7 +55,7 @@ struct CreateTodo {
     pub description: Option<String>,
 }
 
-impl_serde_struct!(CreateTodo => {
+serde::impl_serde_struct!(CreateTodo => {
      title: String,
      description: Option<String>,
 });
@@ -67,7 +66,7 @@ struct UpdateTodo {
     pub description: Option<String>,
 }
 
-impl_serde_struct!(UpdateTodo => {
+serde::impl_serde_struct!(UpdateTodo => {
      id: u64,
      title: String,
      description: Option<String>,
@@ -198,7 +197,7 @@ fn set_flash_message<B>(
     kind: AlertKind,
     message: impl Into<String>,
 ) -> Result<(), BoxError> {
-    let json = http1_web::serde::json::to_string(&AlertProps::new(message, kind))?;
+    let json = serde::json::to_string(&AlertProps::new(message, kind))?;
     res.headers_mut().insert(
         headers::SET_COOKIE,
         Cookie::new(COOKIE_FLASH_MESSAGE, json)

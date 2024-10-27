@@ -1,5 +1,5 @@
 use http1::error::BoxError;
-use http1_web::serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
+use serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
@@ -47,7 +47,7 @@ impl KeyValueDatabase {
         let mut json = if bytes.is_empty() {
             JsonValue::Object(Default::default())
         } else {
-            http1_web::serde::json::from_bytes::<JsonValue>(bytes)
+            serde::json::from_bytes::<JsonValue>(bytes)
                 .map_err(|err| std::io::Error::other(err))?
         };
 
@@ -59,7 +59,7 @@ impl KeyValueDatabase {
     /// Sets a key-value entry.
     pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
         self.tap(|json| {
-            let new_value = http1_web::serde::json::to_value(&value)
+            let new_value = serde::json::to_value(&value)
                 .map_err(|err| std::io::Error::other(err))?;
             json.try_insert(key.as_ref(), new_value)
                 .map_err(|err| std::io::Error::other(err))?;
@@ -78,7 +78,7 @@ impl KeyValueDatabase {
                 None => return Ok(None),
             };
 
-            let value = http1_web::serde::json::from_value::<T>(value.clone())
+            let value = serde::json::from_value::<T>(value.clone())
                 .map_err(|err| std::io::Error::other(err))?;
             Ok(Some(value))
         })
@@ -97,7 +97,7 @@ impl KeyValueDatabase {
                             continue;
                         }
 
-                        match http1_web::serde::json::from_value::<T>(v.clone()) {
+                        match serde::json::from_value::<T>(v.clone()) {
                             Ok(x) => values.push(x),
                             Err(err) => {
                                 log::warn!(
@@ -174,7 +174,7 @@ impl KeyValueDatabase {
                                 return Ok(true);
                             }
 
-                            let value = http1_web::serde::json::from_value(v.clone())?;
+                            let value = serde::json::from_value(v.clone())?;
                             let should_keep = predicate(k, value);
 
                             if !should_keep {

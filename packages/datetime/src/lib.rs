@@ -1,3 +1,5 @@
+mod serde;
+
 use std::{
     fmt::Display,
     ops::Add,

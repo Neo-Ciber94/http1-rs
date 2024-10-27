@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::serde::expected::Expected;
+use crate::expected::Expected;
 
 #[derive(Clone, Copy, Debug, PartialOrd)]
 pub enum Number {

@@ -7,12 +7,12 @@ use http1_web::{
     forms::multipart::{FormFile, Multipart},
     fs::{ServeDir, ServeFile},
     handler::BoxedHandler,
-    html, impl_deserialize_struct,
+    html,
     json::Json,
     middleware::sessions::{provider::SessionProvider, session::Session, store::MemoryStore},
     path::Path,
-    serde::json::value::JsonValue,
 };
+use serde::json::value::JsonValue;
 use std::{collections::HashMap, fs::File};
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ struct Upload {
     file: FormFile,
 }
 
-impl_deserialize_struct!(Upload => {
+serde::impl_deserialize_struct!(Upload => {
     string: String,
     file: FormFile
 });
@@ -99,12 +99,12 @@ fn main() -> std::io::Result<()> {
         })
         .post("/json", |json: Json<HashMap<String, JsonValue>>| {
             println!("{:?}", json);
-            Json(http1_web::json!({
+            Json(serde::json!({
                 hello: "world"
             }))
         })
         .get("/dynamic/:val", |path: Path<u32>| {
-            Json(http1_web::json!({
+            Json(serde::json!({
                param: path.0
             }))
         })

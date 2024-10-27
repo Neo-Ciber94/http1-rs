@@ -3,7 +3,7 @@ use std::{
     str::{FromStr, Split},
 };
 
-use crate::common::map::OrderedMap;
+use orderedmap::OrderedMap;
 
 use super::uri::InvalidUri;
 
@@ -241,7 +241,7 @@ impl QueryMap {
     }
 }
 
-pub type IntoIter = crate::common::map::IntoIter<String, QueryValue>;
+pub type IntoIter = orderedmap::IntoIter<String, QueryValue>;
 
 impl IntoIterator for QueryMap {
     type Item = (String, QueryValue);

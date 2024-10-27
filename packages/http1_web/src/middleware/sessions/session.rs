@@ -7,12 +7,9 @@ use std::{
 use datetime::DateTime;
 use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 
-use crate::{
-    from_request::FromRequestRef,
-    impl_serde_enum_str, impl_serde_struct,
-    serde::{de::Deserialize, ser::Serialize},
-    IntoResponse,
-};
+use crate::{from_request::FromRequestRef, IntoResponse};
+
+use serde::{de::Deserialize, impl_serde_enum_str, impl_serde_struct, ser::Serialize};
 
 impl_serde_struct!(Session => {
     id: String,
@@ -83,7 +80,7 @@ impl Session {
             None => return Ok(None),
         };
 
-        let value = crate::serde::json::from_bytes(bytes)?;
+        let value = serde::json::from_bytes(bytes)?;
         Ok(Some(value))
     }
 
@@ -109,7 +106,7 @@ impl Session {
         value: T,
     ) -> Result<(), BoxError> {
         let mut inner = self.inner.write().expect("failed to lock session data");
-        let bytes = crate::serde::json::to_bytes(&value)?;
+        let bytes = serde::json::to_bytes(&value)?;
         inner.data.insert(key.into(), bytes.into_boxed_slice());
         inner.status = SessionStatus::Modified;
         Ok(())
@@ -135,7 +132,7 @@ impl Session {
         {
             let mut inner = self.inner.write().expect("failed to lock session data");
             let value = f();
-            let bytes = crate::serde::json::to_bytes(&value)?;
+            let bytes = serde::json::to_bytes(&value)?;
 
             inner
                 .data

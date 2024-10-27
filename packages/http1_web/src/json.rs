@@ -8,11 +8,9 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{
-    from_request::FromRequest,
-    serde::{self, de::Deserialize, ser::Serialize},
-    IntoResponse,
-};
+use crate::{from_request::FromRequest, IntoResponse};
+
+use serde::{self, de::Deserialize, ser::Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Json<T>(pub T);
