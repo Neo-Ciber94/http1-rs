@@ -1,23 +1,13 @@
 use http1::error::BoxError;
 use serde::{de::Deserialize, json::value::JsonValue, ser::Serialize};
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
-pub struct SetValueError;
-
-impl Display for SetValueError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "failed to set value")
-    }
-}
-
+/// A key-value database.
 #[derive(Debug, Clone)]
 pub struct KeyValueDatabase(PathBuf);
 
 impl KeyValueDatabase {
+    /// Constructs a new key-value database within the given path.
     pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let cwd = std::env::current_dir()?;
         let file_path = cwd.join(path);
@@ -58,8 +48,7 @@ impl KeyValueDatabase {
     /// Sets a key-value entry.
     pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
         self.tap(|json| {
-            let new_value =
-                serde::json::to_value(&value).map_err(std::io::Error::other)?;
+            let new_value = serde::json::to_value(&value).map_err(std::io::Error::other)?;
             json.try_insert(key.as_ref(), new_value)
                 .map_err(std::io::Error::other)?;
             Ok(())
@@ -77,8 +66,8 @@ impl KeyValueDatabase {
                 None => return Ok(None),
             };
 
-            let value = serde::json::from_value::<T>(value.clone())
-                .map_err(std::io::Error::other)?;
+            let value =
+                serde::json::from_value::<T>(value.clone()).map_err(std::io::Error::other)?;
             Ok(Some(value))
         })
     }
