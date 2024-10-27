@@ -29,112 +29,112 @@ impl Deserializer for QueryDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `any`"))
+        Err(Error::error("cannot deserialize query params to `any`"))
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `unit`"))
+        Err(Error::error("cannot deserialize query params to `unit`"))
     }
 
     fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `bool`"))
+        Err(Error::error("cannot deserialize query params to `bool`"))
     }
 
     fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `u8`"))
+        Err(Error::error("cannot deserialize query params to `u8`"))
     }
 
     fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `u16`"))
+        Err(Error::error("cannot deserialize query params to `u16`"))
     }
 
     fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `u32`"))
+        Err(Error::error("cannot deserialize query params to `u32`"))
     }
 
     fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `u64`"))
+        Err(Error::error("cannot deserialize query params to `u64`"))
     }
 
     fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `u128`"))
+        Err(Error::error("cannot deserialize query params to `u128`"))
     }
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `i8`"))
+        Err(Error::error("cannot deserialize query params to `i8`"))
     }
 
     fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `i16`"))
+        Err(Error::error("cannot deserialize query params to `i16`"))
     }
 
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `i32`"))
+        Err(Error::error("cannot deserialize query params to `i32`"))
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `i64`"))
+        Err(Error::error("cannot deserialize query params to `i64`"))
     }
 
     fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `i128`"))
+        Err(Error::error("cannot deserialize query params to `i128`"))
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `f32`"))
+        Err(Error::error("cannot deserialize query params to `f32`"))
     }
 
     fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `f64`"))
+        Err(Error::error("cannot deserialize query params to `f64`"))
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `char`"))
+        Err(Error::error("cannot deserialize query params to `char`"))
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
@@ -149,7 +149,7 @@ impl Deserializer for QueryDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `seq`"))
+        Err(Error::error("cannot deserialize query params to `seq`"))
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
@@ -166,21 +166,21 @@ impl Deserializer for QueryDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `option`"))
+        Err(Error::error("cannot deserialize query params to `option`"))
     }
 
     fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `bytes`"))
+        Err(Error::error("cannot deserialize query params to `bytes`"))
     }
 
     fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(Error::custom("cannot deserialize query params to `bytes`"))
+        Err(Error::error("cannot deserialize query params to `bytes`"))
     }
 }
 

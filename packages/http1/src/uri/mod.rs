@@ -1,3 +1,5 @@
+#![allow(clippy::module_inception)]
+
 pub mod authority;
 pub mod path_query;
 pub mod scheme;

@@ -19,7 +19,7 @@ use super::{
 
 /// A JSON value, which can represent various types of data such as numbers, strings,
 /// booleans, arrays, objects, or null values.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum JsonValue {
     /// A numeric value (can be a float, integer, or unsigned integer).
     Number(Number),
@@ -32,6 +32,7 @@ pub enum JsonValue {
     /// An object (a map from strings to JSON values).
     Object(OrderedMap<String, JsonValue>),
     /// A null value.
+    #[default]
     Null,
 }
 
@@ -427,12 +428,6 @@ impl PartialEq for JsonValue {
             (JsonValue::Object(a), JsonValue::Object(b)) => a.iter().eq(b.iter()),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
-    }
-}
-
-impl Default for JsonValue {
-    fn default() -> Self {
-        JsonValue::Null
     }
 }
 
@@ -997,7 +992,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Null => visitor.visit_unit(),
-            _ => Err(Error::custom("expected unit")),
+            _ => Err(Error::error("expected unit")),
         }
     }
 
@@ -1007,7 +1002,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Bool(value) => visitor.visit_bool(value),
-            _ => Err(Error::custom("expected boolean")),
+            _ => Err(Error::error("expected boolean")),
         }
     }
 
@@ -1017,10 +1012,10 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value.as_u8().ok_or_else(|| Error::custom("expected u8"))?;
+                let n = value.as_u8().ok_or_else(|| Error::error("expected u8"))?;
                 visitor.visit_u8(n)
             }
-            _ => Err(Error::custom("expected u8")),
+            _ => Err(Error::error("expected u8")),
         }
     }
 
@@ -1032,10 +1027,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u16()
-                    .ok_or_else(|| Error::custom("expected u16"))?;
+                    .ok_or_else(|| Error::error("expected u16"))?;
                 visitor.visit_u16(n)
             }
-            _ => Err(Error::custom("expected u16")),
+            _ => Err(Error::error("expected u16")),
         }
     }
 
@@ -1047,10 +1042,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u32()
-                    .ok_or_else(|| Error::custom("expected u32"))?;
+                    .ok_or_else(|| Error::error("expected u32"))?;
                 visitor.visit_u32(n)
             }
-            _ => Err(Error::custom("expected u32")),
+            _ => Err(Error::error("expected u32")),
         }
     }
 
@@ -1062,10 +1057,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u64()
-                    .ok_or_else(|| Error::custom("expected u64"))?;
+                    .ok_or_else(|| Error::error("expected u64"))?;
                 visitor.visit_u64(n)
             }
-            _ => Err(Error::custom("expected u64")),
+            _ => Err(Error::error("expected u64")),
         }
     }
 
@@ -1077,10 +1072,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_u128()
-                    .ok_or_else(|| Error::custom("expected u128"))?;
+                    .ok_or_else(|| Error::error("expected u128"))?;
                 visitor.visit_u128(n)
             }
-            _ => Err(Error::custom("expected u128")),
+            _ => Err(Error::error("expected u128")),
         }
     }
 
@@ -1090,10 +1085,10 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Number(value) => {
-                let n = value.as_i8().ok_or_else(|| Error::custom("expected i8"))?;
+                let n = value.as_i8().ok_or_else(|| Error::error("expected i8"))?;
                 visitor.visit_i8(n)
             }
-            _ => Err(Error::custom("expected i8")),
+            _ => Err(Error::error("expected i8")),
         }
     }
 
@@ -1105,10 +1100,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i16()
-                    .ok_or_else(|| Error::custom("expected i16"))?;
+                    .ok_or_else(|| Error::error("expected i16"))?;
                 visitor.visit_i16(n)
             }
-            _ => Err(Error::custom("expected i16")),
+            _ => Err(Error::error("expected i16")),
         }
     }
 
@@ -1120,10 +1115,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i32()
-                    .ok_or_else(|| Error::custom("expected i32"))?;
+                    .ok_or_else(|| Error::error("expected i32"))?;
                 visitor.visit_i32(n)
             }
-            _ => Err(Error::custom("expected i32")),
+            _ => Err(Error::error("expected i32")),
         }
     }
 
@@ -1135,10 +1130,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i64()
-                    .ok_or_else(|| Error::custom("expected i64"))?;
+                    .ok_or_else(|| Error::error("expected i64"))?;
                 visitor.visit_i64(n)
             }
-            _ => Err(Error::custom("expected i64")),
+            _ => Err(Error::error("expected i64")),
         }
     }
 
@@ -1150,10 +1145,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_i128()
-                    .ok_or_else(|| Error::custom("expected i128"))?;
+                    .ok_or_else(|| Error::error("expected i128"))?;
                 visitor.visit_i128(n)
             }
-            _ => Err(Error::custom("expected i128")),
+            _ => Err(Error::error("expected i128")),
         }
     }
 
@@ -1165,10 +1160,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_f32()
-                    .ok_or_else(|| Error::custom("expected f32"))?;
+                    .ok_or_else(|| Error::error("expected f32"))?;
                 visitor.visit_f32(n)
             }
-            _ => Err(Error::custom("expected f32")),
+            _ => Err(Error::error("expected f32")),
         }
     }
 
@@ -1180,10 +1175,10 @@ impl Deserializer for JsonValue {
             JsonValue::Number(value) => {
                 let n = value
                     .as_f64()
-                    .ok_or_else(|| Error::custom("expected f64"))?;
+                    .ok_or_else(|| Error::error("expected f64"))?;
                 visitor.visit_f64(n)
             }
-            _ => Err(Error::custom("expected f64")),
+            _ => Err(Error::error("expected f64")),
         }
     }
 
@@ -1194,17 +1189,17 @@ impl Deserializer for JsonValue {
         match self {
             JsonValue::String(mut value) => {
                 if value.is_empty() {
-                    return Err(Error::custom("expected char but was empty string"));
+                    return Err(Error::error("expected char but was empty string"));
                 }
 
                 if value.len() > 1 {
-                    return Err(Error::custom("expected char but was string"));
+                    return Err(Error::error("expected char but was string"));
                 }
 
                 let c = value.pop().unwrap();
                 visitor.visit_char(c)
             }
-            _ => Err(Error::custom("expected char")),
+            _ => Err(Error::error("expected char")),
         }
     }
 
@@ -1214,7 +1209,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::String(value) => visitor.visit_string(value),
-            _ => Err(Error::custom("expected string")),
+            _ => Err(Error::error("expected string")),
         }
     }
 
@@ -1224,7 +1219,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Array(value) => visitor.visit_seq(JsonSeqAccess(value.into_iter())),
-            _ => Err(Error::custom("expected array")),
+            _ => Err(Error::error("expected array")),
         }
     }
 
@@ -1234,7 +1229,7 @@ impl Deserializer for JsonValue {
     {
         match self {
             JsonValue::Object(value) => visitor.visit_map(JsonObjectAccess::new(value.into_iter())),
-            _ => Err(Error::custom("expected object")),
+            _ => Err(Error::error("expected object")),
         }
     }
 
@@ -1290,7 +1285,7 @@ impl Deserializer for JsonValue {
                 let bytes = value.into_bytes();
                 visitor.visit_bytes_seq(JsonBytesAccess(bytes))
             }
-            _ => Err(Error::custom("expected bytes")),
+            _ => Err(Error::error("expected bytes")),
         }
     }
 }

@@ -57,12 +57,11 @@ impl Mime {
         let type_: Cow<'static, str> = type_.into();
         let subtype: Cow<'static, str> = subtype.into();
 
-        match Mime::get_any_mime(type_.as_ref(), subtype.as_ref(), parameter.as_deref()) {
-            Some(mime) => return mime,
-            _ => {}
+        if let Some(mime) = Mime::get_any_mime(&type_, &subtype, parameter.as_deref()) {
+            return mime;
         }
 
-        match Mime::get_mime(type_.as_ref(), subtype.as_ref(), parameter.as_deref()) {
+        match Mime::get_mime(&type_, &subtype, parameter.as_deref()) {
             Some(mime) => mime,
             None => Self::new_(type_, subtype, parameter).expect("invalid mime values"),
         }
@@ -82,12 +81,17 @@ impl Mime {
 
     #[inline]
     pub fn ty(&self) -> &str {
-        &self.type_.as_ref()
+        self.type_.as_ref()
     }
 
     #[inline]
     pub fn subtype(&self) -> &str {
-        &self.subtype.as_ref()
+        self.subtype.as_ref()
+    }
+
+    #[inline]
+    pub fn parameter(&self) -> Option<&str> {
+        self.parameter.as_deref()
     }
 
     pub fn matches(&self, other: &Mime) -> bool {
@@ -177,7 +181,7 @@ impl FromStr for Mime {
 
         let (type_, subtype) = s.split_once("/").ok_or(InvalidMimeType::InvalidStr)?;
 
-        match Mime::get_mime(type_.as_ref(), subtype.as_ref(), parameter.as_deref()) {
+        match Mime::get_mime(type_, subtype, parameter) {
             Some(mime) => Ok(mime),
             None => {
                 let parameter = parameter.map(|x| Cow::Owned(x.to_owned()));

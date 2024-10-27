@@ -23,14 +23,14 @@ impl Deserializer for DeserializeFromStr {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom("cannot deserialize str to `any`"))
+        Err(crate::de::Error::error("cannot deserialize str to `any`"))
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom("cannot deserialize str to `unit`"))
+        Err(crate::de::Error::error("cannot deserialize str to `unit`"))
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
@@ -47,7 +47,7 @@ impl Deserializer for DeserializeFromStr {
                 let value = bool::from_str(&x).map_err(Error::error)?;
                 visitor.visit_bool(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::custom(
+            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
                 "cannot deserialize list to `bool`",
             )),
         }
@@ -63,7 +63,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_u8(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `u8`"))
+                Err(crate::de::Error::error("cannot deserialize list to `u8`"))
             }
         }
     }
@@ -78,7 +78,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_u16(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `u16`"))
+                Err(crate::de::Error::error("cannot deserialize list to `u16`"))
             }
         }
     }
@@ -93,7 +93,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_u32(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `u32`"))
+                Err(crate::de::Error::error("cannot deserialize list to `u32`"))
             }
         }
     }
@@ -108,7 +108,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_u64(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `u64`"))
+                Err(crate::de::Error::error("cannot deserialize list to `u64`"))
             }
         }
     }
@@ -122,7 +122,7 @@ impl Deserializer for DeserializeFromStr {
                 let value = u128::from_str(&x).map_err(Error::error)?;
                 visitor.visit_u128(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::custom(
+            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
                 "cannot deserialize list to `u128`",
             )),
         }
@@ -138,7 +138,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_i8(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `i8`"))
+                Err(crate::de::Error::error("cannot deserialize list to `i8`"))
             }
         }
     }
@@ -153,7 +153,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_i16(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `i16`"))
+                Err(crate::de::Error::error("cannot deserialize list to `i16`"))
             }
         }
     }
@@ -168,7 +168,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_i32(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `i32`"))
+                Err(crate::de::Error::error("cannot deserialize list to `i32`"))
             }
         }
     }
@@ -183,7 +183,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_i64(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `i64`"))
+                Err(crate::de::Error::error("cannot deserialize list to `i64`"))
             }
         }
     }
@@ -197,7 +197,7 @@ impl Deserializer for DeserializeFromStr {
                 let value = i128::from_str(&x).map_err(Error::error)?;
                 visitor.visit_i128(value)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::custom(
+            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
                 "cannot deserialize list to `i128`",
             )),
         }
@@ -213,7 +213,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_f32(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `f32`"))
+                Err(crate::de::Error::error("cannot deserialize list to `f32`"))
             }
         }
     }
@@ -228,7 +228,7 @@ impl Deserializer for DeserializeFromStr {
                 visitor.visit_f64(value)
             }
             DeserializeFromStr::List(_) => {
-                Err(crate::de::Error::custom("cannot deserialize list to `f64`"))
+                Err(crate::de::Error::error("cannot deserialize list to `f64`"))
             }
         }
     }
@@ -240,11 +240,11 @@ impl Deserializer for DeserializeFromStr {
         match self {
             DeserializeFromStr::Str(mut s) => {
                 if s.is_empty() {
-                    return Err(crate::de::Error::custom("expected char but was empty"));
+                    return Err(crate::de::Error::error("expected char but was empty"));
                 }
 
                 if s.len() != 1 {
-                    return Err(crate::de::Error::custom(format!(
+                    return Err(crate::de::Error::error(format!(
                         "cannot deserialize `{s}` to char"
                     )));
                 }
@@ -252,7 +252,7 @@ impl Deserializer for DeserializeFromStr {
                 let char = s.pop().expect("unable to get char");
                 visitor.visit_char(char)
             }
-            DeserializeFromStr::List(_) => Err(crate::de::Error::custom(
+            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
                 "cannot deserialize list to `char`",
             )),
         }
@@ -264,7 +264,7 @@ impl Deserializer for DeserializeFromStr {
     {
         match self {
             DeserializeFromStr::Str(s) => visitor.visit_string(s),
-            DeserializeFromStr::List(_) => Err(crate::de::Error::custom(
+            DeserializeFromStr::List(_) => Err(crate::de::Error::error(
                 "cannot deserialize list to `string`",
             )),
         }
@@ -276,7 +276,7 @@ impl Deserializer for DeserializeFromStr {
     {
         match self {
             DeserializeFromStr::Str(_) => {
-                Err(crate::de::Error::custom("cannot deserialize str to `map`"))
+                Err(crate::de::Error::error("cannot deserialize str to `map`"))
             }
             DeserializeFromStr::List(vec) => visitor.visit_seq(FromStrSeqAccess(vec.into_iter())),
         }
@@ -286,7 +286,7 @@ impl Deserializer for DeserializeFromStr {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom("cannot deserialize str to `map`"))
+        Err(crate::de::Error::error("cannot deserialize str to `map`"))
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
@@ -300,7 +300,7 @@ impl Deserializer for DeserializeFromStr {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "cannot deserialize str to `bytes`",
         ))
     }
@@ -309,7 +309,7 @@ impl Deserializer for DeserializeFromStr {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "cannot deserialize str to `bytes`",
         ))
     }
@@ -335,105 +335,105 @@ impl Deserializer for DeserializeOnlyString {
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `any`"))
+        Err(super::de::Error::error("cannot deserialize str to `any`"))
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `unit`"))
+        Err(super::de::Error::error("cannot deserialize str to `unit`"))
     }
 
     fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `bool`"))
+        Err(super::de::Error::error("cannot deserialize str to `bool`"))
     }
 
     fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `u8`"))
+        Err(super::de::Error::error("cannot deserialize str to `u8`"))
     }
 
     fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `u16`"))
+        Err(super::de::Error::error("cannot deserialize str to `u16`"))
     }
 
     fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `u32`"))
+        Err(super::de::Error::error("cannot deserialize str to `u32`"))
     }
 
     fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `u64`"))
+        Err(super::de::Error::error("cannot deserialize str to `u64`"))
     }
 
     fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `u128`"))
+        Err(super::de::Error::error("cannot deserialize str to `u128`"))
     }
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `i8`"))
+        Err(super::de::Error::error("cannot deserialize str to `i8`"))
     }
 
     fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `i16`"))
+        Err(super::de::Error::error("cannot deserialize str to `i16`"))
     }
 
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `i32`"))
+        Err(super::de::Error::error("cannot deserialize str to `i32`"))
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `i64`"))
+        Err(super::de::Error::error("cannot deserialize str to `i64`"))
     }
 
     fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `i128`"))
+        Err(super::de::Error::error("cannot deserialize str to `i128`"))
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `f32`"))
+        Err(super::de::Error::error("cannot deserialize str to `f32`"))
     }
 
     fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, super::de::Error>
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `f64`"))
+        Err(super::de::Error::error("cannot deserialize str to `f64`"))
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
@@ -443,11 +443,11 @@ impl Deserializer for DeserializeOnlyString {
         let mut s = self.0;
 
         if s.is_empty() {
-            return Err(super::de::Error::custom("expected char but was empty"));
+            return Err(super::de::Error::error("expected char but was empty"));
         }
 
         if s.len() != 1 {
-            return Err(super::de::Error::custom(format!(
+            return Err(super::de::Error::error(format!(
                 "cannot deserialize `{s}` to char"
             )));
         }
@@ -467,7 +467,7 @@ impl Deserializer for DeserializeOnlyString {
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom(
+        Err(super::de::Error::error(
             "cannot deserialize str to `sequence`",
         ))
     }
@@ -476,7 +476,7 @@ impl Deserializer for DeserializeOnlyString {
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom("cannot deserialize str to `map`"))
+        Err(super::de::Error::error("cannot deserialize str to `map`"))
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, super::de::Error>
@@ -498,7 +498,7 @@ impl Deserializer for DeserializeOnlyString {
     where
         V: Visitor,
     {
-        Err(super::de::Error::custom(
+        Err(super::de::Error::error(
             "cannot deserialize str to `bytes`",
         ))
     }

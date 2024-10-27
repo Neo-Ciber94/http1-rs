@@ -288,7 +288,7 @@ fn write_element<W: std::fmt::Write>(
         let len = el.children.len();
 
         if len > 0 {
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
 
         for node in el.children() {
@@ -316,7 +316,7 @@ fn write_element<W: std::fmt::Write>(
     Ok(())
 }
 
-fn escape_html<'a>(input: &'a str) -> Cow<'a, str> {
+fn escape_html(input: &str) -> Cow<'_, str> {
     if !input.contains(|c| matches!(c, '&' | '<' | '>' | '"' | '\'')) {
         return Cow::Borrowed(input);
     }

@@ -64,7 +64,7 @@ fn get_seed() -> u128 {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("time went backwards");
-    let ms = duration.as_millis() as u128;
+    let ms = duration.as_millis();
     let ns = duration.subsec_nanos() as u128;
     let timestamp = (ms << 64) | ns;
 

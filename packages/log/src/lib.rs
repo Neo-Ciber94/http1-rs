@@ -70,7 +70,7 @@ static MIN_LOG_LEVEL: AtomicI8 = AtomicI8::new(0);
 
 /// Sets the current logger.
 pub fn set_logger<T: Logger + 'static>(logger: T) {
-    if let Err(_) = GLOBAL_LOGGER.set(Box::new(logger)) {
+    if GLOBAL_LOGGER.set(Box::new(logger)).is_err() {
         panic!("logger was already set")
     }
 }

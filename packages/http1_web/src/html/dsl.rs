@@ -240,7 +240,7 @@ fn __html_element<T: IntoChildren>(
             .elements
             .push(Element::builder(tag).is_void(is_void).build());
 
-        global.context.get_or_insert_with(|| Default::default());
+        global.context.get_or_insert_with(Default::default);
     });
 
     let children = content.into_children();
@@ -319,7 +319,7 @@ pub fn attr(name: impl Into<String>, value: impl IntoAttrValue) {
                 }
                 AttrValue::Bool(b) => {
                     // If the boolean is false we can omit the value
-                    if b == false {
+                    if !b {
                         return;
                     }
 

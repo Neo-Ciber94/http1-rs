@@ -59,6 +59,7 @@ pub struct Cookie {
 }
 
 impl Cookie {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Builder {
         Builder(Cookie {
             name: name.into(),

@@ -194,6 +194,6 @@ impl FromRequestRef for Session {
         req.extensions()
             .get::<Session>()
             .cloned()
-            .ok_or_else(|| SessionError)
+            .ok_or(SessionError)
     }
 }

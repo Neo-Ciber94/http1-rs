@@ -35,6 +35,12 @@ impl MemoryStore {
     }
 }
 
+impl Default for MemoryStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStore {
     fn get_session(&self, session_id: &str) -> Option<&Session> {
         self.0.get(session_id).filter(|x| x.is_valid())

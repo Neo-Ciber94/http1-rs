@@ -29,10 +29,11 @@ pub struct SessionProvider<S> {
 }
 
 impl SessionProvider<()> {
-    pub fn new() -> Builder {
+    pub fn builder() -> Builder {
         Builder::new(generate_session_id)
     }
 }
+
 
 pub struct Builder {
     cookie_name: String,
@@ -92,14 +93,14 @@ impl<S: SessionStore> SessionProvider<S> {
             ErrorResponse::from(ErrorStatusCode::InternalServerError)
         })?;
 
-        let cookies = Cookies::from_request_ref(&req).unwrap_or_default();
+        let cookies = Cookies::from_request_ref(req).unwrap_or_default();
 
         let mut is_new_session = false;
         let session_id = match cookies.get(&self.cookie_name) {
             Some(x) => x.value().to_owned(),
             None => {
                 is_new_session = true;
-                (self.id_generator)(&req)
+                (self.id_generator)(req)
             }
         };
 

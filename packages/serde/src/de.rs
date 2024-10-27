@@ -20,16 +20,11 @@ use super::{
 /// Represents a deserialization error.
 #[derive(Debug)]
 pub enum Error {
-    Custom(String),
     Mismatch(TypeMismatchError),
     Other(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl Error {
-    pub fn custom(msg: impl Into<String>) -> Self {
-        Error::Custom(msg.into())
-    }
-
     pub fn error<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(error: E) -> Self {
         Error::Other(error.into())
     }
@@ -45,7 +40,6 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Custom(msg) => write!(f, "{msg}"),
             Error::Other(err) => write!(f, "{err}"),
             Error::Mismatch(mismatch) => write!(f, "{mismatch}"),
         }
@@ -363,11 +357,11 @@ impl Visitor for F32Visitor {
 
     fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
         if value > f32::MAX as f64 {
-            return Err(Error::custom("f32 overflow"));
+            return Err(Error::error("f32 overflow"));
         }
 
         if value < f32::MIN as f64 {
-            return Err(Error::custom("f32 underflow"));
+            return Err(Error::error("f32 underflow"));
         }
 
         self.visit_f32(value as f32)
@@ -788,7 +782,7 @@ macro_rules! impl_deserialize_tuple {
                     let $T = match seq.next_element()? {
                         Some(x) => x,
                         None => {
-                            return Err(Error::custom(format!("expected `{}` but was empty", std::any::type_name::<$T>())));
+                            return Err(Error::error(format!("expected `{}` but was empty", std::any::type_name::<$T>())));
                         }
                     };
                 )*

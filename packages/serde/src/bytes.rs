@@ -10,7 +10,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `any`",
         ))
     }
@@ -19,7 +19,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `unit`",
         ))
     }
@@ -28,7 +28,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `bool`",
         ))
     }
@@ -37,7 +37,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `u8`",
         ))
     }
@@ -46,7 +46,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `u16`",
         ))
     }
@@ -55,7 +55,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `u32`",
         ))
     }
@@ -64,7 +64,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `u64`",
         ))
     }
@@ -73,7 +73,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `u128`",
         ))
     }
@@ -82,7 +82,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `i8`",
         ))
     }
@@ -91,7 +91,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `i16`",
         ))
     }
@@ -100,7 +100,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `i32`",
         ))
     }
@@ -109,7 +109,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `i64`",
         ))
     }
@@ -118,7 +118,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `i128`",
         ))
     }
@@ -127,7 +127,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `f32`",
         ))
     }
@@ -136,7 +136,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `f64`",
         ))
     }
@@ -145,7 +145,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `char`",
         ))
     }
@@ -162,7 +162,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `sequence`",
         ))
     }
@@ -186,7 +186,7 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize bytes to `option`",
         ))
     }
@@ -218,7 +218,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `any`",
         ))
     }
@@ -227,7 +227,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `unit`",
         ))
     }
@@ -328,7 +328,7 @@ impl Deserializer for ByteDeserializer {
         V: Visitor,
     {
         let c = char::from_u32(self.0 as u32).ok_or_else(|| {
-            super::de::Error::custom(format!("failed to convert `{}` from char", self.0))
+            super::de::Error::error(format!("failed to convert `{}` from char", self.0))
         })?;
 
         visitor.visit_char(c)
@@ -338,7 +338,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `string`",
         ))
     }
@@ -347,7 +347,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `seq`",
         ))
     }
@@ -364,7 +364,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `map`",
         ))
     }
@@ -373,7 +373,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::custom(
+        Err(crate::de::Error::error(
             "failed to deserialize byte to `option`",
         ))
     }
@@ -393,7 +393,7 @@ impl Deserializer for ByteDeserializer {
                         let buf = std::slice::from_ref(&b);
                         writer.write_all(buf).map_err(super::de::Error::error)
                     }
-                    None => Err(super::de::Error::custom("no bytes to write")),
+                    None => Err(super::de::Error::error("no bytes to write")),
                 }
             }
         }

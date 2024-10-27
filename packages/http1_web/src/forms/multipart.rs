@@ -1,3 +1,5 @@
+#![allow(clippy::serde_api_misuse)]
+
 use std::{
     fmt::{Debug, Display},
     io::Write,
@@ -164,7 +166,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `any`"))
+        Err(serde::de::Error::error("cannot deserialize form to `any`"))
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
@@ -178,7 +180,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `bool`",
         ))
     }
@@ -187,35 +189,35 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `u8`"))
+        Err(serde::de::Error::error("cannot deserialize form to `u8`"))
     }
 
     fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `u16`"))
+        Err(serde::de::Error::error("cannot deserialize form to `u16`"))
     }
 
     fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `u32`"))
+        Err(serde::de::Error::error("cannot deserialize form to `u32`"))
     }
 
     fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `u64`"))
+        Err(serde::de::Error::error("cannot deserialize form to `u64`"))
     }
 
     fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `u128`",
         ))
     }
@@ -224,35 +226,35 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `i8`"))
+        Err(serde::de::Error::error("cannot deserialize form to `i8`"))
     }
 
     fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `i16`"))
+        Err(serde::de::Error::error("cannot deserialize form to `i16`"))
     }
 
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `i32`"))
+        Err(serde::de::Error::error("cannot deserialize form to `i32`"))
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `i64`"))
+        Err(serde::de::Error::error("cannot deserialize form to `i64`"))
     }
 
     fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `i128`",
         ))
     }
@@ -261,21 +263,21 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `f32`"))
+        Err(serde::de::Error::error("cannot deserialize form to `f32`"))
     }
 
     fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `f64`"))
+        Err(serde::de::Error::error("cannot deserialize form to `f64`"))
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `char`",
         ))
     }
@@ -284,7 +286,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `string`",
         ))
     }
@@ -293,14 +295,14 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom("cannot deserialize form to `seq`"))
+        Err(serde::de::Error::error("cannot deserialize form to `seq`"))
     }
 
     fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `bytes`",
         ))
     }
@@ -319,7 +321,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `option`",
         ))
     }
@@ -328,7 +330,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::custom(
+        Err(serde::de::Error::error(
             "cannot deserialize form to `bytes`",
         ))
     }

@@ -1,3 +1,5 @@
+#![allow(clippy::module_inception)]
+
 mod headers;
 mod name;
 pub(crate) mod non_empty_list;

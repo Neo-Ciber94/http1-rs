@@ -71,7 +71,7 @@ impl Random for u16 {
 impl Random for u32 {
     type Output = u32;
     fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_32() as u32
+        rng.next_32()
     }
 }
 

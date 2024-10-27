@@ -99,7 +99,7 @@ impl FormData {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
 
         if !self.bytes_buf.is_empty() {
-            return Err(FieldError::Other(format!("expected new line")));
+            return Err(FieldError::Other(String::from("expected new line")));
         }
 
         Ok(())
@@ -108,7 +108,7 @@ impl FormData {
     fn parse_boundary(&mut self) -> Result<(), FieldError> {
         read_line(&mut self.reader, &mut self.bytes_buf)?;
 
-        if &self.bytes_buf != &self.boundary.as_bytes() {
+        if self.bytes_buf != self.boundary.as_bytes() {
             return Err(FieldError::MissingBoundary(self.boundary.clone()));
         }
 
@@ -127,7 +127,7 @@ impl FormData {
             return Err(FieldError::MissingContentDisposition);
         }
 
-        while let Some(s) = parts.next() {
+        for s in parts {
             match s {
                 _ if s.starts_with("name=".as_bytes()) => {
                     let text = str::from_utf8(s).map_err(FieldError::Utf8Error)?;
@@ -165,7 +165,7 @@ impl FormData {
         Ok(content_type.to_owned())
     }
 
-    fn field_reader<'a>(&'a mut self) -> FieldReader<'a> {
+    fn field_reader(&mut self) -> FieldReader<'_> {
         self.bytes_buf.clear();
         FieldReader {
             form_data: self,
@@ -194,7 +194,7 @@ impl FormData {
         }
     }
 
-    pub fn next_field<'a>(&'a mut self) -> Result<Option<Field<'a>>, FieldError> {
+    pub fn next_field(&mut self) -> Result<Option<Field<'_>>, FieldError> {
         if self.state == State::Done {
             return Ok(None);
         }
@@ -242,7 +242,7 @@ fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<us
 
             Ok(n)
         }
-        Err(err) => return Err(FieldError::IO(err)),
+        Err(err) => Err(FieldError::IO(err)),
     }
 }
 
@@ -439,7 +439,7 @@ fn get_quoted<'a>(quote: &'a str, value: &'a str) -> Option<&'a str> {
         return Some(&value[len..(value.len() - len)]);
     }
 
-    return None;
+    None
 }
 
 #[cfg(test)]

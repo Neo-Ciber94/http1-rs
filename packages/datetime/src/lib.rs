@@ -256,8 +256,8 @@ impl DateTime {
         };
 
         let q = self.day_of_month() as u64;
-        let k = (y % 100) as u64;
-        let j = (y / 100) as u64;
+        let k = y % 100;
+        let j = y / 100;
 
         let day = ((q + (13 * (m + 1) / 5)) + k + (k / 4) + (j / 4) + (5 * j)) % 7;
 
@@ -300,10 +300,9 @@ impl DateTime {
     }
 
     pub fn millis_since(&self, other: Self) -> u128 {
-        match self.as_millis().checked_sub(other.as_millis()) {
-            Some(millis) => millis,
-            None => 0,
-        }
+        self.as_millis()
+            .checked_sub(other.as_millis())
+            .unwrap_or_default()
     }
 
     fn remaining_ms_in_day(&self) -> u128 {
@@ -362,7 +361,7 @@ pub struct DateTimeParseError;
 impl DateTime {
     pub fn parse_rfc_1123(s: &str) -> Result<Self, DateTimeParseError> {
         // Example: "Wed, 09 Jun 2021 10:18:14 GMT"
-        let parts: Vec<&str> = s.trim().split_whitespace().collect();
+        let parts: Vec<&str> = s.split_whitespace().collect();
         if parts.len() != 6 {
             return Err(DateTimeParseError);
         }

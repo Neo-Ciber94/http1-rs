@@ -62,13 +62,13 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
         match Read::read(&mut self.reader, buf)? {
             0 => {
                 if self.content_length.is_none() {
-                    return Ok(None);
+                    Ok(None)
                 } else {
                     // EOF but never read all the body
-                    return Err(std::io::Error::new(
+                    Err(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
                         "body incomplete",
-                    ));
+                    ))
                 }
             }
             n => {

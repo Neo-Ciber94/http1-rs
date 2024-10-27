@@ -8,10 +8,7 @@ pub trait Alphabet {
 pub struct UrlASCII;
 impl Alphabet for UrlASCII {
     fn contains(&self, value: u8) -> bool {
-        match value {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => true,
-            _ => false,
-        }
+        matches!(value, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~')
     }
 }
 

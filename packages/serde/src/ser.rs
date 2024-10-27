@@ -394,7 +394,7 @@ impl<T: Serialize> Serialize for Box<T> {
 
 impl<T: Serialize> Serialize for Box<[T]> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
-        serializer.serialize_slice(&*self)
+        serializer.serialize_slice(self)
     }
 }
 

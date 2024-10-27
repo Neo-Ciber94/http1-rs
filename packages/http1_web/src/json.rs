@@ -43,7 +43,7 @@ impl<T: Deserialize> FromRequest for Json<T> {
         let bytes = req
             .body_mut()
             .read_all_bytes()
-            .map_err(|e| InvalidJsonError(e.into()))?;
+            .map_err(InvalidJsonError)?;
         let value = serde::json::from_bytes::<T>(bytes).map_err(|e| InvalidJsonError(e.into()))?;
         Ok(Json(value))
     }

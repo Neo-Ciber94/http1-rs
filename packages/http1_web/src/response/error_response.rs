@@ -1,3 +1,4 @@
+#![allow(clippy::borrowed_box)]
 use http1::{body::Body, response::Response, status::StatusCode};
 
 use crate::IntoResponse;
@@ -178,7 +179,7 @@ impl ErrorResponse {
 
 impl IntoResponse for ErrorResponse {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        let status_code = self.status_code().clone();
+        let status_code = self.status_code();
 
         match self.inner {
             Inner::Response(f) => {

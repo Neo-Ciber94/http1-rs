@@ -58,8 +58,11 @@ impl Read for Data {
 #[derive(Debug)]
 pub struct FormMap(HashMap<String, FormField<Data>>);
 
-impl FormMap {
-    pub fn into_iter(self) -> std::collections::hash_map::IntoIter<String, FormField<Data>> {
+impl IntoIterator for FormMap {
+    type Item = (String, FormField<Data>);
+    type IntoIter = std::collections::hash_map::IntoIter<String, FormField<Data>>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }

@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::{
     collections::HashSet,
     fmt::{Debug, Display},
@@ -140,7 +142,7 @@ impl Middleware for Cors {
                         .insert(headers::ACCESS_CONTROL_ALLOW_ORIGIN, origins);
                 }
                 CorsOrigin::Dynamic(f) => {
-                    let list = f(&req);
+                    let list = f(req);
                     let origins = get_comma_separated_list(&list);
 
                     response
@@ -324,5 +326,11 @@ impl CorsBuilder {
 
     pub fn build(self) -> Cors {
         self.0
+    }
+}
+
+impl Default for CorsBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

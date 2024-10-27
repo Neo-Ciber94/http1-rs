@@ -176,7 +176,7 @@ impl RequestHandler for App {
         let middlewares = self.middleware.as_slice();
         let method = MethodRoute::from_method(req.method());
         let req_path = req.uri().path_and_query().path();
-        let mtch = self.scope.find(&req_path, req.method());
+        let mtch = self.scope.find(req_path, req.method());
 
         // Add any additional extensions
         req.extensions_mut().insert(mtch.params.clone());
@@ -312,13 +312,6 @@ impl Scope {
                 params,
                 value: route_id,
             }) => {
-                // let value = mtch.value.get(method).unwrap_or(fallback);
-
-                // Match {
-                //     params: mtch.params,
-                //     value,
-                // }
-
                 let methods = self
                     .route_to_methods
                     .get(route_id)
@@ -330,7 +323,7 @@ impl Scope {
             }
             None => Match {
                 params: ParamsMap::default(),
-                value: &fallback,
+                value: fallback,
             },
         }
     }

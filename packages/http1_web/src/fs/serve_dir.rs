@@ -153,7 +153,7 @@ fn list_directory_html(
 
     route = route.trim_end_matches("/");
     let dir_name = if route.is_empty() {
-        format!("{base_dir}")
+        base_dir.to_string()
     } else {
         format!("{base_dir}{route}")
     };

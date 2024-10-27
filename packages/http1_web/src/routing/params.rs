@@ -28,9 +28,13 @@ impl ParamsMap {
     pub fn iter(&self) -> ParamsIter {
         self.0.iter()
     }
+}
 
-    /// Returns an iterator over the key-values.
-    pub fn into_iter(self) -> ParamsIntoIter {
+impl IntoIterator for ParamsMap {
+    type Item = (String, String);
+    type IntoIter = ParamsIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
 }

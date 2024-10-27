@@ -154,7 +154,7 @@ impl Redirect {
 
 impl IntoResponse for Redirect {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
-        let status_code = self.status_code().clone();
+        let status_code = self.status_code();
         let location = self.location;
 
         Response::builder()

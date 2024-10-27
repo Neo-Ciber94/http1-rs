@@ -83,7 +83,7 @@ fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Request<
     }
 
     let request = builder
-        .body(body.into())
+        .body(body)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
     Ok(request)

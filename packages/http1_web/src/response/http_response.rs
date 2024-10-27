@@ -44,14 +44,14 @@ where
     /// Appends a header to the `HttpResponse`, adding another header if it
     /// already exists.
     pub fn append_header(mut self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.0.headers_mut().append(name.into(), value);
+        self.0.headers_mut().append(name, value);
         self
     }
 
     /// Inserts a header into the `HttpResponse`, replacing the existing one if
     /// it already exists.
     pub fn insert_header(mut self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.0.headers_mut().insert(name.into(), value);
+        self.0.headers_mut().insert(name, value);
         self
     }
 

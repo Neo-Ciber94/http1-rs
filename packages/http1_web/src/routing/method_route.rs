@@ -1,7 +1,6 @@
 use std::{
     fmt::Display,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
-    u16,
 };
 
 use http1::method::Method;

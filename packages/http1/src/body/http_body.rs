@@ -14,13 +14,8 @@ pub trait HttpBody {
     fn read_all_bytes(&mut self) -> Result<Vec<u8>, Self::Err> {
         let mut bytes = Vec::new();
 
-        loop {
-            match self.read_next()? {
-                Some(chunk) => {
-                    bytes.extend(chunk.into());
-                }
-                None => break,
-            }
+        while let Some(chunk) = self.read_next()? {
+            bytes.extend(chunk.into());
         }
 
         Ok(bytes)
