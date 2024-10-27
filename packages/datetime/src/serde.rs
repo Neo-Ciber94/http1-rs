@@ -10,8 +10,7 @@ impl Serialize for DateTime {
 
 impl Deserialize for DateTime {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, serde::de::Error> {
-        // let ms = deserializer.deserialize_u128(U128Visitor)?;
-        // Ok(DateTime::with_millis(ms))
-        todo!()
+        let ms = u128::deserialize(deserializer)?;
+        Ok(DateTime::with_millis(ms))
     }
 }

@@ -230,7 +230,7 @@ impl JsonValue {
     /// # Examples
     ///
     /// ```
-    /// use http1_web::json;
+    /// use serde::json;
     ///
     /// let jjk = json!({
     ///     name: "Satoru Gojo",
@@ -300,7 +300,7 @@ impl JsonValue {
     /// # Examples
     ///
     /// ```
-    /// use http1_web::json;
+    /// use serde::json;
     /// let mut jjk = json!({
     ///     name: "Satoru Gojo",
     ///     age: 28,
