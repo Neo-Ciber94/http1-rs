@@ -95,7 +95,7 @@ impl Validate for Todo {
             return Err(ValidationError::new("title", "cannot be empty"));
         }
 
-        if let Some(description) = self.description.as_deref().filter(|x| x.is_empty()) {
+        if let Some(description) = self.description.as_deref().filter(|x| !x.is_empty()) {
             if description.trim().is_empty() {
                 return Err(ValidationError::new("description", "cannot be empty"));
             }

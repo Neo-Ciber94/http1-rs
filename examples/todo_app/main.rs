@@ -11,7 +11,6 @@ use http1_web::{
     fs::ServeDir,
     middleware::{logging::Logging, redirection::Redirection},
 };
-use routes::{api_routes, page_routes};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -23,8 +22,8 @@ fn main() -> std::io::Result<()> {
         .middleware(Logging)
         .middleware(Redirection::new("/", "/login"))
         .get("/*", ServeDir::new("/", "examples/todo_app/public"))
-        .scope("/api", api_routes())
-        .scope("/", page_routes());
+        .scope("/api", crate::routes::api::api_routes())
+        .scope("/", crate::routes::pages::page_routes());
 
     Server::new(addr)
         .on_ready(|addr| log::info!("Listening on http://{addr}"))

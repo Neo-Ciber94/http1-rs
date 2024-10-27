@@ -1,10 +1,12 @@
 #![allow(non_snake_case)]
 use http1_web::{
+    cookies::Cookies,
+    from_request::FromRequestRef,
     html::{self, element::HTMLElement, IntoChildren},
-    impl_serde_enum_str, impl_serde_struct,
+    impl_serde_enum_str, impl_serde_struct, ErrorStatusCode,
 };
 
-use crate::routes::AuthenticatedUser;
+use crate::{consts::COOKIE_FLASH_MESSAGE, routes::models::AuthenticatedUser};
 
 pub fn Head(content: impl IntoChildren) -> HTMLElement {
     html::head(|| {
@@ -129,4 +131,27 @@ fn Alert(AlertProps { message, kind }: AlertProps) {
             html::content(message)
         });
     });
+}
+
+impl FromRequestRef for AlertProps {
+    type Rejection = ErrorStatusCode;
+
+    fn from_request_ref(
+        req: &http1::request::Request<http1::body::Body>,
+    ) -> Result<Self, Self::Rejection> {
+        let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+        match cookies.get(COOKIE_FLASH_MESSAGE) {
+            Some(cookie) => match http1_web::serde::json::from_str::<AlertProps>(cookie.value()) {
+                Ok(alert) => Ok(alert),
+                Err(err) => {
+                    log::error!("AlertProps should be injected with Option<AlertProps>: {err}");
+                    Err(ErrorStatusCode::InternalServerError)
+                }
+            },
+            None => {
+                log::error!("AlertProps should be injected with Option<AlertProps>");
+                Err(ErrorStatusCode::InternalServerError)
+            }
+        }
+    }
 }
