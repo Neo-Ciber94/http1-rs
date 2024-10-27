@@ -68,40 +68,52 @@ impl Display for ValidationError {
     }
 }
 
-pub trait Validate: Sized {
-    fn validate_in_place(&mut self) -> Result<(), ValidationError>;
-    fn validate(mut self) -> Result<Self, ValidationError> {
+macro_rules! check {
+    ($expr:expr, $field:literal => $($tt:tt)*) => {
+        if !$expr {
+            return Err(ValidationError::new($field, format!($($tt)*)));
+        }
+    };
+}
+
+trait Validate: Sized {
+    fn transform(self) -> Self {
+        self
+    }
+
+    fn validate_in_place(&self) -> Result<(), ValidationError>;
+
+    fn validate(self) -> Result<Self, ValidationError> {
         self.validate_in_place()?;
         Ok(self)
     }
 }
 
 impl Validate for User {
-    fn validate_in_place(&mut self) -> Result<(), ValidationError> {
-        if self.username.trim().is_empty() {
-            return Err(ValidationError::new("username", "cannot be empty"));
-        }
-
+    fn transform(mut self) -> Self {
         self.username = self.username.trim().into();
+        self
+    }
 
+    fn validate_in_place(&self) -> Result<(), ValidationError> {
+        check!(!self.username.trim().is_empty(), "username" => "cannot be empty");
         Ok(())
     }
 }
 
 impl Validate for Todo {
-    fn validate_in_place(&mut self) -> Result<(), ValidationError> {
-        if self.title.trim().is_empty() {
-            return Err(ValidationError::new("title", "cannot be empty"));
-        }
-
-        if let Some(description) = self.description.as_deref().filter(|x| !x.is_empty()) {
-            if description.trim().is_empty() {
-                return Err(ValidationError::new("description", "cannot be empty"));
-            }
-        }
-
+    fn transform(mut self) -> Self {
         self.title = self.title.trim().into();
-        self.description = self.description.as_deref().map(|x| x.trim().into());
+        self.description = self.description.map(|x| x.trim().into());
+        self
+    }
+
+    fn validate_in_place(&self) -> Result<(), ValidationError> {
+        check!(!self.title.trim().is_empty(), "title" => "cannot be empty");
+
+        if let Some(description) = self.description.as_ref().filter(|x| !x.is_empty()) {
+            check!(!description.trim().is_empty(), "description" => "cannot be empty");
+        }
 
         Ok(())
     }
@@ -149,7 +161,9 @@ pub fn insert_todo(
         user_id,
         is_done: false,
     }
+    .transform()
     .validate()?;
+
     db.set(format!("todo/{id}"), todo.clone())?;
     Ok(todo)
 }
@@ -158,7 +172,7 @@ pub fn update_todo(db: &KeyValueDatabase, mut todo: Todo) -> Result<Option<Todo>
     let key = &format!("todo/{}", todo.id);
 
     if db.contains(key)? {
-        todo.validate_in_place()?;
+        todo = todo.transform().validate()?;
         db.set(key, todo.clone())?;
         Ok(Some(todo))
     } else {
