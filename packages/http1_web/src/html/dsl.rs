@@ -1,3 +1,5 @@
+use http1::common::any_map::AnyMap;
+
 use super::element::{Attribute, Element, HTMLElement, Node};
 use std::{borrow::Cow, cell::RefCell};
 
@@ -381,15 +383,24 @@ define_html_void_element_fn!(
     hr, br, img, input, meta, link
 );
 
+thread_local! {
+    static CONTEXT_BAG: RefCell<AnyMap> = RefCell::new(AnyMap::new());
+}
 
+/// Set a value in the global context.
+pub fn set_context<T: 'static + Send + Sync + Clone>(value: T) {
+    CONTEXT_BAG.with_borrow_mut(|ctx: &mut AnyMap| {
+        ctx.insert(value);
+    })
+}
 
-pub fn set_ROOT() {}
-
-pub fn get_ROOT<T: 'static + Clone>() {}
+/// Gets a value from the global context.
+pub fn get_context<T: 'static + Send + Sync + Clone>() -> Option<T> {
+    CONTEXT_BAG.with_borrow(|ctx: &AnyMap| ctx.get::<T>().cloned())
+}
 
 #[cfg(test)]
 mod tests {
-
     use super::{attr, content, html_element, html_void_element};
 
     #[test]
