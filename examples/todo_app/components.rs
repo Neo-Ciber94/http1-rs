@@ -120,7 +120,7 @@ fn Toast(ToastProps { message, kind }: ToastProps) {
         html::class("animate-fade-out");
         html::div(|| {
             let style = match kind {
-                ToastKind::Success => "text-black bg-green-500",
+                ToastKind::Success => "text-white bg-green-500",
                 ToastKind::Error => "text-white bg-red-500",
                 ToastKind::Warn => "text-black bg-amber-500",
             };

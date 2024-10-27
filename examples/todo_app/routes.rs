@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use datetime::DateTime;
-use http1::{body::Body, headers, response::Response};
+use http1::{body::Body, error::BoxError, headers, response::Response};
 use http1_web::{
     app::Scope,
     cookies::{Cookie, Cookies},
@@ -29,20 +29,10 @@ macro_rules! tri {
         match $body {
             Err(err) if err.is::<ValidationError>() => {
                 let err = err.downcast::<ValidationError>().unwrap();
-                let json = http1_web::serde::json::to_string(&ToastProps::new(
-                    err.to_string(),
-                    ToastKind::Error,
-                ))?;
-
                 res.headers_mut().insert(headers::LOCATION, $location);
-                res.headers_mut().insert(
-                    headers::SET_COOKIE,
-                    Cookie::new(COOKIE_FLASH_MESSAGE, json)
-                    .max_age(1)
-                    .path("/")
-                        .build()
-                        .to_string(),
-                );
+                if let Err(err) = set_flash_message(&mut res, ToastKind::Error, err.to_string()) {
+                    return Err(err.into());
+                }
 
                 res.finish()
             }
@@ -222,7 +212,9 @@ pub fn api_routes() -> Scope {
 
                 // Save
                 let todo_id = todo.id;
-                Ok(tri!(format!("/todos/edit/{todo_id}"), crate::models::update_todo(&db, todo)))
+                let mut res = tri!(format!("/todos/edit/{todo_id}"), crate::models::update_todo(&db, todo));
+                set_flash_message(&mut res, ToastKind::Success, "Successfully updated")?;
+                Ok(res)
             },
         )
         .post(
@@ -411,7 +403,6 @@ fn todos_routes() -> Scope {
                                         html::attr("required", true);
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
                                         html::attr("minlength", 3);
-                                        //html::attr("pattern", ".*\\S.*");
                                     });
     
                                     html::textarea(|| {
@@ -440,7 +431,7 @@ fn todos_routes() -> Scope {
             };
 
             let toast = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<ToastProps>(x.value()).ok());
-
+            
             Ok(html::html(|| {
                 Head(|| {
                     Title("TodoApp | Edit Todo");
@@ -635,3 +626,9 @@ fn not_found() -> NotFound<HTMLElement> {
     }))
 }
 
+
+fn set_flash_message<B>(res: &mut HttpResponse<B>,  kind: ToastKind, message: impl Into<String>) -> Result<(), BoxError> {
+    let json = http1_web::serde::json::to_string(&ToastProps::new(message, kind))?;
+    res.headers_mut().insert(headers::SET_COOKIE, Cookie::new(COOKIE_FLASH_MESSAGE, json).max_age(1).build().to_string());
+    Ok(())
+}
