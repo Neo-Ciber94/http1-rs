@@ -26,6 +26,7 @@ fn main() -> std::io::Result<()> {
 }
 
 const COOKIE_SESSION_NAME: &str = "auth_session";
+const COOKIE_FLASH_MESSAGE: &str = "flash_message";
 
 mod routes {
     use std::time::Duration;
@@ -42,7 +43,7 @@ mod routes {
         path::Path,
         redirect::Redirect,
         state::State,
-        ErrorResponse, ErrorStatusCode, {IntoResponse, NotFound},
+        ErrorResponse, ErrorStatusCode, HttpResponse, IntoResponse, NotFound,
     };
 
     use crate::{
@@ -110,44 +111,44 @@ mod routes {
             .fallback(not_found)
     }
 
+    #[derive(Debug)]
+    struct LoginUser {
+        pub username: String,
+    }
+
+    impl_serde_struct!(LoginUser => {
+         username: String
+    });
+
+    struct CreateTodo {
+        pub title: String,
+        pub description: Option<String>,
+    }
+
+    impl_serde_struct!(CreateTodo => {
+         title: String,
+         description: Option<String>,
+    });
+
+    struct UpdateTodo {
+        pub id: u64,
+        pub title: String,
+        pub description: Option<String>,
+    }
+
+    impl_serde_struct!(UpdateTodo => {
+         id: u64,
+         title: String,
+         description: Option<String>,
+    });
+
     pub fn api_routes() -> Scope {
-        #[derive(Debug)]
-        struct LoginUser {
-            pub username: String,
-        }
-
-        impl_serde_struct!(LoginUser => {
-             username: String
-        });
-
-        struct CreateTodo {
-            pub title: String,
-            pub description: Option<String>,
-        }
-
-        impl_serde_struct!(CreateTodo => {
-             title: String,
-             description: Option<String>,
-        });
-
-        struct UpdateTodo {
-            pub id: u64,
-            pub title: String,
-            pub description: Option<String>,
-        }
-
-        impl_serde_struct!(UpdateTodo => {
-             id: u64,
-             title: String,
-             description: Option<String>,
-        });
-
         Scope::new()
             .post(
                 "/login",
                 |State(db): State<KeyValueDatabase>,
                  Form(input): Form<LoginUser>|
-                 -> Result<Response<Body>, ErrorResponse> {
+                 -> Result<HttpResponse, ErrorResponse> {
                     let user = match crate::models::get_user_by_username(&db, &input.username)? {
                         Some(x) => x,
                         None => {
@@ -158,16 +159,15 @@ mod routes {
                     };
 
                     let session = crate::models::create_session(&db, user.id)?;
+                    let session_cookie = Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
+                        .path("/")
+                        .http_only(true)
+                        .expires(DateTime::now_utc() + Duration::from_secs(60 * 60))
+                        .build();
 
-                    Ok((
-                        Redirect::see_other("/todos"),
-                        Cookie::new(COOKIE_SESSION_NAME, session.id.clone())
-                            .path("/")
-                            .http_only(true)
-                            .expires(DateTime::now_utc() + Duration::from_secs(60 * 60))
-                            .build(),
-                    )
-                        .into_response())
+                    Ok(HttpResponse::see_other("/todos")
+                        .set_cookie(session_cookie)
+                        .finish())
                 },
             )
             .get(
@@ -265,24 +265,10 @@ mod routes {
                 Ok(html::html(|| {
                     Head(|| {
                         Title("TodoApp | Todos");
-                        html::style(r#"
-                         .animate-fade-in {
-                            opacity: 0; 
-                            transform: scale(0.95);
-                            animation: fadeIn 300ms ease-in forwards;
-                        }
-
-                         @keyframes fadeIn {
-                                to {
-                                    transform: scale(1);
-                                    opacity: 1;
-                                }
-                            }
-                        "#);
                     });
                 
                     html::body(|| {
-                        Layout(Some(auth), || {
+                        Layout(Some(auth),None, || {
                             html::div(|| {
                                 html::class("min-h-screen bg-gray-100 p-6");
                     
@@ -399,7 +385,7 @@ mod routes {
                     });
     
                     html::body(|| {
-                        Layout(Some(auth), || {
+                        Layout(Some(auth), None,|| {
                             html::div(|| {
                                 html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
         
@@ -456,7 +442,7 @@ mod routes {
                     });
     
                     html::body(|| {
-                        Layout(Some(auth), || {
+                        Layout(Some(auth), None,|| {
                             html::div(|| {
                                 html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
         
@@ -519,7 +505,7 @@ mod routes {
                     });
     
                     html::body(|| {
-                        Layout(Some(auth), || {
+                        Layout(Some(auth), None,|| {
                             html::div(|| {
                                 html::class("min-h-screen bg-gray-100 p-6 flex items-center justify-center");
         
@@ -563,7 +549,7 @@ mod routes {
                     });
 
                     html::body(|| {
-                        Layout(auth, || {
+                        Layout(auth, Some(String::from("hello world")),|| {
                             html::div(|| {
                                 html::class("min-h-screen flex items-center justify-center bg-gray-100");
         
@@ -657,6 +643,11 @@ mod components {
                 html::attr("href", "/favicon.png");
             });
 
+            html::link(|| {
+                html::attr("href", "/styles.css");
+                html::attr("rel", "stylesheet");
+            });
+
             html::script(|| {
                 html::attr("src", "https://cdn.tailwindcss.com");
             });
@@ -667,11 +658,15 @@ mod components {
         html::title(title.into())
     }
 
-    pub fn Layout(auth: Option<AuthenticatedUser>, content: impl IntoChildren) -> HTMLElement {
+    pub fn Layout(auth: Option<AuthenticatedUser>, message: Option<String>, content: impl IntoChildren) -> HTMLElement {
         html::div(|| {
             html::div(|| {
                 html::class("w-full h-16");
             });
+
+            if let Some(message) = message {
+                Toast(message);
+            }
 
             html::header(|| {
                 html::class("w-full h-16 shadow fixed top-0 left-0 flex flex-row p-2 justify-between items-center");
@@ -707,6 +702,16 @@ mod components {
 
             content.into_children();
         })
+    }
+
+    fn Toast(message: String) {
+        html::div(|| {
+            html::class("animate-fade-out");
+            html::div(|| {
+                html::class("fixed top-10 left-1/2 -translate-x-1/2 p-4 rounded-md shadow-md flex flex-row items-center justify-center bg-red-500 text-white cursor-pointer hover:opacity-80");
+                html::content(message)
+            });
+        });
     }
 }
 
