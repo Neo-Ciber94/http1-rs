@@ -66,7 +66,7 @@ impl Cookie {
             http_only: false,
             secure: false,
             partitioned: false,
-            path: None,
+            path: Some(String::from("/")),
             domain: None,
             max_age: None,
             expires: None,
