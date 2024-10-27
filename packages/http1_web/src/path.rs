@@ -1,16 +1,12 @@
 use http1::{error::BoxError, status::StatusCode};
 
-use crate::{
-    from_request::FromRequestRef,
-    routing::params::ParamsMap,
-    IntoResponse,
-};
-use std::{fmt::Display, str::FromStr};
+use crate::{from_request::FromRequestRef, routing::params::ParamsMap, IntoResponse};
 use serde::{
     de::{Deserialize, Deserializer},
     string::{DeserializeFromStr, DeserializeOnlyString},
     visitor::{MapAccess, SeqAccess},
 };
+use std::{fmt::Display, str::FromStr};
 
 /// Represents the path params in a route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -273,9 +269,7 @@ impl Deserializer for PathDeserializer {
             .ok_or_else(|| serde::de::Error::custom("cannot get first param of the path"))?;
 
         if s.is_empty() {
-            return Err(serde::de::Error::custom(
-                "expected char but was empty",
-            ));
+            return Err(serde::de::Error::custom("expected char but was empty"));
         }
 
         if s.len() != 1 {
@@ -348,9 +342,7 @@ impl Deserializer for PathDeserializer {
 struct ParamsSeqAccess<I>(I);
 
 impl<I: Iterator<Item = (String, String)>> SeqAccess for ParamsSeqAccess<I> {
-    fn next_element<D: serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<D>, serde::de::Error> {
+    fn next_element<D: serde::de::Deserialize>(&mut self) -> Result<Option<D>, serde::de::Error> {
         match self.0.next() {
             Some((_, value)) => {
                 let v = D::deserialize(DeserializeFromStr::Str(value))?;
@@ -367,9 +359,7 @@ struct ParamsMapAccess<I> {
 }
 
 impl<I: Iterator<Item = (String, String)>> MapAccess for ParamsMapAccess<I> {
-    fn next_key<K: serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<K>, serde::de::Error> {
+    fn next_key<K: serde::de::Deserialize>(&mut self) -> Result<Option<K>, serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
                 self.value = Some(v);
@@ -380,9 +370,7 @@ impl<I: Iterator<Item = (String, String)>> MapAccess for ParamsMapAccess<I> {
         }
     }
 
-    fn next_value<V: serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<V>, serde::de::Error> {
+    fn next_value<V: serde::de::Deserialize>(&mut self) -> Result<Option<V>, serde::de::Error> {
         match self.value.take() {
             Some(x) => {
                 let value = V::deserialize(DeserializeFromStr::Str(x))?;

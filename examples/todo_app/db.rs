@@ -47,8 +47,7 @@ impl KeyValueDatabase {
         let mut json = if bytes.is_empty() {
             JsonValue::Object(Default::default())
         } else {
-            serde::json::from_bytes::<JsonValue>(bytes)
-                .map_err(|err| std::io::Error::other(err))?
+            serde::json::from_bytes::<JsonValue>(bytes).map_err(|err| std::io::Error::other(err))?
         };
 
         let result = f(&mut json);
@@ -59,8 +58,8 @@ impl KeyValueDatabase {
     /// Sets a key-value entry.
     pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
         self.tap(|json| {
-            let new_value = serde::json::to_value(&value)
-                .map_err(|err| std::io::Error::other(err))?;
+            let new_value =
+                serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
             json.try_insert(key.as_ref(), new_value)
                 .map_err(|err| std::io::Error::other(err))?;
             Ok(())

@@ -5,10 +5,7 @@ use http1::{
     uri::path_query::{QueryMap, QueryValue},
 };
 
-use crate::{
-    from_request::FromRequestRef,
-    IntoResponse,
-};
+use crate::{from_request::FromRequestRef, IntoResponse};
 use serde::{
     de::{Deserialize, Deserializer, Error},
     string::{DeserializeFromStr, DeserializeOnlyString},
@@ -193,9 +190,7 @@ struct QueryMapAccess<I> {
 }
 
 impl<I: Iterator<Item = (String, QueryValue)>> MapAccess for QueryMapAccess<I> {
-    fn next_key<K: serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<K>, serde::de::Error> {
+    fn next_key<K: serde::de::Deserialize>(&mut self) -> Result<Option<K>, serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
                 self.value = Some(v);
@@ -206,9 +201,7 @@ impl<I: Iterator<Item = (String, QueryValue)>> MapAccess for QueryMapAccess<I> {
         }
     }
 
-    fn next_value<V: serde::de::Deserialize>(
-        &mut self,
-    ) -> Result<Option<V>, serde::de::Error> {
+    fn next_value<V: serde::de::Deserialize>(&mut self) -> Result<Option<V>, serde::de::Error> {
         match self.value.take() {
             Some(x) => match x {
                 QueryValue::One(val) => {

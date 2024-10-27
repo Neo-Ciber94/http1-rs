@@ -1,4 +1,7 @@
-use serde::{de::{Deserialize, Deserializer}, ser::{Serialize, Serializer}};
+use serde::{
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
+};
 
 use crate::DateTime;
 

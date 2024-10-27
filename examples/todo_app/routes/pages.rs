@@ -7,7 +7,10 @@ use http1_web::{
     ErrorResponse, ErrorStatusCode, NotFound,
 };
 
-use crate::{components::{AlertProps, Head, Layout, LayoutProps, Title}, db::KeyValueDatabase};
+use crate::{
+    components::{AlertProps, Head, Layout, LayoutProps, Title},
+    db::KeyValueDatabase,
+};
 
 use super::models::AuthenticatedUser;
 
@@ -386,4 +389,3 @@ fn not_found() -> NotFound<HTMLElement> {
         });
     }))
 }
-
