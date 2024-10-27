@@ -17,8 +17,7 @@ use crate::{from_request::FromRequest, query::QueryDeserializer, IntoResponse};
 use serde::{
     de::Deserialize,
     impossible::Impossible,
-    ser::{MapSerializer, Serialize, Serializer},
-    string::StringSerializer,
+    ser::{Serialize, Serializer},
 };
 
 use orderedmap::OrderedMap;
@@ -179,43 +178,6 @@ impl Serializer for FormSerializer {
 
     fn serialize_byte_seq(self) -> Result<Self::Bytes, Self::Err> {
         Err(SerializeFormError)
-    }
-}
-
-struct FormMapSerializer(OrderedMap<String, QueryValue>);
-impl MapSerializer for FormMapSerializer {
-    type Ok = OrderedMap<String, QueryValue>;
-    type Err = SerializeFormError;
-
-    fn serialize_entry<K: Serialize, V: Serialize>(
-        &mut self,
-        key: &K,
-        value: &V,
-    ) -> Result<(), Self::Err> {
-        let k = key
-            .serialize(StringSerializer)
-            .map_err(|_| SerializeFormError)?;
-
-        let v = serde::json::to_string(value).map_err(|_| SerializeFormError)?;
-
-        if self.0.contains_key(&k) {
-            let query_value = self.0.get_mut(&k).unwrap();
-            match query_value {
-                QueryValue::One(x) => {
-                    let s = std::mem::take(x);
-                    let _ = std::mem::replace(query_value, QueryValue::List(vec![s, v]));
-                }
-                QueryValue::List(values) => values.push(v),
-            }
-        } else {
-            self.0.insert(k, QueryValue::One(v));
-        }
-
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Err> {
-        Ok(self.0)
     }
 }
 
