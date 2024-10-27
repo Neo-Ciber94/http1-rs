@@ -16,5 +16,6 @@ pub mod routing;
 pub mod serde;
 pub mod state;
 
+mod request;
 mod response;
-pub use response::*;
+pub use {request::*, response::*};

@@ -115,7 +115,26 @@ impl Cookie {
     }
 }
 
-pub struct CookieParseError;
+#[derive(Debug)]
+pub enum CookieParseError {
+    InvalidCookie,
+    InvalidMaxAge,
+    InvalidExpires,
+    InvalidSameSite,
+}
+
+impl std::error::Error for CookieParseError {}
+
+impl Display for CookieParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CookieParseError::InvalidCookie => write!(f, "invalid cookie format"),
+            CookieParseError::InvalidMaxAge => write!(f, "invalid cookie max-age"),
+            CookieParseError::InvalidExpires => write!(f, "invalid cookie expires date"),
+            CookieParseError::InvalidSameSite => write!(f, "invalid cookie same site"),
+        }
+    }
+}
 
 impl FromStr for Cookie {
     type Err = CookieParseError;
@@ -125,7 +144,7 @@ impl FromStr for Cookie {
 
         let mut builder = match parts.next().and_then(|x| x.split_once("=")) {
             Some((name, value)) => Cookie::new(name, value),
-            None => return Err(CookieParseError),
+            None => return Err(CookieParseError::InvalidCookie),
         };
 
         for attr in parts {
@@ -142,16 +161,20 @@ impl FromStr for Cookie {
                     builder = builder.domain(&attr[7..]);
                 }
                 _ if attr.starts_with("max-age=") => {
-                    let max_age: u64 = attr[8..].parse().map_err(|_| CookieParseError)?;
+                    let max_age: u64 = attr[8..]
+                        .parse()
+                        .map_err(|_| CookieParseError::InvalidMaxAge)?;
                     builder = builder.max_age(max_age);
                 }
                 _ if attr.starts_with("expires=") => {
-                    let expires =
-                        DateTime::parse_rfc_1123(&attr[8..]).map_err(|_| CookieParseError)?;
+                    let expires = DateTime::parse_rfc_1123(&attr[8..])
+                        .map_err(|_| CookieParseError::InvalidExpires)?;
                     builder = builder.expires(expires);
                 }
                 _ if attr.starts_with("samesite=") => {
-                    let same_site: SameSite = attr[9..].parse().map_err(|_| CookieParseError)?;
+                    let same_site: SameSite = attr[9..]
+                        .parse()
+                        .map_err(|_| CookieParseError::InvalidSameSite)?;
                     builder = builder.same_site(same_site);
                 }
                 _ => {}
@@ -485,8 +508,8 @@ impl FromRequestRef for Cookies {
                 Ok(cookie) => {
                     cookies.set(cookie);
                 }
-                Err(_) => {
-                    log::warn!("Failed to parse cookie: `{raw}`");
+                Err(err) => {
+                    log::warn!("Failed to parse cookie: `{raw}`: {err}");
                 }
             }
         }
