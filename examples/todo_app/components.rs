@@ -36,10 +36,16 @@ pub fn Title(title: impl Into<String>) -> HTMLElement {
 pub struct LayoutProps {
     pub auth: Option<AuthenticatedUser>,
     pub alert: Option<AlertProps>,
+    pub class: Option<String>,
 }
 
-pub fn Layout(LayoutProps { auth, alert }: LayoutProps, content: impl IntoChildren) -> HTMLElement {
+pub fn Layout(
+    LayoutProps { auth, alert, class }: LayoutProps,
+    content: impl IntoChildren,
+) -> HTMLElement {
     html::div(|| {
+        html::class("min-h-screen flex flex-col");
+
         html::div(|| {
             html::class("w-full h-16");
         });
@@ -80,7 +86,13 @@ pub fn Layout(LayoutProps { auth, alert }: LayoutProps, content: impl IntoChildr
             }
         });
 
-        content.into_children();
+        html::div(|| {
+            html::class(format!(
+                "flex flex-col items-center justify-center p-4 h-full w-full {}",
+                class.unwrap_or_default()
+            ));
+            content.into_children();
+        });
     })
 }
 
