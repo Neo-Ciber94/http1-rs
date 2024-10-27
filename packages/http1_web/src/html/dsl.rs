@@ -1,7 +1,10 @@
-use http1::common::any_map::AnyMap;
-
 use super::element::{Attribute, Element, HTMLElement, Node};
-use std::{borrow::Cow, cell::RefCell};
+use std::{
+    any::{Any, TypeId},
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+};
 
 pub enum AttrValue {
     String(String),
@@ -217,10 +220,14 @@ impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 #[derive(Debug)]
 struct Global {
     elements: Vec<Element>,
+    context: Option<HashMap<TypeId, Box<dyn Any>>>,
 }
 
 thread_local! {
-    static ROOT: RefCell<Global> = RefCell::new(Global { elements: Vec::new() });
+    static ROOT: RefCell<Global> = RefCell::new(Global {
+        elements: Vec::new(),
+        context: None
+    });
 }
 
 fn __html_element<T: IntoChildren>(
@@ -228,16 +235,19 @@ fn __html_element<T: IntoChildren>(
     is_void: bool,
     content: T,
 ) -> HTMLElement {
-    ROOT.with_borrow_mut(move |ctx: &mut Global| {
-        ctx.elements
+    ROOT.with_borrow_mut(move |global: &mut Global| {
+        global
+            .elements
             .push(Element::builder(tag).is_void(is_void).build());
+
+        global.context.get_or_insert_with(|| Default::default());
     });
 
     let children = content.into_children();
 
-    let result = ROOT.with_borrow_mut(|ctx: &mut Global| {
+    let result: Option<Element> = ROOT.with_borrow_mut(|global: &mut Global| {
         // Insert the current children in the last node
-        if let Some(parent) = ctx.elements.last_mut() {
+        if let Some(parent) = global.elements.last_mut() {
             match children {
                 Children::Node(node) => parent.children_mut().push(node),
                 Children::List(vec) => parent.children_mut().extend(vec),
@@ -246,9 +256,9 @@ fn __html_element<T: IntoChildren>(
         }
 
         // Then if there is any elements we insert the last one into the previous one
-        if ctx.elements.len() > 1 {
-            if let Some(el) = ctx.elements.pop() {
-                if let Some(parent) = ctx.elements.last_mut() {
+        if global.elements.len() > 1 {
+            if let Some(el) = global.elements.pop() {
+                if let Some(parent) = global.elements.last_mut() {
                     if !parent.is_void() {
                         parent.children_mut().push(el.into());
                     }
@@ -259,10 +269,19 @@ fn __html_element<T: IntoChildren>(
         }
 
         // Return the last node
-        ctx.elements.pop()
+        global.elements.pop()
     });
 
-    result.into()
+    let element: HTMLElement = result.into();
+
+    // Only the root element return a non empty, we can clear the context.
+    if let HTMLElement::Element(_) = &element {
+        ROOT.with_borrow_mut(|global: &mut Global| {
+            global.context.take();
+        });
+    }
+
+    element
 }
 
 /// Declare a `html` element.
@@ -277,8 +296,8 @@ pub fn html_void_element<T: IntoChildren>(tag: impl Into<String>, content: T) ->
 
 /// Declare a text node for the current html element.
 pub fn content(text: impl Into<String>) {
-    ROOT.with_borrow_mut(|ctx: &mut Global| {
-        if let Some(parent) = ctx.elements.last_mut() {
+    ROOT.with_borrow_mut(|global: &mut Global| {
+        if let Some(parent) = global.elements.last_mut() {
             let text = text.into();
             parent.children_mut().push(text.into());
         }
@@ -287,8 +306,8 @@ pub fn content(text: impl Into<String>) {
 
 /// Sets an attribute in the current html element.
 pub fn attr(name: impl Into<String>, value: impl IntoAttrValue) {
-    ROOT.with_borrow_mut(|ctx: &mut Global| {
-        if let Some(parent) = ctx.elements.last_mut() {
+    ROOT.with_borrow_mut(|global: &mut Global| {
+        if let Some(parent) = global.elements.last_mut() {
             let name = name.into();
             let attr_value = value.into_attr_value();
 
@@ -383,25 +402,37 @@ define_html_void_element_fn!(
     hr, br, img, input, meta, link
 );
 
-thread_local! {
-    static CONTEXT_BAG: RefCell<AnyMap> = RefCell::new(AnyMap::new());
-}
-
 /// Set a value in the global context.
-pub fn set_context<T: 'static + Send + Sync + Clone>(value: T) {
-    CONTEXT_BAG.with_borrow_mut(|ctx: &mut AnyMap| {
-        ctx.insert(value);
+pub fn set_context<T: 'static + Clone>(value: T) -> Option<T> {
+    ROOT.with_borrow_mut(move |global: &mut Global| {
+        let ctx = global
+            .context
+            .as_mut()
+            .expect("context can only be used inside a html element");
+
+        ctx.insert(std::any::TypeId::of::<T>(), Box::new(value))
+            .and_then(|x| x.downcast().ok())
+            .map(|x| *x)
     })
 }
 
 /// Gets a value from the global context.
-pub fn get_context<T: 'static + Send + Sync + Clone>() -> Option<T> {
-    CONTEXT_BAG.with_borrow(|ctx: &AnyMap| ctx.get::<T>().cloned())
+pub fn get_context<T: 'static + Clone>() -> Option<T> {
+    ROOT.with_borrow(move |global: &Global| {
+        let ctx = global
+            .context
+            .as_ref()
+            .expect("context can only be used inside a html element");
+
+        ctx.get(&std::any::TypeId::of::<T>())
+            .and_then(|x| x.downcast_ref::<T>())
+            .cloned()
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{attr, content, html_element, html_void_element};
+    use super::{attr, content, get_context, html_element, html_void_element, set_context};
 
     #[test]
     fn should_build_1_level_html() {
@@ -462,5 +493,29 @@ mod tests {
 </html>
 "#
         )
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_panic_if_use_get_context_outside_html() {
+        get_context::<usize>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_panic_if_use_set_context_outside_html() {
+        set_context::<usize>(234);
+    }
+
+    #[test]
+    fn should_set_and_get_context() {
+        let html = super::div(|| {
+            set_context(String::from("Hello World!"));
+            super::p(get_context::<String>());
+        })
+        .into_element()
+        .unwrap();
+
+        assert_eq!(html.to_plain_string(),"<div>\n<p>\nHello World!\n</p>\n</div>\n");
     }
 }

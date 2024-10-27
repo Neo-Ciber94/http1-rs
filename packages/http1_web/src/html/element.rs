@@ -180,6 +180,12 @@ impl Element {
     pub fn children_mut(&mut self) -> &mut Vec<Node> {
         &mut self.children
     }
+
+    pub fn to_plain_string(&self) -> String {
+        let mut buf = String::new();
+        write_element(self, &mut buf, "", 0).expect("failed to write string");
+        buf
+    }
 }
 
 impl IntoResponse for Element {
@@ -191,7 +197,7 @@ impl IntoResponse for Element {
 
 impl Display for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write_element(self, f, 0)
+        write_element(self, f, "  ", 0)
     }
 }
 
@@ -240,20 +246,25 @@ impl IntoResponse for HTMLElement {
     }
 }
 
-fn write_element(
+fn write_element<W: std::fmt::Write>(
     el: &Element,
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut W,
+    indent_str: &'static str,
     indentation_level: usize,
 ) -> std::fmt::Result {
-    fn write_indent(f: &mut std::fmt::Formatter<'_>, indentation_level: usize) -> std::fmt::Result {
+    fn write_indent<W: std::fmt::Write>(
+        f: &mut W,
+        indent_str: &'static str,
+        indentation_level: usize,
+    ) -> std::fmt::Result {
         for _ in 0..indentation_level {
-            write!(f, "  ")?;
+            f.write_str(indent_str)?;
         }
 
         Ok(())
     }
 
-    write_indent(f, indentation_level)?;
+    write_indent(f, indent_str, indentation_level)?;
 
     // Opening
     write!(f, "<{}", el.tag)?;
@@ -282,9 +293,11 @@ fn write_element(
 
         for node in el.children() {
             match node {
-                Node::Element(element) => write_element(element, f, indentation_level + 1)?,
+                Node::Element(element) => {
+                    write_element(element, f, indent_str, indentation_level + 1)?
+                }
                 Node::Text(text) => {
-                    write_indent(f, indentation_level + 1)?;
+                    write_indent(f, indent_str, indentation_level + 1)?;
                     let text = escape_html(text);
                     writeln!(f, "{text}")?;
                 }
@@ -292,7 +305,7 @@ fn write_element(
         }
 
         if len > 0 {
-            write_indent(f, indentation_level)?;
+            write_indent(f, indent_str, indentation_level)?;
         }
 
         writeln!(f, "</{}>", el.tag)?;
