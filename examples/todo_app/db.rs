@@ -47,7 +47,7 @@ impl KeyValueDatabase {
         let mut json = if bytes.is_empty() {
             JsonValue::Object(Default::default())
         } else {
-            serde::json::from_bytes::<JsonValue>(bytes).map_err(|err| std::io::Error::other(err))?
+            serde::json::from_bytes::<JsonValue>(bytes).map_err(std::io::Error::other)?
         };
 
         let result = f(&mut json);
@@ -59,9 +59,9 @@ impl KeyValueDatabase {
     pub fn set<T: Serialize>(&self, key: impl AsRef<str>, value: T) -> std::io::Result<()> {
         self.tap(|json| {
             let new_value =
-                serde::json::to_value(&value).map_err(|err| std::io::Error::other(err))?;
+                serde::json::to_value(&value).map_err(std::io::Error::other)?;
             json.try_insert(key.as_ref(), new_value)
-                .map_err(|err| std::io::Error::other(err))?;
+                .map_err(std::io::Error::other)?;
             Ok(())
         })
     }
@@ -78,7 +78,7 @@ impl KeyValueDatabase {
             };
 
             let value = serde::json::from_value::<T>(value.clone())
-                .map_err(|err| std::io::Error::other(err))?;
+                .map_err(std::io::Error::other)?;
             Ok(Some(value))
         })
     }
@@ -127,12 +127,12 @@ impl KeyValueDatabase {
                     let value = x.as_number().unwrap().as_u64().unwrap_or(0) + 1;
                     let new_value = JsonValue::from(value);
                     json.try_insert(key, new_value)
-                        .map_err(|err| std::io::Error::other(err))?;
+                        .map_err(std::io::Error::other)?;
                     Ok(value)
                 }
                 None => {
                     json.try_insert(key, JsonValue::from(0))
-                        .map_err(|err| std::io::Error::other(err))?;
+                        .map_err(std::io::Error::other)?;
                     Ok(0)
                 }
             }
@@ -182,7 +182,7 @@ impl KeyValueDatabase {
 
                             Ok::<bool, BoxError>(should_keep)
                         })
-                        .map_err(|err| std::io::Error::other(err))?;
+                        .map_err(std::io::Error::other)?;
                 }
                 v => panic!("expected json object but was `{}`", v.variant()),
             }

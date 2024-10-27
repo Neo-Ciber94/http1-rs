@@ -43,7 +43,7 @@ impl FromRequestRef for AuthenticatedUser {
 
         let session_cookie = cookies
             .get(COOKIE_SESSION_NAME)
-            .ok_or_else(|| AuthenticatedUserRejection::RedirectToLogin)?;
+            .ok_or(AuthenticatedUserRejection::RedirectToLogin)?;
 
         let session_id = session_cookie.value();
 
