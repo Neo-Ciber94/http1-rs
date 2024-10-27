@@ -1,6 +1,12 @@
 use std::ops::{Deref, DerefMut};
 
-use http1::{body::{http_body::HttpBody, Body}, error::BoxError, headers::{self, HeaderName, HeaderValue}, response::Response, status::StatusCode};
+use http1::{
+    body::{http_body::HttpBody, Body},
+    error::BoxError,
+    headers::{self, HeaderName, HeaderValue},
+    response::Response,
+    status::StatusCode,
+};
 
 use crate::{cookies::Cookie, mime, serde::ser::Serialize};
 
@@ -8,7 +14,7 @@ use super::IntoResponse;
 
 /// A convenient `HttpResponse` builder for creating HTTP responses with
 /// common status codes and custom headers.
-pub struct HttpResponse<B>(Response<B>);
+pub struct HttpResponse<B = Body>(Response<B>);
 
 impl<B> HttpResponse<B> {
     /// Consumes the `HttpResponse` and returns the underlying `Response`.
@@ -56,6 +62,11 @@ where
     /// Maps the body of the `HttpResponse` to a different type.
     pub fn map_body<R: Into<Body>, F: FnOnce(B) -> R>(self, f: F) -> HttpResponse<R> {
         HttpResponse(self.0.map_body(f))
+    }
+
+    /// Map the body to `Body`.
+    pub fn finish(self) -> HttpResponse<Body> {
+        HttpResponse(self.0.map_body(Body::new))
     }
 }
 
