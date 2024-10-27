@@ -508,6 +508,16 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn should_panic_if_use_set_context_outside_html_2() {
+        super::div(|| {
+            set_context("hello");
+        });
+
+        set_context::<usize>(234);
+    }
+
+    #[test]
     fn should_set_and_get_context() {
         let html = super::div(|| {
             set_context(String::from("Hello World!"));
@@ -516,6 +526,9 @@ mod tests {
         .into_element()
         .unwrap();
 
-        assert_eq!(html.to_plain_string(),"<div>\n<p>\nHello World!\n</p>\n</div>\n");
+        assert_eq!(
+            html.to_plain_string(),
+            "<div>\n<p>\nHello World!\n</p>\n</div>\n"
+        );
     }
 }
