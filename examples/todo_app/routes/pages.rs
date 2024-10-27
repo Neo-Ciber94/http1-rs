@@ -1,6 +1,5 @@
 use http1_web::{
     app::Scope,
-    cookies::Cookies,
     html::{self, element::HTMLElement},
     path::Path,
     redirect::Redirect,
@@ -8,7 +7,7 @@ use http1_web::{
     ErrorResponse, ErrorStatusCode, NotFound,
 };
 
-use crate::{components::{AlertProps, Head, Layout, LayoutProps, Title}, consts::COOKIE_FLASH_MESSAGE, db::KeyValueDatabase};
+use crate::{components::{AlertProps, Head, Layout, LayoutProps, Title}, db::KeyValueDatabase};
 
 use super::models::AuthenticatedUser;
 
@@ -21,10 +20,9 @@ pub fn page_routes() -> Scope {
 
 fn todos_routes() -> Scope {
     Scope::new()
-        .get("/", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
+        .get("/", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, alert: Option<AlertProps>| -> Result<HTMLElement, ErrorResponse> {
             let AuthenticatedUser(user) = &auth;
             let todos = crate::models::get_all_todos(&db, user.id)?;
-            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -142,13 +140,11 @@ fn todos_routes() -> Scope {
             })
             )
         })
-        .get("/create", | auth: AuthenticatedUser, cookies: Cookies| {
+        .get("/create", | auth: AuthenticatedUser, alert: Option<AlertProps>| {
             html::html(|| {
                 Head(|| {
                     Title("TodoApp | Create Todo");
                 });
-
-                let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
                 html::body(|| {
                     Layout(LayoutProps { auth: Some(auth), alert }, || {
@@ -193,7 +189,7 @@ fn todos_routes() -> Scope {
                 });
             })
         })
-        .get("/edit/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
+        .get("/edit/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, alert: Option<AlertProps>| -> Result<HTMLElement, ErrorResponse> {
             let todo = match crate::models::get_todo(&db, todo_id)? {
                 Some(x) => x,
                     None => {
@@ -201,8 +197,6 @@ fn todos_routes() -> Scope {
                 }
             };
 
-            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
-            
             Ok(html::html(|| {
                 Head(|| {
                     Title("TodoApp | Edit Todo");
@@ -258,15 +252,13 @@ fn todos_routes() -> Scope {
                 });
             }))
         })
-        .get("/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, cookies: Cookies| -> Result<HTMLElement, ErrorResponse> {
+        .get("/:todo_id", |State(db): State<KeyValueDatabase>, auth: AuthenticatedUser, Path(todo_id): Path<u64>, alert: Option<AlertProps>| -> Result<HTMLElement, ErrorResponse> {
             let todo = match crate::models::get_todo(&db, todo_id)? {
                 Some(x) => x,
                 None => {
                     return Err(ErrorStatusCode::NotFound.into())
                 }
             };
-
-            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
@@ -307,12 +299,10 @@ fn todos_routes() -> Scope {
 
 fn home_routes() -> Scope {
     Scope::new()
-        .get("/login", |auth: Option<AuthenticatedUser>, cookies: Cookies| -> Result<HTMLElement, Redirect> {
+        .get("/login", |auth: Option<AuthenticatedUser>, alert: Option<AlertProps>| -> Result<HTMLElement, Redirect> {
             if auth.is_some() {
                 return Err(Redirect::see_other("/todos"));
             }
-
-            let alert = cookies.get(COOKIE_FLASH_MESSAGE).and_then(|x| http1_web::serde::json::from_str::<AlertProps>(x.value()).ok());
 
             Ok(html::html(|| {
                 Head(|| {
