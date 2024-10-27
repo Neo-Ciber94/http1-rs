@@ -480,13 +480,11 @@ mod tests {
             html.to_string(),
             r#"<html>
   <head>
-    <title>
-      This is a Title
-    </title>
+    <title>This is a Title</title>
   </head>
+
   <body>
-    <h1 class="text-red">
-      Hello World!
+    <h1 class="text-red">Hello World!
       <hr />
     </h1>
   </body>
@@ -528,7 +526,7 @@ mod tests {
 
         assert_eq!(
             html.to_plain_string(),
-            "<div>\n<p>\nHello World!\n</p>\n</div>\n"
+            "<div>\n<p>Hello World!</p>\n</div>\n"
         );
     }
 }

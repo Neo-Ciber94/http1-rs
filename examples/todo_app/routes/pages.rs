@@ -200,6 +200,7 @@ fn todos_routes() -> Scope {
                 }
             };
 
+            dbg!(&todo);
             Ok(html::html(|| {
                 Head(|| {
                     Title("TodoApp | Edit Todo");
@@ -240,8 +241,8 @@ fn todos_routes() -> Scope {
                                     html::textarea(|| {
                                         html::attr("placeholder", "Description (optional)");
                                         html::attr("name", "description");
-                                        html::attr("value", todo.description.clone().unwrap_or_default());
                                         html::class("mt-4 p-3 border border-gray-300 rounded w-full");
+                                        html::content( todo.description.clone().unwrap_or_default());
                                     });
     
                                     html::button(|| {

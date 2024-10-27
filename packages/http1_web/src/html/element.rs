@@ -250,21 +250,21 @@ fn write_element<W: std::fmt::Write>(
     el: &Element,
     f: &mut W,
     indent_str: &'static str,
-    indentation_level: usize,
+    level: usize,
 ) -> std::fmt::Result {
     fn write_indent<W: std::fmt::Write>(
         f: &mut W,
         indent_str: &'static str,
-        indentation_level: usize,
+        level: usize,
     ) -> std::fmt::Result {
-        for _ in 0..indentation_level {
+        for _ in 0..level {
             f.write_str(indent_str)?;
         }
 
         Ok(())
     }
 
-    write_indent(f, indent_str, indentation_level)?;
+    write_indent(f, indent_str, level)?;
 
     // Opening
     write!(f, "<{}", el.tag)?;
@@ -287,25 +287,24 @@ fn write_element<W: std::fmt::Write>(
         write!(f, ">")?;
         let len = el.children.len();
 
-        if len > 0 {
-            writeln!(f)?;
-        }
-
         for node in el.children() {
             match node {
                 Node::Element(element) => {
-                    write_element(element, f, indent_str, indentation_level + 1)?
+                    if len > 0 {
+                        writeln!(f)?;
+                    }
+
+                    write_element(element, f, indent_str, level + 1)?;
+
+                    if len > 0 {
+                        write_indent(f, indent_str, level)?;
+                    }
                 }
                 Node::Text(text) => {
-                    write_indent(f, indent_str, indentation_level + 1)?;
                     let text = escape_html(text);
-                    writeln!(f, "{text}")?;
+                    write!(f, "{text}")?;
                 }
             }
-        }
-
-        if len > 0 {
-            write_indent(f, indent_str, indentation_level)?;
         }
 
         writeln!(f, "</{}>", el.tag)?;
@@ -429,13 +428,11 @@ mod tests {
             el.to_string(),
             r#"<html>
   <head>
-    <title>
-      This is HTML
-    </title>
+    <title>This is HTML</title>
   </head>
+
   <body>
-    <h1 class="text-red">
-      Hello World!
+    <h1 class="text-red">Hello World!
       <hr />
     </h1>
   </body>
