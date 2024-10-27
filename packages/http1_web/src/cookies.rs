@@ -117,6 +117,7 @@ impl Cookie {
 
 #[derive(Debug)]
 pub enum CookieParseError {
+    DecodeError,
     InvalidCookie,
     InvalidMaxAge,
     InvalidExpires,
@@ -128,6 +129,7 @@ impl std::error::Error for CookieParseError {}
 impl Display for CookieParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CookieParseError::DecodeError => write!(f, "Failed to decode cookie"),
             CookieParseError::InvalidCookie => write!(f, "invalid cookie format"),
             CookieParseError::InvalidMaxAge => write!(f, "invalid cookie max-age"),
             CookieParseError::InvalidExpires => write!(f, "invalid cookie expires date"),
@@ -140,6 +142,7 @@ impl FromStr for Cookie {
     type Err = CookieParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = http1::uri::url_encoding::decode(s).map_err(|_| CookieParseError::DecodeError)?;
         let mut parts = s.split(";").map(|x| x.trim());
 
         let mut builder = match parts.next().and_then(|x| x.split_once("=")) {
