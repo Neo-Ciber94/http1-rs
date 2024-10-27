@@ -100,7 +100,7 @@ macro_rules! impl_serde_struct {
 #[macro_export]
 macro_rules! impl_serialize_enum_str {
     ($enum:ident => { $($variant:ident),* $(,)? }) => {
-        impl crate::serde::ser::Serialize for $enum {
+        impl $crate::serde::ser::Serialize for $enum {
             fn serialize<S: $crate::serde::ser::Serializer>(
                 &self,
                 serializer: S,
@@ -135,13 +135,11 @@ macro_rules! impl_deserialize_enum_str {
 
                 match variant.as_str() {
                     $(
-                        stringify!(stringify!($variant)) => Ok($enum :: $variant),
+                        stringify!($variant) => Ok($enum :: $variant),
                     )*
                     v => {
-                        let unknown_variant = format!("{}::{v}", stringify!($enum));
-
                         Err($crate::serde::de::Error::custom(format!(
-                            "Unknown enum variant `{unknown_variant}`, valid variants: {KNOWN_VARIANTS:?}"
+                            "Unknown enum variant `{v}`, valid variants: {KNOWN_VARIANTS:?}"
                         )))
                     },
                 }
