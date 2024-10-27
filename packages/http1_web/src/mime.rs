@@ -1,5 +1,7 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
+use http1::headers::HeaderValue;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mime {
     type_: Cow<'static, str>,
@@ -308,6 +310,12 @@ declare_mime_types! {
     FONT_OTF => ["otf", "font", "otf", None],
     FONT_WOFF => ["woff", "font", "woff", None],
     FONT_WOFF2 => ["woff2", "font", "woff2", None]
+}
+
+impl From<Mime> for HeaderValue {
+    fn from(value: Mime) -> Self {
+        HeaderValue::from(value.to_string())
+    }
 }
 
 #[allow(dead_code)]
