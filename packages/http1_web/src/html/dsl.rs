@@ -213,12 +213,12 @@ impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
 impl_into_children_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 #[derive(Debug)]
-struct Context {
+struct Global {
     elements: Vec<Element>,
 }
 
 thread_local! {
-    static CONTEXT: RefCell<Context> = RefCell::new(Context { elements: Vec::new() });
+    static ROOT: RefCell<Global> = RefCell::new(Global { elements: Vec::new() });
 }
 
 fn __html_element<T: IntoChildren>(
@@ -226,14 +226,14 @@ fn __html_element<T: IntoChildren>(
     is_void: bool,
     content: T,
 ) -> HTMLElement {
-    CONTEXT.with_borrow_mut(move |ctx: &mut Context| {
+    ROOT.with_borrow_mut(move |ctx: &mut Global| {
         ctx.elements
             .push(Element::builder(tag).is_void(is_void).build());
     });
 
     let children = content.into_children();
 
-    let result = CONTEXT.with_borrow_mut(|ctx: &mut Context| {
+    let result = ROOT.with_borrow_mut(|ctx: &mut Global| {
         // Insert the current children in the last node
         if let Some(parent) = ctx.elements.last_mut() {
             match children {
@@ -275,7 +275,7 @@ pub fn html_void_element<T: IntoChildren>(tag: impl Into<String>, content: T) ->
 
 /// Declare a text node for the current html element.
 pub fn content(text: impl Into<String>) {
-    CONTEXT.with_borrow_mut(|ctx: &mut Context| {
+    ROOT.with_borrow_mut(|ctx: &mut Global| {
         if let Some(parent) = ctx.elements.last_mut() {
             let text = text.into();
             parent.children_mut().push(text.into());
@@ -285,7 +285,7 @@ pub fn content(text: impl Into<String>) {
 
 /// Sets an attribute in the current html element.
 pub fn attr(name: impl Into<String>, value: impl IntoAttrValue) {
-    CONTEXT.with_borrow_mut(|ctx: &mut Context| {
+    ROOT.with_borrow_mut(|ctx: &mut Global| {
         if let Some(parent) = ctx.elements.last_mut() {
             let name = name.into();
             let attr_value = value.into_attr_value();
@@ -346,11 +346,6 @@ macro_rules! define_html_void_element_fn {
     };
 }
 
-#[doc = concat!("Declares a `<")]
-pub fn hello<T: IntoChildren>(content: T) -> HTMLElement {
-    html_element(stringify!(hello), content)
-}
-
 #[rustfmt::skip]
 define_html_element_fn!(
     // Document Structure
@@ -385,6 +380,12 @@ define_html_void_element_fn!(
     // Void elements (self-closing)
     hr, br, img, input, meta, link
 );
+
+
+
+pub fn set_ROOT() {}
+
+pub fn get_ROOT<T: 'static + Clone>() {}
 
 #[cfg(test)]
 mod tests {
