@@ -106,7 +106,7 @@ impl Handler<Request<Body>> for ServeDir {
             base_dir.join(route.trim_start_matches("/"))
         };
 
-        log::debug!("try serve path: {serve_path:?}");
+        log::debug!("serving path: {serve_path:?}");
 
         if !serve_path.exists() {
             return StatusCode::NOT_FOUND.into_response();
