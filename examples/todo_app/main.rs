@@ -1,10 +1,9 @@
 mod components;
 mod consts;
-mod db;
 mod models;
 mod routes;
 
-use db::KeyValueDatabase;
+use app::db::KeyValueDatabase;
 use http1::server::Server;
 use http1_web::{
     app::App,

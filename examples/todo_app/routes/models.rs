@@ -4,7 +4,8 @@ use http1_web::{
     ErrorStatusCode, IntoResponse,
 };
 
-use crate::{consts::COOKIE_SESSION_NAME, db::KeyValueDatabase, models::User};
+use crate::{consts::COOKIE_SESSION_NAME, models::User};
+use app::db::KeyValueDatabase;
 
 #[derive(Debug)]
 pub struct AuthenticatedUser(pub User);

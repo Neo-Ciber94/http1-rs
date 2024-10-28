@@ -6,12 +6,12 @@ A zero dependencies implementation of the HTTP 1.1 protocol in rust.
 
 ### Types
 
-- Add types that implement FromRequest that can be created from headers like: GetHeader<Authorization>, TypedHeader<Authorization>, H<Authorization>, FromHeader<Authorization>
-- Add Host information from the connection reading it from the headers, that can be a GetHeader<Host>
+- Add ip address information, maybe just inject the IpAddress or a Connection struct
 
 ### Misc
 - Web Sockets?
 - Separate read_request and write_response so only use io::Read and io::Write
+- RouteInfo to allow inject the current route information
 
 ### Fixes
 - FromRequest should return a custom error, by default we just return 500 but some can return 400 like Path

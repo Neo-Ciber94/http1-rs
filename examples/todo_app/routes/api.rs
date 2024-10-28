@@ -15,10 +15,9 @@ use http1_web::{
 use crate::{
     components::{AlertKind, AlertProps},
     consts::{COOKIE_FLASH_MESSAGE, COOKIE_SESSION_NAME},
-    db::KeyValueDatabase,
     models::ValidationError,
 };
-
+use app::db::KeyValueDatabase;
 use super::models::AuthenticatedUser;
 
 macro_rules! tri {
