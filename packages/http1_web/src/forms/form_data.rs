@@ -236,7 +236,6 @@ fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<us
 
             // Remove '\r\n'
             if buf.ends_with(b"\r\n") {
-                println!("pop \\r\\n");
                 buf.pop();
                 buf.pop();
                 removed += 2;

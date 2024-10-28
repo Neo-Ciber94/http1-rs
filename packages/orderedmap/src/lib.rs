@@ -305,7 +305,6 @@ mod tests {
         map.insert("first", 1);
         map.insert("second", 2);
         map.insert("third", 3);
-        println!("{:?}", map);
 
         // Should get keys in order
         let keys = map.keys().cloned().collect::<Vec<_>>();
