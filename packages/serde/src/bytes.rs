@@ -3,9 +3,9 @@ use crate::{
     visitor::{BytesAccess, SeqAccess, Visitor},
 };
 
-pub struct BytesBufferDeserializer(pub Vec<u8>);
+pub struct BytesBufferDeserializer<R: std::io::Read>(pub R);
 
-impl Deserializer for BytesBufferDeserializer {
+impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
@@ -154,8 +154,8 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        let s = String::from_utf8_lossy(&self.0);
-        visitor.visit_string(s.into_owned())
+        let buf = std::io::read_to_string(self.0).map_err(crate::de::Error::error)?;
+        visitor.visit_string(buf)
     }
 
     fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
@@ -167,18 +167,27 @@ impl Deserializer for BytesBufferDeserializer {
         ))
     }
 
-    fn deserialize_bytes_buf<V>(self, visitor: V) -> Result<V::Value, crate::de::Error>
+    fn deserialize_bytes_buf<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        visitor.visit_bytes_buf(self.0)
+        let mut buf = Vec::new();
+        self.0
+            .read_to_end(&mut buf)
+            .map_err(crate::de::Error::error)?;
+        visitor.visit_bytes_buf(buf)
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, crate::de::Error>
+    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,
     {
-        let seq = BytesSeqAccess(self.0.into_iter());
+        let mut buf: Vec<u8> = Vec::new();
+        self.0
+            .read_to_end(&mut buf)
+            .map_err(crate::de::Error::error)?;
+
+        let seq = BytesSeqAccess(buf.into_iter());
         visitor.visit_seq(seq)
     }
 
@@ -195,15 +204,15 @@ impl Deserializer for BytesBufferDeserializer {
     where
         V: Visitor,
     {
-        struct ByteBufferAccess(Vec<u8>);
+        struct ByteBufferAccess<R>(R);
 
-        impl BytesAccess for ByteBufferAccess {
+        impl<R: std::io::Read> BytesAccess for ByteBufferAccess<R> {
             fn next_bytes<W: std::io::Write>(
                 &mut self,
                 writer: &mut W,
             ) -> Result<(), super::de::Error> {
-                writer
-                    .write_all(self.0.as_slice())
+                std::io::copy(&mut self.0, writer)
+                    .map(|_| ())
                     .map_err(super::de::Error::error)
             }
         }

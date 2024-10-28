@@ -232,15 +232,17 @@ fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<us
 
     match reader.read_until(b'\n', buf) {
         Ok(n) => {
-            // Remove '\n'
-            buf.pop();
+            let mut removed = 0;
 
-            // Remove '\r'
-            if buf.ends_with(b"\r") {
+            // Remove '\r\n'
+            if buf.ends_with(b"\r\n") {
+                println!("pop \\r\\n");
                 buf.pop();
+                buf.pop();
+                removed += 2;
             }
 
-            Ok(n)
+            Ok(n - removed)
         }
         Err(err) => Err(FieldError::IO(err)),
     }
@@ -605,6 +607,53 @@ mod tests {
             assert_eq!(field.name(), "input1");
             assert_eq!(field.filename(), None);
             assert_eq!(field.text().unwrap(), "value1");
+        }
+
+        {
+            let field = form_data.next_field().unwrap();
+            assert!(field.is_none());
+        }
+    }
+
+    #[test]
+    fn should_read_byte_buffer() {
+        let mut binary_data = Vec::new();
+
+        for i in 0..256 {
+            binary_data.push((i % 256) as u8);
+        }
+
+        let boundary = "x-my-boundary";
+        let mut content = Vec::new();
+
+        // First field (binary)
+        content.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        content.extend_from_slice(
+            "Content-Disposition: form-data; name=\"binary_field\"; filename=\"binary.bin\"\r\n"
+                .as_bytes(),
+        );
+        content.extend_from_slice("Content-Type: application/octet-stream\r\n\r\n".as_bytes());
+        content.extend_from_slice(&binary_data);
+        content.extend_from_slice(b"\r\n");
+
+        content.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+        let req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!("multipart/form-data;boundary={boundary}"),
+            )
+            .body(Body::new(content))
+            .unwrap();
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        {
+            let field = form_data.next_field().unwrap().unwrap();
+            assert_eq!(field.name(), "binary_field");
+            assert_eq!(field.filename(), Some("binary.bin"));
+            let received_data = field.bytes().unwrap();
+            assert_eq!(received_data, binary_data, "different bytes");
         }
 
         {

@@ -79,6 +79,18 @@ impl Uuid {
 
         write!(f, "{a:08x}{b:04x}{c:04x}{d:04x}{e:012x}")
     }
+
+    pub fn to_simple_string(&self) -> String {
+        let mut buf = String::new();
+        self.as_simple(&mut buf).expect("failed to write uuid");
+        buf
+    }
+
+    pub fn to_hyphened_string(&self) -> String {
+        let mut buf = String::new();
+        self.as_hyphened(&mut buf).expect("failed to write uuid");
+        buf
+    }
 }
 
 impl Debug for Uuid {

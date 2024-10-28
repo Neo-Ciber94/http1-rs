@@ -31,16 +31,16 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         if let Some(content_length) = self.content_length {
-            if self.read_bytes > content_length {
-                return Ok(None);
+            if self.read_bytes >= content_length {
+                return Ok(None); // Updated to >= to prevent over-reading
             }
         }
 
         let expected_len = match self.content_length {
             Some(content_length) => match content_length.checked_sub(self.read_bytes) {
-                Some(n) => n,
+                Some(n) => n.min(self.buffer.len()),
                 None => {
-                    // The content length is lower that the actual data length
+                    // The content length is less than the actual data length
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
                         "invalid content length",
@@ -48,23 +48,22 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
                 }
             },
             None => {
-                // We try to fill the buffer
+                // Attempting to fill the buffer in absence of a known content length
                 self.buffer.len()
             }
         };
 
-        let buf = &mut self.buffer[..expected_len];
-
         if expected_len == 0 {
-            return Ok(None);
+            return Ok(None); // End of content reached
         }
+
+        let buf = &mut self.buffer[..expected_len];
 
         match Read::read(&mut self.reader, buf)? {
             0 => {
                 if self.content_length.is_none() {
                     Ok(None)
                 } else {
-                    // EOF but never read all the body
                     Err(std::io::Error::new(
                         std::io::ErrorKind::UnexpectedEof,
                         "body incomplete",

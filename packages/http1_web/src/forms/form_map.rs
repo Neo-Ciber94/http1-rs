@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{Cursor, Read},
-    ops::Deref,
+    ops::{Deref, DerefMut},
 };
 
 use http1::common::temp_file::TempFile;
@@ -75,6 +75,12 @@ impl Deref for FormMap {
     }
 }
 
+impl DerefMut for FormMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl FromRequest for FormMap {
     type Rejection = FormDataError;
 
@@ -90,7 +96,7 @@ impl FromRequest for FormMap {
                     let is_file = field.filename().is_some();
                     let name = field.name().to_owned();
                     let filename = field.filename().map(|s| s.to_owned());
-                    let content_type = field.filename().map(|s| s.to_owned());
+                    let content_type = field.content_type().map(|s| s.to_owned());
 
                     let storage = if is_file {
                         let temp_file =
@@ -102,11 +108,9 @@ impl FromRequest for FormMap {
                             .open()
                             .map_err(|err| FormDataError::Other(err.into()))?;
 
-                        let bytes = field
-                            .bytes()
-                            .map_err(|err| FormDataError::Other(err.into()))?;
+                        let mut data = field.reader();
 
-                        std::io::copy(&mut bytes.as_slice(), &mut file)
+                        std::io::copy(&mut data, &mut file)
                             .map_err(|err| FormDataError::Other(err.into()))?;
 
                         let handle = TempFileHandle::with_tempfile(temp_file)
