@@ -247,6 +247,28 @@ fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<us
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum BoundaryCheck {
+    NotBoundary,
+    EndBoundary,
+    FieldDelimiter,
+}
+
+fn check_boundary(buf: &[u8], boundary: &[u8]) -> BoundaryCheck {
+    if buf.starts_with(boundary) {
+        let boundary_len = boundary.len();
+        let rest = &buf[boundary_len..];
+
+        if rest == b"--" {
+            return BoundaryCheck::EndBoundary;
+        }
+
+        return BoundaryCheck::FieldDelimiter;
+    }
+
+    BoundaryCheck::NotBoundary
+}
+
 pub struct FieldReader<'a> {
     byte_buf: Vec<u8>,
     form_data: &'a mut FormData,
