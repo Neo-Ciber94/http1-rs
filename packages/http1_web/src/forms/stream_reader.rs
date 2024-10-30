@@ -1,5 +1,15 @@
 use std::io::{BufRead, BufReader, Read};
 
+/// How to read a line
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReadLineMode {
+    /// Trim the `\n` or `\r\n` ending.
+    Trim,
+
+    /// Keep the line ending.
+    Retain,
+}
+
 pub struct StreamReader<R> {
     reader: BufReader<R>,
     buf: Vec<u8>,
@@ -19,6 +29,27 @@ impl<R: Read> StreamReader<R> {
     /// Returns the current number of bytes read.
     pub fn total_bytes_read(&self) -> usize {
         self.total_bytes_read
+    }
+
+    /// Read the next line.
+    pub fn read_line(&mut self, mode: ReadLineMode) -> std::io::Result<&[u8]> {
+        self.buf.clear();
+
+        let mut bytes_read = self.reader.read_until(b'\n', &mut self.buf)?;
+
+        if mode == ReadLineMode::Trim {
+            if self.buf.ends_with(b"\n") {
+                self.buf.pop();
+
+                if self.buf.ends_with(b"\r") {
+                    self.buf.pop();
+                }
+            }
+        }
+
+        self.total_bytes_read += bytes_read;
+
+        Ok(&self.buf)
     }
 
     /// Read until the given bytes sequence, if the sequence is never found returns all the bytes.
@@ -92,6 +123,8 @@ impl<R: Read> StreamReader<R> {
 
 #[cfg(test)]
 mod tests {
+    use crate::forms::stream_reader::ReadLineMode;
+
     use super::StreamReader;
 
     #[test]
@@ -186,5 +219,75 @@ mod tests {
         let mut reader = StreamReader::new(b"Some sample text".as_ref());
         assert_eq!(reader.read_to_end().unwrap(), b"Some sample text");
         assert_eq!(reader.total_bytes_read(), 16);
+    }
+
+    #[test]
+    fn should_read_line_with_trim() {
+        let mut reader = StreamReader::new(b"Hello World!\nThis is a test.\n".as_ref());
+
+        // Reading the first line with Trim mode
+        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        assert_eq!(line, b"Hello World!");
+        assert_eq!(reader.total_bytes_read(), 13);
+
+        // Reading the second line with Trim mode
+        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        assert_eq!(line, b"This is a test.");
+        assert_eq!(reader.total_bytes_read(), 29);
+    }
+
+    #[test]
+    fn should_read_line_with_retain() {
+        let mut reader = StreamReader::new(b"Hello World!\nThis is a test.\r\n".as_ref());
+
+        // Reading the first line with Retain mode
+        let line = reader.read_line(ReadLineMode::Retain).unwrap();
+        assert_eq!(line, b"Hello World!\n");
+        assert_eq!(reader.total_bytes_read(), 13);
+
+        // Reading the second line with Retain mode
+        let line = reader.read_line(ReadLineMode::Retain).unwrap();
+        assert_eq!(line, b"This is a test.\r\n");
+        assert_eq!(reader.total_bytes_read(), 30);
+    }
+
+    #[test]
+    fn should_handle_empty_input_in_read_line() {
+        let mut reader = StreamReader::new(b"".as_ref());
+
+        // Trying to read from an empty input should return an empty slice
+        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        assert_eq!(line, b"");
+        assert_eq!(reader.total_bytes_read(), 0);
+    }
+
+    #[test]
+    fn should_handle_no_line_end_in_read_line() {
+        let mut reader = StreamReader::new(b"Hello World!".as_ref());
+
+        // Reading a line without a newline character
+        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        assert_eq!(line, b"Hello World!");
+        assert_eq!(reader.total_bytes_read(), 12);
+    }
+
+    #[test]
+    fn should_read_single_line_with_only_newline_trimmed() {
+        let mut reader = StreamReader::new(b"Line with newline\n".as_ref());
+
+        // Reading with Trim mode should remove the newline
+        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        assert_eq!(line, b"Line with newline");
+        assert_eq!(reader.total_bytes_read(), 18);
+    }
+
+    #[test]
+    fn should_read_single_line_with_only_newline_retained() {
+        let mut reader = StreamReader::new(b"Line with newline\n".as_ref());
+
+        // Reading with Retain mode should keep the newline
+        let line = reader.read_line(ReadLineMode::Retain).unwrap();
+        assert_eq!(line, b"Line with newline\n");
+        assert_eq!(reader.total_bytes_read(), 18);
     }
 }
