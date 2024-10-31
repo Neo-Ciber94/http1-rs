@@ -124,13 +124,6 @@ impl<R: Read> StreamReader<R> {
         let mut start_pos = 0;
 
         loop {
-            let bytes_read = self.fill_buffer(sequence_len)?;
-
-            if bytes_read == 0 {
-                break;
-            }
-
-            let len = self.buf.len();
             if let Some(idx) = self.buf[start_pos..]
                 .iter()
                 .rposition(|b| *b == last_seq_byte)
@@ -144,10 +137,16 @@ impl<R: Read> StreamReader<R> {
                 }
             }
 
-            start_pos += len;
+            let len = self.buf.len();
+            let bytes_read = self.fill_buffer(sequence_len)?;
+            start_pos = len;
+
+            if bytes_read == 0 {
+                break;
+            }
         }
 
-        Ok((self.eof, std::mem::take(&mut self.buf)))
+        Ok((false, std::mem::take(&mut self.buf)))
     }
 
     /// Read exactly the given number of bytes, returns a `(bool, Vec<u8>)`, the boolean determines whether if the exact number of bytes were read.
