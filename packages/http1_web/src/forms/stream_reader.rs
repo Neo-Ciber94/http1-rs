@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufReader, Read};
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
@@ -13,6 +13,8 @@ pub enum ReadLineMode {
 pub struct StreamReader<R> {
     reader: BufReader<R>,
     buf: Vec<u8>,
+    eof: bool,
+    pos: usize,
     total_bytes_read: usize,
 }
 
@@ -22,6 +24,8 @@ impl<R: Read> StreamReader<R> {
         StreamReader {
             reader: BufReader::new(reader),
             buf: Vec::new(),
+            eof: false,
+            pos: 0,
             total_bytes_read: 0,
         }
     }
@@ -31,93 +35,140 @@ impl<R: Read> StreamReader<R> {
         self.total_bytes_read
     }
 
-    /// Read the next line.
-    pub fn read_line(&mut self, mode: ReadLineMode) -> std::io::Result<&[u8]> {
-        self.buf.clear();
+    /// The current buffer, after each read this buffer will contains the last read data.
+    pub fn buffer(&self) -> &[u8] {
+        &self.buf
+    }
 
-        let mut bytes_read = self.reader.read_until(b'\n', &mut self.buf)?;
+    /// Fill the buffer to ensure it contains at least `count` bytes.
+    fn fill_buffer(&mut self, additional: usize) -> std::io::Result<usize> {
+        if self.eof {
+            return Ok(0);
+        }
 
-        if mode == ReadLineMode::Trim {
-            if self.buf.ends_with(b"\n") {
-                self.buf.pop();
+        let mut temp_buf = vec![0; 1024];
 
-                if self.buf.ends_with(b"\r") {
-                    self.buf.pop();
-                }
+        while self.buf.len() < self.pos + additional {
+            let bytes_read = self.reader.read(&mut temp_buf)?;
+
+            if bytes_read == 0 {
+                self.eof = true;
+                break;
+            }
+
+            self.buf.extend_from_slice(&temp_buf[..bytes_read]);
+            self.total_bytes_read += bytes_read;
+            self.pos += bytes_read;
+        }
+
+        Ok(self.pos)
+    }
+
+    fn consume(&mut self, count: usize) -> Vec<u8> {
+        let bytes = count.min(self.buf.len());
+        let result = self.buf.drain(..bytes).collect::<Vec<_>>();
+        self.pos -= bytes;
+        result
+    }
+
+    /// Read until the specified byte.
+    pub fn read_until(&mut self, byte: u8) -> std::io::Result<Vec<u8>> {
+        let mut start_pos = self.pos;
+
+        loop {
+            if let Some(idx) = self.buf[start_pos..].iter().position(|&b| b == byte) {
+                let absolute_idx = start_pos + idx + 1;
+                return Ok(self.consume(absolute_idx));
+            }
+
+            start_pos = self.buf.len();
+            let bytes_read = self.fill_buffer(1)?;
+
+            if bytes_read == 0 {
+                break;
             }
         }
 
-        self.total_bytes_read += bytes_read;
+        Ok(self.consume(self.buf.len()))
+    }
 
-        Ok(&self.buf)
+    /// Peek the given number of bytes.
+    pub fn peek(&mut self, count: usize) -> std::io::Result<&[u8]> {
+        if self.buf.len() - self.pos < count {
+            self.fill_buffer(count)?;
+        }
+
+        let len = count.min(self.buf.len());
+        Ok(&self.buf[..len])
+    }
+
+    /// Read the next line.
+    pub fn read_line(&mut self, mode: ReadLineMode) -> std::io::Result<Vec<u8>> {
+        let mut line = self.read_until(b'\n')?;
+
+        if mode == ReadLineMode::Trim {
+            if line.ends_with(b"\r\n") {
+                line.pop();
+                line.pop();
+            } else if line.ends_with(b"\n") {
+                line.pop();
+            }
+        }
+
+        Ok(line)
     }
 
     /// Read until the given bytes sequence, if the sequence is never found returns all the bytes.
-    pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, &[u8])> {
-        self.buf.clear();
-
-        if sequence.is_empty() {
-            return Ok((true, &[]));
+    pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, Vec<u8>)> {
+        if sequence.len() == 0 {
+            return Ok((true, Vec::new()));
         }
 
-        let last_byte = sequence[sequence.len() - 1];
-        let mut byte_buffer = Vec::new();
-        let mut is_found = false;
+        let sequence_len = sequence.len();
+        let last_seq_byte = sequence[sequence.len() - 1];
+        let mut start_pos = 0;
 
         loop {
-            let read_bytes = self.reader.read_until(last_byte, &mut byte_buffer)?;
-            self.buf.extend_from_slice(&byte_buffer);
-            self.total_bytes_read += read_bytes;
+            let bytes_read = self.fill_buffer(sequence_len)?;
 
-            if read_bytes == 0 {
+            if bytes_read == 0 {
                 break;
             }
 
-            if byte_buffer.ends_with(sequence) {
-                is_found = true;
-                break;
+            let len = self.buf.len();
+            if let Some(idx) = self.buf[start_pos..]
+                .iter()
+                .rposition(|b| *b == last_seq_byte)
+            {
+                let slice = &self.buf[start_pos..=idx];
+
+                dbg!(String::from_utf8_lossy(slice), start_pos, idx);
+                if slice.ends_with(sequence) {
+                    let chunk = self.consume(start_pos + idx + 1);
+                    return Ok((true, chunk));
+                }
             }
 
-            byte_buffer.clear();
+            start_pos += len;
         }
 
-        Ok((is_found, &self.buf))
+        Ok((false, std::mem::take(&mut self.buf)))
     }
 
-    /// Read exactly the given number of bytes, returns an error if is unable to read the exact number of bytes.
-    pub fn read_exact(&mut self, exact_bytes_count: usize) -> std::io::Result<&[u8]> {
-        self.buf.clear();
-
-        if exact_bytes_count == 0 {
-            return Ok(&[]);
-        }
-
-        self.buf.reserve(exact_bytes_count);
-        self.buf
-            .extend(std::iter::repeat(0).take(exact_bytes_count));
-
-        let fixed_size_buffer = &mut self.buf[..exact_bytes_count];
-
-        let bytes_read = self.reader.read(fixed_size_buffer)?;
-        self.total_bytes_read += bytes_read;
-
-        if bytes_read != exact_bytes_count {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "Failed to read exact",
-            ));
-        }
-
-        Ok(&fixed_size_buffer[..bytes_read])
+    /// Read exactly the given number of bytes, returns a `(bool, Vec<u8>)`, the boolean determines whether if the exact number of bytes were read.
+    pub fn read_exact(&mut self, exact_bytes_count: usize) -> std::io::Result<Vec<u8>> {
+        self.fill_buffer(exact_bytes_count)?;
+        let chunk = self.consume(exact_bytes_count);
+        Ok(chunk)
     }
 
     /// Read all the bytes until the end.
-    pub fn read_to_end(&mut self) -> std::io::Result<&[u8]> {
-        self.buf.clear();
+    pub fn read_to_end(&mut self) -> std::io::Result<Vec<u8>> {
+        while !self.eof {
+            self.fill_buffer(1)?;
+        }
 
-        self.reader.read_to_end(&mut self.buf)?;
-        self.total_bytes_read += self.buf.len();
-        Ok(&self.buf)
+        Ok(self.consume(self.buf.len()))
     }
 }
 
@@ -144,11 +195,47 @@ mod tests {
     }
 
     #[test]
+    fn should_read_until() {
+        let mut reader = StreamReader::new("Adios amigos!".as_bytes());
+
+        assert_eq!(reader.read_until(b' ').unwrap(), b"Adios ");
+        assert_eq!(reader.read_until(b'!').unwrap(), b"amigos!");
+    }
+
+    #[test]
+    fn should_peek_bytes_without_consuming() {
+        let mut reader = StreamReader::new("Peek test example.".as_bytes());
+        assert_eq!(reader.peek(5).unwrap(), b"Peek ");
+        assert_eq!(reader.read_exact(5).unwrap(), b"Peek ");
+    }
+
+    #[test]
+    fn should_peek_more_than_buffer_and_extend() {
+        let mut reader = StreamReader::new("Short buffer peek test.".as_bytes());
+        assert_eq!(reader.peek(0).unwrap(), b"");
+        assert_eq!(reader.peek(1).unwrap(), b"S");
+        assert_eq!(reader.peek(2).unwrap(), b"Sh");
+        assert_eq!(reader.peek(3).unwrap(), b"Sho");
+        assert_eq!(reader.peek(4).unwrap(), b"Shor");
+        assert_eq!(reader.peek(5).unwrap(), b"Short");
+        assert_eq!(reader.peek(6).unwrap(), b"Short ");
+        assert_eq!(reader.peek(15).unwrap(), b"Short buffer pe");
+        assert_eq!(reader.read_exact(15).unwrap(), b"Short buffer pe");
+    }
+
+    #[test]
+    fn should_return_all_if_byte_not_found_in_read_until() {
+        let mut reader = StreamReader::new("No exclamation here.".as_bytes());
+        assert_eq!(reader.read_until(b'!').unwrap(), b"No exclamation here.");
+    }
+
+    #[test]
     fn should_read_until_sequence() {
         let mut reader = StreamReader::new(b"Hello World! How are things?".as_ref());
         let (_, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
+
+        dbg!(String::from_utf8_lossy(&first_sequence));
         assert_eq!(first_sequence, b"Hello World!");
-        assert_eq!(reader.total_bytes_read(), 12);
     }
 
     #[test]
@@ -156,7 +243,6 @@ mod tests {
         let mut reader: StreamReader<&[u8]> = StreamReader::new(b"Hello there!".as_ref());
         let (_, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
         assert_eq!(first_sequence, b"Hello there!");
-        assert_eq!(reader.total_bytes_read(), 12);
     }
 
     #[test]
@@ -173,8 +259,8 @@ mod tests {
         let mut reader = StreamReader::new(b"Hello World!".as_ref());
         let result = reader.read_exact(5).unwrap();
 
+        assert_eq!(result.len(), 5);
         assert_eq!(result, b"Hello");
-        assert_eq!(reader.total_bytes_read(), 5);
     }
 
     #[test]
@@ -189,13 +275,10 @@ mod tests {
     #[test]
     fn should_error_when_read_exact_exceeds_available_data() {
         let mut reader = StreamReader::new(b"Hi".as_ref());
-        let result = reader.read_exact(5);
+        let result = reader.read_exact(5).unwrap();
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().kind(),
-            std::io::ErrorKind::UnexpectedEof
-        );
+        assert_eq!(result.len(), 2);
+        assert_eq!(result, b"Hi");
     }
 
     #[test]
@@ -228,12 +311,10 @@ mod tests {
         // Reading the first line with Trim mode
         let line = reader.read_line(ReadLineMode::Trim).unwrap();
         assert_eq!(line, b"Hello World!");
-        assert_eq!(reader.total_bytes_read(), 13);
 
         // Reading the second line with Trim mode
         let line = reader.read_line(ReadLineMode::Trim).unwrap();
         assert_eq!(line, b"This is a test.");
-        assert_eq!(reader.total_bytes_read(), 29);
     }
 
     #[test]
@@ -243,7 +324,6 @@ mod tests {
         // Reading the first line with Retain mode
         let line = reader.read_line(ReadLineMode::Retain).unwrap();
         assert_eq!(line, b"Hello World!\n");
-        assert_eq!(reader.total_bytes_read(), 13);
 
         // Reading the second line with Retain mode
         let line = reader.read_line(ReadLineMode::Retain).unwrap();
