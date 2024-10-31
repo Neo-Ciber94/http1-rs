@@ -35,11 +35,6 @@ impl<R: Read> StreamReader<R> {
         self.total_bytes_read
     }
 
-    /// The current buffer, after each read this buffer will contains the last read data.
-    pub fn buffer(&self) -> &[u8] {
-        &self.buf
-    }
-
     /// Fill the buffer to ensure it contains at least `count` bytes.
     fn fill_buffer(&mut self, additional: usize) -> std::io::Result<usize> {
         if self.eof {
@@ -73,12 +68,12 @@ impl<R: Read> StreamReader<R> {
 
     /// Read until the specified byte.
     pub fn read_until(&mut self, byte: u8) -> std::io::Result<Vec<u8>> {
-        let mut start_pos = self.pos;
+        let mut start_pos = 0;
 
         loop {
             if let Some(idx) = self.buf[start_pos..].iter().position(|&b| b == byte) {
-                let absolute_idx = start_pos + idx + 1;
-                return Ok(self.consume(absolute_idx));
+                let offset = start_pos + idx + 1;
+                return Ok(self.consume(offset));
             }
 
             start_pos = self.buf.len();
@@ -152,7 +147,7 @@ impl<R: Read> StreamReader<R> {
             start_pos += len;
         }
 
-        Ok((false, std::mem::take(&mut self.buf)))
+        Ok((self.eof, std::mem::take(&mut self.buf)))
     }
 
     /// Read exactly the given number of bytes, returns a `(bool, Vec<u8>)`, the boolean determines whether if the exact number of bytes were read.
@@ -227,6 +222,14 @@ mod tests {
     fn should_return_all_if_byte_not_found_in_read_until() {
         let mut reader = StreamReader::new("No exclamation here.".as_bytes());
         assert_eq!(reader.read_until(b'!').unwrap(), b"No exclamation here.");
+    }
+
+    #[test]
+    fn should_read_until_repeated_byte() {
+        let mut reader = StreamReader::new("aaa,bbb,ccc".as_bytes());
+        assert_eq!(reader.read_until(b',').unwrap(), b"aaa,");
+        assert_eq!(reader.read_until(b',').unwrap(), b"bbb,");
+        assert_eq!(reader.read_until(b',').unwrap(), b"ccc");
     }
 
     #[test]
