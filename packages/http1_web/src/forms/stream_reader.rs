@@ -124,13 +124,11 @@ impl<R: Read> StreamReader<R> {
         let mut start_pos = 0;
 
         loop {
-            if let Some(idx) = self.buf[start_pos..]
-                .iter()
-                .rposition(|b| *b == last_seq_byte)
-            {
+            let chunk = &self.buf[start_pos..];
+
+            if let Some(idx) = chunk.iter().position(|b| *b == last_seq_byte) {
                 let slice = &self.buf[start_pos..=idx];
 
-                dbg!(String::from_utf8_lossy(slice), start_pos, idx);
                 if slice.ends_with(sequence) {
                     let chunk = self.consume(start_pos + idx + 1);
                     return Ok((true, chunk));
@@ -233,11 +231,14 @@ mod tests {
 
     #[test]
     fn should_read_until_sequence() {
-        let mut reader = StreamReader::new(b"Hello World! How are things?".as_ref());
-        let (_, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
+        let mut reader = StreamReader::new(b"Hey how are you? Hey, I said how are you!?".as_ref());
+        let (_, first) = reader.read_until_sequence(b"you").unwrap();
+        assert_eq!(first, b"Hey how are you");
 
-        dbg!(String::from_utf8_lossy(&first_sequence));
-        assert_eq!(first_sequence, b"Hello World!");
+        let (_, second) = reader.read_until_sequence(b"you").unwrap();
+        assert_eq!(second, b"? Hey, I said how are you");
+
+        assert_eq!(reader.read_exact(10).unwrap(), b"!?");
     }
 
     #[test]
