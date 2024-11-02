@@ -183,8 +183,12 @@ impl RequestHandler for App {
 
         // Add any additional extensions
         match self.scope.find_route(req_path) {
-            Some(r) => req.extensions_mut().insert(RouteInfo(r)),
-            None => log::warn!("RouteInfo was not found for `{req_path}` this is a bug"),
+            Some(r) => {
+                req.extensions_mut().insert(RouteInfo(r));
+            }
+            None => {
+                log::warn!("RouteInfo was not found for `{req_path}` this is a bug");
+            }
         }
 
         req.extensions_mut().insert(mtch.params.clone());
