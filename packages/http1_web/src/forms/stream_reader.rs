@@ -59,10 +59,6 @@ impl<R: Read> StreamReader<R> {
         Ok(self.pos)
     }
 
-    pub fn buffer(&self) -> &[u8] {
-        &self.buf
-    }
-
     fn consume(&mut self, count: usize) -> Vec<u8> {
         let bytes = count.min(self.buf.len());
         let result = self.buf.drain(..bytes).collect::<Vec<_>>();
@@ -134,7 +130,6 @@ impl<R: Read> StreamReader<R> {
             {
                 let end = idx + sequence_len;
                 let slice = &self.buf[start_pos..end];
-                dbg!(String::from_utf8_lossy(slice), idx);
 
                 if slice.ends_with(sequence) {
                     let result = self.consume(start_pos + end);
@@ -152,8 +147,6 @@ impl<R: Read> StreamReader<R> {
         }
 
         let rest = self.consume(self.buf.len());
-
-        dbg!(String::from_utf8_lossy(&rest));
 
         Ok((false, rest))
     }
@@ -443,7 +436,7 @@ mod tests {
 
         // Read the file content until the boundary
         let (found, file_data) = reader.read_until_sequence(boundary.as_bytes()).unwrap();
-        dbg!(String::from_utf8_lossy(&file_data));
+
         assert!(found);
         assert_eq!(
             file_data.trim_ascii(),

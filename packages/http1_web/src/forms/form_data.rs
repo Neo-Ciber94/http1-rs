@@ -1,7 +1,7 @@
 use core::str;
 use std::{
     fmt::{Debug, Display},
-    io::{BufRead, BufReader, Read},
+    io::Read,
     path::PathBuf,
     str::Utf8Error,
 };
@@ -15,7 +15,10 @@ use http1::{
 
 use crate::{from_request::FromRequest, IntoResponse};
 
-use super::form_field::{Disk, FormField, Memory, TempDisk};
+use super::{
+    form_field::{Disk, FormField, Memory, TempDisk},
+    stream_reader::{ReadLineMode, StreamReader},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 enum State {
@@ -64,9 +67,8 @@ impl Display for FieldError {
 ///
 /// We parse the file according to: https://datatracker.ietf.org/doc/html/rfc7578
 pub struct FormData {
-    reader: BufReader<BodyReader>,
+    reader: StreamReader<BodyReader>,
     boundary: String,
-    bytes_buf: Vec<u8>,
     state: State,
 }
 
@@ -83,22 +85,29 @@ struct ContentDisposition {
 
 impl FormData {
     pub fn new(boundary: impl Into<String>, body: impl Into<Body>) -> Self {
-        let reader = BodyReader::new(body.into());
-        let reader = BufReader::new(reader);
+        let body_reader = BodyReader::new(body.into());
         let boundary = format!("--{}", boundary.into());
 
         FormData {
             boundary,
-            reader,
-            bytes_buf: Vec::new(),
+            reader: StreamReader::new(body_reader),
             state: State::First,
         }
     }
 
-    fn parse_newline(&mut self) -> Result<(), FieldError> {
-        read_line(&mut self.reader, &mut self.bytes_buf)?;
+    fn read_line(&mut self) -> Result<Vec<u8>, FieldError> {
+        let result = self
+            .reader
+            .read_line(ReadLineMode::Trim)
+            .map_err(|err| FieldError::IO(err))?;
 
-        if !self.bytes_buf.is_empty() {
+        Ok(result)
+    }
+
+    fn parse_newline(&mut self) -> Result<(), FieldError> {
+        let bytes = self.read_line()?;
+
+        if !bytes.is_empty() {
             return Err(FieldError::Other(String::from("expected new line")));
         }
 
@@ -106,9 +115,9 @@ impl FormData {
     }
 
     fn parse_boundary(&mut self) -> Result<(), FieldError> {
-        read_line(&mut self.reader, &mut self.bytes_buf)?;
+        let line = self.read_line()?;
 
-        if self.bytes_buf != self.boundary.as_bytes() {
+        if line != self.boundary.as_bytes() {
             return Err(FieldError::MissingBoundary(self.boundary.clone()));
         }
 
@@ -116,12 +125,10 @@ impl FormData {
     }
 
     fn parse_content_disposition(&mut self) -> Result<ContentDisposition, FieldError> {
-        read_line(&mut self.reader, &mut self.bytes_buf)?;
-
+        let bytes = self.read_line()?;
         let mut name: Result<String, FieldError> = Err(FieldError::MissingName);
         let mut filename: Result<Option<String>, FieldError> = Ok(None);
-
-        let mut parts = self.bytes_buf.split(|b| *b == b';').map(|s| s.trim_ascii());
+        let mut parts = bytes.split(|b| *b == b';').map(|s| s.trim_ascii());
 
         if Some("Content-Disposition: form-data".as_bytes()) != parts.next() {
             return Err(FieldError::MissingContentDisposition);
@@ -154,19 +161,18 @@ impl FormData {
     }
 
     fn parse_content_type(&mut self) -> Result<String, FieldError> {
-        read_line(&mut self.reader, &mut self.bytes_buf)?;
+        let bytes = self.read_line()?;
 
-        if !self.bytes_buf.starts_with(b"Content-Type:") {
+        if !bytes.starts_with(b"Content-Type:") {
             return Err(FieldError::MissingContentType);
         }
 
-        let rest = &self.bytes_buf[b"Content-Type:".len()..].trim_ascii();
+        let rest = &bytes[b"Content-Type:".len()..].trim_ascii();
         let content_type = std::str::from_utf8(rest).map_err(FieldError::Utf8Error)?;
         Ok(content_type.to_owned())
     }
 
     fn field_reader(&mut self) -> FieldReader<'_> {
-        self.bytes_buf.clear();
         FieldReader {
             form_data: self,
             byte_buf: Vec::new(),
@@ -174,23 +180,52 @@ impl FormData {
         }
     }
 
-    fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
-        let read_bytes = read_line(&mut self.reader, buf)?;
+    fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<bool, FieldError> {
+        let (found, mut bytes) = self
+            .reader
+            .read_until_sequence(self.boundary.as_bytes())
+            .map_err(|err| FieldError::IO(err))?;
 
-        // Check if is boundary end or a field delimiter
-        if buf.starts_with(self.boundary.as_bytes()) {
-            let boundary_len = self.boundary.len();
-            let rest = &buf[boundary_len..];
+        // Boundary no found, continue reading
+        if !found {
+            buf.extend(bytes);
+            return Ok(false);
+        }
 
-            if rest == b"--" {
+        // Boundary found, check if is the field end or form data end
+        if found && bytes.ends_with(self.boundary.as_bytes()) {
+            // Remove the boundary
+            bytes.truncate(bytes.len() - self.boundary.len());
+
+            let next_bytes = self.reader.peek(2).map_err(|err| FieldError::IO(err))?;
+
+            // End of the form data
+            if next_bytes == b"--" {
                 self.state = State::Done;
+                self.reader
+                    .read_exact(2)
+                    .map_err(|err| FieldError::IO(err))?;
             }
 
-            buf.clear();
+            let line_endings = self.reader.peek(2).map_err(|err| FieldError::IO(err))?;
 
-            Ok(0)
+            if line_endings != b"\r\n" {
+                return Err(FieldError::Other(String::from(
+                    "expected line endings `\\r\\n`after field end ",
+                )));
+            }
+
+            // Remove the line endings of the field \r\n
+            bytes.truncate(bytes.len() - 2);
+            self.reader
+                .read_exact(2)
+                .map_err(|err| FieldError::IO(err))?;
+
+            buf.extend(bytes);
+            Ok(true)
         } else {
-            Ok(read_bytes)
+            // If is done it should contain the boundary
+            Err(FieldError::Other(String::from("End boundary no found")))
         }
     }
 
@@ -227,48 +262,6 @@ impl FormData {
     }
 }
 
-fn read_line(reader: &mut BufReader<BodyReader>, buf: &mut Vec<u8>) -> Result<usize, FieldError> {
-    buf.clear();
-
-    match reader.read_until(b'\n', buf) {
-        Ok(n) => {
-            let mut removed = 0;
-
-            // Remove '\r\n'
-            if buf.ends_with(b"\r\n") {
-                buf.pop();
-                buf.pop();
-                removed += 2;
-            }
-
-            Ok(n - removed)
-        }
-        Err(err) => Err(FieldError::IO(err)),
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum BoundaryCheck {
-    NotBoundary,
-    EndBoundary,
-    FieldDelimiter,
-}
-
-fn check_boundary(buf: &[u8], boundary: &[u8]) -> BoundaryCheck {
-    if buf.starts_with(boundary) {
-        let boundary_len = boundary.len();
-        let rest = &buf[boundary_len..];
-
-        if rest == b"--" {
-            return BoundaryCheck::EndBoundary;
-        }
-
-        return BoundaryCheck::FieldDelimiter;
-    }
-
-    BoundaryCheck::NotBoundary
-}
-
 pub struct FieldReader<'a> {
     byte_buf: Vec<u8>,
     form_data: &'a mut FormData,
@@ -277,7 +270,7 @@ pub struct FieldReader<'a> {
 
 impl<'a> Read for FieldReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() || self.is_done {
+        if buf.is_empty() || (self.is_done && self.byte_buf.is_empty()) {
             return Ok(0);
         }
 
@@ -285,24 +278,28 @@ impl<'a> Read for FieldReader<'a> {
         let chunk = &mut self.byte_buf;
 
         while pos < buf.len() {
-            if chunk.is_empty() {
-                let read_bytes = self
+            if !self.is_done {
+                let finished = self
                     .form_data
                     .next_bytes(chunk)
                     .map_err(std::io::Error::other)?;
 
-                if read_bytes == 0 {
+                if finished {
                     self.is_done = true;
-                    break;
                 }
             }
 
-            let left = buf.len() - pos;
-            let len = left.min(chunk.len());
-
-            for (idx, byte) in chunk.drain(..len).enumerate() {
-                buf[pos + idx] = byte;
+            if chunk.is_empty() {
+                break;
             }
+
+            let remaining = buf.len() - pos;
+            let len = remaining.min(chunk.len());
+
+            let src = &chunk[..len];
+            let dst = &mut buf[pos..(pos + len)];
+            dst.copy_from_slice(src);
+            chunk.drain(..len);
 
             pos += len;
         }
