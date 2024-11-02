@@ -7,9 +7,9 @@ use http1_web::{
     ErrorResponse, ErrorStatusCode, NotFound,
 };
 
-use app::db::KeyValueDatabase;
-use crate::components::{AlertProps, Head, Layout, LayoutProps, Title};
 use super::models::AuthenticatedUser;
+use crate::components::{AlertProps, Head, Layout, LayoutProps, Title};
+use app::db::KeyValueDatabase;
 
 pub fn page_routes() -> Scope {
     Scope::new()

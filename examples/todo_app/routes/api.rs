@@ -12,13 +12,13 @@ use http1_web::{
     ErrorResponse, ErrorStatusCode, HttpResponse, IntoResponse,
 };
 
+use super::models::AuthenticatedUser;
 use crate::{
     components::{AlertKind, AlertProps},
     consts::{COOKIE_FLASH_MESSAGE, COOKIE_SESSION_NAME},
     models::ValidationError,
 };
 use app::db::KeyValueDatabase;
-use super::models::AuthenticatedUser;
 
 macro_rules! tri {
     ($location:expr, $body:expr) => {{
