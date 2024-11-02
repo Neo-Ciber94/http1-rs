@@ -1,12 +1,17 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{BufReader, BufWriter, Read},
     str::FromStr,
     time::Duration,
 };
 
 use app::db::KeyValueDatabase;
-use http1::{common::uuid::Uuid, error::BoxError, server::Server};
+use http1::{
+    body::{body_reader::BodyReader, http_body::HttpBody, Body},
+    common::uuid::Uuid,
+    error::BoxError,
+    server::Server,
+};
 use http1_web::{
     app::App,
     forms::{
@@ -136,65 +141,39 @@ serde::impl_deserialize_struct!(UploadFile => {
     image: FormFile
 });
 
-fn upload(
-    State(db): State<KeyValueDatabase>,
-    Multipart(form): Multipart<UploadFile>,
-) -> Result<Redirect, ErrorResponse> {
-    //dbg!(&form);
+// fn upload(
+//     Multipart(form): Multipart<UploadFile>,
+// ) -> Result<Redirect, ErrorResponse> {
+//     //dbg!(&form);
+
+//     std::thread::sleep(Duration::from_secs(10));
+//     let mime = Mime::from_str(form.image.content_type().unwrap())?;
+//     let cwd = std::env::current_dir().expect("failed to get current directory");
+//     let dir = cwd.join("examples/photo_gallery/static");
+//     let filename = Uuid::new_v4().to_simple_string();
+//     let file_path = dir.join(format!("{filename}.{}", mime.subtype()));
+
+//     log::debug!("Writing file to: {file_path:?}");
+
+//     let source = form.image.file().read(true).open().unwrap();
+//     let dest_file = File::create(file_path)?;
+//     let mut reader = BufReader::new(source);
+//     let mut writer = BufWriter::new(dest_file);
+//     std::io::copy(&mut reader, &mut writer)?;
+
+//     Ok(Redirect::see_other("/upload"))
+// }
+
+fn upload(mut input: FormMap) -> Result<Redirect, ErrorResponse> {
+    // let total_bytes = body.len();
+
+    dbg!(&input);
+
+    let mut reader = input.remove("file").unwrap().reader();
+    let total_bytes = std::io::copy(&mut reader, &mut std::io::sink()).unwrap();
 
     std::thread::sleep(Duration::from_secs(10));
-    let mime = Mime::from_str(form.image.content_type().unwrap())?;
-    let cwd = std::env::current_dir().expect("failed to get current directory");
-    let dir = cwd.join("examples/photo_gallery/static");
-    let filename = Uuid::new_v4().to_simple_string();
-    let file_path = dir.join(format!("{filename}.{}", mime.subtype()));
 
-    log::debug!("Writing file to: {file_path:?}");
-
-    let source = form.image.file().read(true).open().unwrap();
-    let dest_file = File::create(file_path)?;
-    let mut reader = BufReader::new(source);
-    let mut writer = BufWriter::new(dest_file);
-    std::io::copy(&mut reader, &mut writer)?;
-
+    log::info!("Body is {total_bytes} bytes");
     Ok(Redirect::see_other("/upload"))
 }
-
-// fn upload(
-//     State(db): State<KeyValueDatabase>,
-//     body: Vec<u8>,
-// ) -> Result<Redirect, ErrorResponse> {
-//     let cwd = std::env::current_dir().expect("failed to get current directory");
-//     let dir = cwd.join("examples/photo_gallery/static");
-//     let filename = Uuid::new_v4().to_simple_string();
-//     let file_path = dir.join(format!("{filename}.jpg"));
-
-//     log::debug!("Writing file to: {file_path:?}");
-
-//     let dest_file = File::create(file_path)?;
-//     let mut reader = BufReader::new(body.as_slice());
-//     let mut writer = BufWriter::new(dest_file);
-//     std::io::copy(&mut reader, &mut writer)?;
-
-//     Ok(Redirect::see_other("/upload"))
-// }
-
-// fn upload(
-//     State(db): State<KeyValueDatabase>,
-//     mut form: FormMap,
-// ) -> Result<Redirect, ErrorResponse> {
-//     let data = form.remove("image").unwrap();
-//     let cwd = std::env::current_dir().expect("failed to get current directory");
-//     let dir = cwd.join("examples/photo_gallery/static");
-//     let filename = Uuid::new_v4().to_simple_string();
-//     let file_path = dir.join(format!("{filename}.jpg"));
-
-//     log::debug!("Writing file to: {file_path:?}");
-
-//     let dest_file = File::create(file_path)?;
-//     let mut reader = BufReader::new(data.reader());
-//     let mut writer = BufWriter::new(dest_file);
-//     std::io::copy(&mut reader, &mut writer)?;
-
-//     Ok(Redirect::see_other("/upload"))
-// }
