@@ -175,12 +175,12 @@ impl FormData {
     fn field_reader(&mut self) -> FieldReader<'_> {
         FieldReader {
             form_data: self,
-            byte_buf: Vec::new(),
+            chunk: Vec::new(),
             eof: false,
         }
     }
 
-    fn next_bytes(&mut self, buf: &mut Vec<u8>) -> Result<bool, FieldError> {
+    fn next_chunk(&mut self, buf: &mut Vec<u8>) -> Result<bool, FieldError> {
         let (found, mut bytes) = self
             .reader
             .read_until_sequence(self.boundary.as_bytes())
@@ -263,36 +263,42 @@ impl FormData {
 }
 
 pub struct FieldReader<'a> {
-    byte_buf: Vec<u8>,
+    chunk: Vec<u8>,
     form_data: &'a mut FormData,
     eof: bool,
 }
 
-impl<'a> Read for FieldReader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() || (self.eof && self.byte_buf.is_empty()) {
-            return Ok(0);
+impl<'a> FieldReader<'a> {
+    fn read_chunk(&mut self) -> std::io::Result<()> {
+        if self.eof {
+            return Ok(());
         }
 
-        let mut pos = 0;
-        let chunk = &mut self.byte_buf;
-
-        while pos < buf.len() {
-            if !self.eof {
-                let finished = self
-                    .form_data
-                    .next_bytes(chunk)
-                    .map_err(std::io::Error::other)?;
-
+        match self.form_data.next_chunk(&mut self.chunk) {
+            Ok(finished) => {
                 if finished {
                     self.eof = true;
                 }
-            }
 
-            if chunk.is_empty() {
-                break;
+                Ok(())
             }
+            Err(err) => Err(std::io::Error::other(err)),
+        }
+    }
+}
 
+impl<'a> Read for FieldReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        self.read_chunk()?;
+
+        let mut pos = 0;
+
+        while pos < buf.len() && !self.chunk.is_empty() {
+            let chunk = &mut self.chunk;
             let remaining = buf.len() - pos;
             let len = remaining.min(chunk.len());
 
@@ -302,6 +308,11 @@ impl<'a> Read for FieldReader<'a> {
             chunk.drain(..len);
 
             pos += len;
+
+            // Read next chunk
+            if self.chunk.is_empty() {
+                self.read_chunk()?;
+            }
         }
 
         Ok(pos)
