@@ -89,7 +89,7 @@ fn read_request_body<R: Read + Send + 'static>(
             Body::new(ChunkedBodyReader::new(reader))
         } else {
             return Err(std::io::Error::other(format!(
-                "Unknown transfer encoding: {encoding}"
+                "Unknown transfer encoding: `{encoding}`"
             )));
         }
     } else {
