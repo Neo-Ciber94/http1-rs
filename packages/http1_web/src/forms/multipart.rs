@@ -33,24 +33,6 @@ pub struct FormFile {
 }
 
 impl FormFile {
-    // pub fn bytes(&self) -> std::io::Result<Vec<u8>> {
-    //     let mut f = self.0.file().read(true).open()?;
-    //     let mut buf = Vec::new();
-    //     std::io::Read::read_to_end(&mut f, &mut buf)?;
-    //     Ok(buf)
-    // }
-
-    // pub fn text(&self) -> std::io::Result<String> {
-    //     let mut f = self.0.file().read(true).open()?;
-    //     let mut buf = String::new();
-    //     std::io::Read::read_to_string(&mut f, &mut buf)?;
-    //     Ok(buf)
-    // }
-
-    // pub fn file(&self) -> TempFileOpen {
-    //     self.0.file()
-    // }
-
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -61,6 +43,20 @@ impl FormFile {
 
     pub fn content_type(&self) -> Option<&str> {
         self.content_type.as_deref()
+    }
+
+    pub fn bytes(&self) -> std::io::Result<Vec<u8>> {
+        let mut f = self.file().read(true).open()?;
+        let mut buf = Vec::new();
+        std::io::Read::read_to_end(&mut f, &mut buf)?;
+        Ok(buf)
+    }
+
+    pub fn text(&self) -> std::io::Result<String> {
+        let mut f = self.file().read(true).open()?;
+        let mut buf = String::new();
+        std::io::Read::read_to_string(&mut f, &mut buf)?;
+        Ok(buf)
     }
 
     pub fn file(&self) -> TempFileOpen {
@@ -695,7 +691,7 @@ impl Deserializer for FormFieldDeserializer {
             name: Some(self.0.name().to_string()),
             filename: self.0.filename().map(|x| x.to_owned()),
             content_type: self.0.content_type().map(|x| x.to_owned()),
-            data: Some(self.0.bytes().unwrap().as_slice()),
+            data: Some(self.0.reader()),
         })
     }
 
