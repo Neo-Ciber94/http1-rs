@@ -176,7 +176,7 @@ impl FormData {
         FieldReader {
             form_data: self,
             byte_buf: Vec::new(),
-            is_done: false,
+            eof: false,
         }
     }
 
@@ -265,12 +265,12 @@ impl FormData {
 pub struct FieldReader<'a> {
     byte_buf: Vec<u8>,
     form_data: &'a mut FormData,
-    is_done: bool,
+    eof: bool,
 }
 
 impl<'a> Read for FieldReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() || (self.is_done && self.byte_buf.is_empty()) {
+        if buf.is_empty() || (self.eof && self.byte_buf.is_empty()) {
             return Ok(0);
         }
 
@@ -278,14 +278,14 @@ impl<'a> Read for FieldReader<'a> {
         let chunk = &mut self.byte_buf;
 
         while pos < buf.len() {
-            if !self.is_done {
+            if !self.eof {
                 let finished = self
                     .form_data
                     .next_bytes(chunk)
                     .map_err(std::io::Error::other)?;
 
                 if finished {
-                    self.is_done = true;
+                    self.eof = true;
                 }
             }
 
