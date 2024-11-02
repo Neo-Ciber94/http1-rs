@@ -1,5 +1,7 @@
 use std::io::{BufReader, Read};
 
+const DEFAULT_BUFFER_SIZE: usize = 4 * 1024;
+
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReadLineMode {
@@ -41,7 +43,7 @@ impl<R: Read> StreamReader<R> {
             return Ok(0);
         }
 
-        let mut temp_buf = vec![0; 1024];
+        let mut temp_buf = vec![0; DEFAULT_BUFFER_SIZE];
 
         while self.buf.len() < self.pos + additional {
             let bytes_read = self.reader.read(&mut temp_buf)?;
@@ -60,10 +62,14 @@ impl<R: Read> StreamReader<R> {
     }
 
     fn consume(&mut self, count: usize) -> Vec<u8> {
-        let bytes = count.min(self.buf.len());
-        let result = self.buf.drain(..bytes).collect::<Vec<_>>();
-        self.pos -= bytes;
-        result
+        let size = count.min(self.buf.len());
+        let chunk = self.buf.drain(..size).collect::<Vec<_>>();
+        self.pos -= size;
+
+        // free memory
+        self.buf.shrink_to_fit();
+
+        chunk
     }
 
     /// Read until the specified byte.
