@@ -295,19 +295,19 @@ impl<'a> Read for FieldReader<'a> {
 
         self.read_chunk()?;
 
-        let mut pos = 0;
+        let mut read = 0;
 
-        while pos < buf.len() && !self.chunk.is_empty() {
+        while read < buf.len() && !self.chunk.is_empty() {
             let chunk = &mut self.chunk;
-            let remaining = buf.len() - pos;
+            let remaining = buf.len() - read;
             let len = remaining.min(chunk.len());
 
             let src = &chunk[..len];
-            let dst = &mut buf[pos..(pos + len)];
+            let dst = &mut buf[read..(read + len)];
             dst.copy_from_slice(src);
             chunk.drain(..len);
 
-            pos += len;
+            read += len;
 
             // Read next chunk
             if self.chunk.is_empty() {
@@ -315,7 +315,7 @@ impl<'a> Read for FieldReader<'a> {
             }
         }
 
-        Ok(pos)
+        Ok(read)
     }
 }
 
