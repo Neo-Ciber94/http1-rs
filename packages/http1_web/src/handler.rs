@@ -29,6 +29,14 @@ impl Debug for BoxedHandler {
     }
 }
 
+impl Eq for BoxedHandler {}
+
+impl PartialEq for BoxedHandler {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
 impl BoxedHandler {
     pub fn new<H, Args, R>(handler: H) -> Self
     where

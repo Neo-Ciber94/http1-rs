@@ -5,7 +5,8 @@ use route::Route;
 
 pub mod method_route;
 pub mod params;
-mod route;
+pub mod route;
+pub mod route_info;
 mod simple_router;
 
 /// A route matcher.

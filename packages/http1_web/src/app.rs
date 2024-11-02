@@ -13,7 +13,10 @@ use crate::{
     from_request::FromRequest,
     handler::{BoxedHandler, Handler},
     middleware::{BoxedMiddleware, Middleware},
-    routing::{method_route::MethodRoute, params::ParamsMap, Match, Router},
+    routing::{
+        method_route::MethodRoute, params::ParamsMap, route::Route, route_info::RouteInfo, Match,
+        Router,
+    },
     state::AppState,
     IntoResponse,
 };
@@ -179,6 +182,11 @@ impl RequestHandler for App {
         let mtch = self.scope.find(req_path, req.method());
 
         // Add any additional extensions
+        match self.scope.find_route(req_path) {
+            Some(r) => req.extensions_mut().insert(RouteInfo(r)),
+            None => log::warn!("RouteInfo was not found for `{req_path}` this is a bug"),
+        }
+
         req.extensions_mut().insert(mtch.params.clone());
         req.extensions_mut().insert(self.app_state.clone());
 
@@ -299,13 +307,16 @@ impl Scope {
         }
     }
 
-    fn find(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
-        let fallback = self
-            .fallbacks
+    fn find_fallback(&self, route: &str) -> &BoxedHandler {
+        self.fallbacks
             .find(route)
             .as_ref()
             .map(|m| m.value)
-            .unwrap_or_else(|| &*NOT_FOUND_HANDLER);
+            .unwrap_or_else(|| &*NOT_FOUND_HANDLER)
+    }
+
+    fn find(&self, route: &str, method: &Method) -> Match<&BoxedHandler> {
+        let fallback = self.find_fallback(route);
 
         match self.method_router.find(route) {
             Some(Match {
@@ -325,6 +336,29 @@ impl Scope {
                 params: ParamsMap::default(),
                 value: fallback,
             },
+        }
+    }
+
+    fn find_route(&self, route: &str) -> Option<Route> {
+        match self.method_router.find(route) {
+            Some(Match { value, .. }) => self.method_router.entries().find_map(|(route, id)| {
+                if id == value {
+                    Some(route.clone())
+                } else {
+                    None
+                }
+            }),
+            None => {
+                // Try to find the fallback
+                let fallback = self.find_fallback(route);
+                self.fallbacks.entries().find_map(|(route, handler)| {
+                    if handler == fallback {
+                        Some(route.clone())
+                    } else {
+                        None
+                    }
+                })
+            }
         }
     }
 

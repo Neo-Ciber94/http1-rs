@@ -51,9 +51,8 @@ pub fn main() -> std::io::Result<()> {
         .post("/api/upload", upload);
 
     Server::new("localhost:5000")
-        .on_ready(|addr| {
-            log::info!("Listening on: http://{addr}");
-        })
+        .max_body_size(1024 * 1024 * 1024)
+        .on_ready(|addr| log::info!("Listening on: http://{addr}"))
         .start(app)
 }
 
