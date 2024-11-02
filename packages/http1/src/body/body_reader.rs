@@ -130,6 +130,7 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
 pub struct BodyReader {
     body: Body,
     chunk: Vec<u8>,
+    eof: bool,
 }
 
 impl BodyReader {
@@ -137,7 +138,23 @@ impl BodyReader {
         BodyReader {
             body,
             chunk: vec![],
+            eof: false,
         }
+    }
+}
+
+impl BodyReader {
+    fn read_chunk(&mut self) -> std::io::Result<()> {
+        if self.eof {
+            return Ok(());
+        }
+
+        match self.body.read_next().map_err(std::io::Error::other)? {
+            Some(b) => self.chunk.extend(b),
+            None => self.eof = true,
+        }
+
+        Ok(())
     }
 }
 
@@ -147,17 +164,11 @@ impl Read for BodyReader {
             return Ok(0);
         }
 
+        self.read_chunk()?;
+
         let mut pos = 0;
 
-        while pos < buf.len() {
-            if self.chunk.is_empty() {
-                let bytes = self.body.read_next().map_err(std::io::Error::other)?;
-                match bytes {
-                    Some(b) => self.chunk = b,
-                    None => break,
-                }
-            }
-
+        while !self.chunk.is_empty() && pos < buf.len() {
             let chunk = &mut self.chunk;
             let remaining = buf.len() - pos;
             let len = remaining.min(chunk.len());
@@ -168,6 +179,11 @@ impl Read for BodyReader {
             chunk.drain(..len);
 
             pos += len;
+
+            // Read the next chunk if no data is available
+            if self.chunk.is_empty() {
+                self.read_chunk()?;
+            }
         }
 
         Ok(pos)
