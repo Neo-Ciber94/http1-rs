@@ -236,63 +236,6 @@ impl Deserialize for TempFileData {
     }
 }
 
-// impl Deserialize for FormFile {
-//     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, serde::de::Error> {
-//         struct FormFileVisitor;
-//         impl Visitor for FormFileVisitor {
-//             type Value = FormFile;
-
-//             fn expected(&self) -> &'static str {
-//                 "file"
-//             }
-
-//             fn visit_string(self, value: String) -> Result<Self::Value, serde::de::Error> {
-//                 let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
-//                 let mut f = temp_file
-//                     .file()
-//                     .write(true)
-//                     .open()
-//                     .map_err(serde::de::Error::error)?;
-
-//                 f.write_all(value.as_bytes())
-//                     .map_err(serde::de::Error::error)?;
-
-//                 Ok(FormFile(temp_file))
-//             }
-
-//             fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, serde::de::Error> {
-//                 let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
-//                 let mut f = temp_file
-//                     .file()
-//                     .write(true)
-//                     .open()
-//                     .map_err(serde::de::Error::error)?;
-
-//                 f.write_all(&bytes).map_err(serde::de::Error::error)?;
-
-//                 Ok(FormFile(temp_file))
-//             }
-
-//             fn visit_bytes_seq<B: serde::visitor::BytesAccess>(
-//                 self,
-//                 mut bytes: B,
-//             ) -> Result<Self::Value, serde::de::Error> {
-//                 let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
-//                 let mut f = temp_file
-//                     .file()
-//                     .write(true)
-//                     .open()
-//                     .map_err(serde::de::Error::error)?;
-
-//                 bytes.next_bytes(&mut f)?;
-//                 Ok(FormFile(temp_file))
-//             }
-//         }
-
-//         deserializer.deserialize_bytes_seq(FormFileVisitor)
-//     }
-// }
-
 pub struct MultipartDeserializer(FormMap);
 
 impl Deserializer for MultipartDeserializer {
