@@ -14,22 +14,16 @@ pub struct FixedLengthBodyReader<R> {
 }
 
 impl FixedLengthBodyReader<()> {
-    pub fn new<R>(reader: R, content_length: Option<usize>) -> FixedLengthBodyReader<R>
-    where
-        R: Read,
-    {
-        Self::with_max_body_size(reader, content_length, DEFAULT_MAX_BODY_SIZE)
-    }
-
-    pub fn with_max_body_size<R>(
+    pub fn new<R>(
         reader: R,
         content_length: Option<usize>,
-        max_body_size: usize,
+        max_body_size: Option<usize>,
     ) -> FixedLengthBodyReader<R>
     where
         R: Read,
     {
         let buffer = vec![0; DEFAULT_BUFFER_SIZE].into_boxed_slice();
+        let max_body_size = max_body_size.unwrap_or(DEFAULT_MAX_BODY_SIZE);
 
         FixedLengthBodyReader {
             reader,
@@ -106,17 +100,12 @@ pub struct ChunkedBodyReader<R> {
 }
 
 impl ChunkedBodyReader<()> {
-    pub fn new<R>(reader: R) -> ChunkedBodyReader<R>
+    pub fn new<R>(reader: R, max_body_size: Option<usize>) -> ChunkedBodyReader<R>
     where
         R: Read,
     {
-        Self::with_max_body_size(reader, DEFAULT_MAX_BODY_SIZE)
-    }
+        let max_body_size = max_body_size.unwrap_or(DEFAULT_MAX_BODY_SIZE);
 
-    pub fn with_max_body_size<R>(reader: R, max_body_size: usize) -> ChunkedBodyReader<R>
-    where
-        R: Read,
-    {
         ChunkedBodyReader {
             reader: BufReader::new(reader),
             read_bytes: 0,

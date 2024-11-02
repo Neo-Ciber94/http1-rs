@@ -11,11 +11,15 @@ use crate::{
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
     method::Method,
     request::Request,
+    server::Config,
     uri::uri::Uri,
     version::Version,
 };
 
-pub fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Request<Body>> {
+pub fn read_request<R: Read + Send + 'static>(
+    stream: R,
+    config: &Config,
+) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
@@ -51,7 +55,7 @@ pub fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Requ
     }
 
     // Read the body
-    let body = read_request_body(reader, &headers, can_discard_body)?;
+    let body = read_request_body(reader, &headers, can_discard_body, config)?;
 
     // Set headers
     if let Some(req_headers) = builder.headers_mut() {
@@ -69,6 +73,7 @@ fn read_request_body<R: Read + Send + 'static>(
     reader: BufReader<R>,
     headers: &Headers,
     can_discard_body: bool,
+    config: &Config,
 ) -> std::io::Result<Body> {
     let content_length = headers
         .get(CONTENT_LENGTH)
@@ -82,11 +87,15 @@ fn read_request_body<R: Read + Send + 'static>(
 
     let body = if let Some(length) = content_length {
         // Read body based on Content-Length
-        Body::new(FixedLengthBodyReader::new(reader, Some(length)))
+        Body::new(FixedLengthBodyReader::new(
+            reader,
+            Some(length),
+            config.max_body_size,
+        ))
     } else if let Some(encoding) = transfer_encoding {
         // Read body based on Chunked Transfer-Encoding
         if encoding == "chunked" {
-            Body::new(ChunkedBodyReader::new(reader))
+            Body::new(ChunkedBodyReader::new(reader, config.max_body_size))
         } else {
             return Err(std::io::Error::other(format!(
                 "Unknown transfer encoding: `{encoding}`"
@@ -94,7 +103,11 @@ fn read_request_body<R: Read + Send + 'static>(
         }
     } else {
         // Read until the connection closes
-        Body::new(FixedLengthBodyReader::new(reader, None))
+        Body::new(FixedLengthBodyReader::new(
+            reader,
+            None,
+            config.max_body_size,
+        ))
     };
 
     Ok(body)

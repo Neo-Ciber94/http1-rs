@@ -10,12 +10,16 @@ use crate::{
 pub struct Config {
     /// Whether if include the `Date` header in each request.
     pub include_date_header: bool,
+
+    /// Max body size in bytes.
+    pub max_body_size: Option<usize>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             include_date_header: true,
+            max_body_size: None,
         }
     }
 }
@@ -44,6 +48,12 @@ impl Server<()> {
     /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
+        self
+    }
+
+    /// The max size in bytes the body is allowed to have, if the body surpasses that size the request will be rejected.
+    pub fn max_body_size(mut self, max_body_size_bytes: usize) -> Self {
+        self.config.max_body_size = Some(max_body_size_bytes);
         self
     }
 }

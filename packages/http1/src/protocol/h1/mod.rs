@@ -13,7 +13,7 @@ where
     H: RequestHandler + Send + Sync + 'static,
 {
     let mut writer = stream.try_clone()?;
-    let request = request::read_request(stream)?;
+    let request = request::read_request(stream, config)?;
     let response = handler.handle(request);
 
     match response::write_response(response, &mut writer, config) {
