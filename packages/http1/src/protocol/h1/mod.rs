@@ -18,7 +18,10 @@ where
 
     match response::write_response(response, &mut writer, config) {
         Ok(_) => Ok(()),
-        Err(err) if err.kind() == ErrorKind::ConnectionAborted => Ok(()),
+        Err(err) if err.kind() == ErrorKind::ConnectionAborted => {
+            log::debug!("Connection was aborted");
+            Ok(())
+        }
         Err(err) => Err(err),
     }
 }
