@@ -166,19 +166,19 @@ impl Read for BodyReader {
 
         self.read_chunk()?;
 
-        let mut pos = 0;
+        let mut read = 0;
 
-        while !self.chunk.is_empty() && pos < buf.len() {
+        while !self.chunk.is_empty() && read < buf.len() {
             let chunk = &mut self.chunk;
-            let remaining = buf.len() - pos;
+            let remaining = buf.len() - read;
             let len = remaining.min(chunk.len());
 
             let src = &chunk[..len];
-            let dst = &mut buf[pos..(pos + len)];
+            let dst = &mut buf[read..(read + len)];
             dst.copy_from_slice(src);
             chunk.drain(..len);
 
-            pos += len;
+            read += len;
 
             // Read the next chunk if no data is available
             if self.chunk.is_empty() {
@@ -186,7 +186,7 @@ impl Read for BodyReader {
             }
         }
 
-        Ok(pos)
+        Ok(read)
     }
 }
 
