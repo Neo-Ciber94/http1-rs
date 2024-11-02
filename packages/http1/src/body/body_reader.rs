@@ -158,12 +158,14 @@ impl Read for BodyReader {
                 }
             }
 
-            let left = buf.len() - pos;
-            let len = left.min(self.chunk.len());
+            let chunk = &mut self.chunk;
+            let remaining = buf.len() - pos;
+            let len = remaining.min(chunk.len());
 
-            for (idx, byte) in self.chunk.drain(..len).enumerate() {
-                buf[pos + idx] = byte;
-            }
+            let src = &chunk[..len];
+            let dst = &mut buf[pos..(pos + len)];
+            dst.copy_from_slice(src);
+            chunk.drain(..len);
 
             pos += len;
         }
