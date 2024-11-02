@@ -44,7 +44,9 @@ impl Server<()> {
             on_ready: None,
         }
     }
+}
 
+impl<A> Server<A> {
     /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
