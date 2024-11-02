@@ -161,8 +161,6 @@ impl HttpBody for () {
     }
 }
 
-const BUFFER_SIZE: usize = 4096;
-
 impl<R> HttpBody for BufReader<R>
 where
     R: Read,
@@ -297,6 +295,8 @@ impl<'a> HttpBody for &'a str {
 }
 
 fn read_next_bytes<R: Read>(read: &mut R) -> std::io::Result<Option<Vec<u8>>> {
+    const BUFFER_SIZE: usize = 4 * 1024; // 4KB
+
     let mut buf = vec![0; BUFFER_SIZE];
     match Read::read(read, &mut buf) {
         Ok(0) => Ok(None),
