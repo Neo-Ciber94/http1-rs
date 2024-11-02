@@ -1,45 +1,21 @@
 use std::{
-    io::{BufRead, BufReader, ErrorKind, Read, Write},
-    net::TcpStream,
+    io::{BufRead, BufReader, Read},
     str::FromStr,
 };
 
 use crate::{
     body::{
         body_reader::{ChunkedBodyReader, FixedLengthBodyReader},
-        http_body::HttpBody,
         Body,
     },
-    handler::RequestHandler,
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
     method::Method,
     request::Request,
-    response::Response,
-    server::Config,
     uri::uri::Uri,
     version::Version,
 };
-use datetime::DateTime;
 
-/**
- * Handles and send a response to a HTTP1 request.
- */
-pub fn handle_incoming<H>(handler: &H, config: &Config, stream: TcpStream) -> std::io::Result<()>
-where
-    H: RequestHandler + Send + Sync + 'static,
-{
-    let mut writer = stream.try_clone()?;
-    let request = read_request(stream)?;
-    let response = handler.handle(request);
-
-    match write_response(response, &mut writer, config) {
-        Ok(_) => Ok(()),
-        Err(err) if err.kind() == ErrorKind::ConnectionAborted => Ok(()),
-        Err(err) => Err(err),
-    }
-}
-
-fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Request<Body>> {
+pub fn read_request<R: Read + Send + 'static>(stream: R) -> std::io::Result<Request<Body>> {
     let mut reader = BufReader::new(stream);
     let mut buf = String::new();
 
@@ -165,69 +141,4 @@ fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
     };
 
     Some((name, values))
-}
-
-fn write_response<W: Write>(
-    response: Response<Body>,
-    stream: &mut W,
-    config: &Config,
-) -> std::io::Result<()> {
-    let version = response.version();
-    let (status, headers, mut body) = response.into_parts();
-    let reason_phrase = status.reason_phrase().unwrap_or("");
-
-    // 1. Write response line
-    write!(stream, "{version} {status} {reason_phrase}\r\n")?;
-
-    // 2. Write headers
-    write_headers(headers, &body, stream, config)?;
-
-    // 3. Write body
-    loop {
-        match body.read_next() {
-            Ok(Some(bytes)) => {
-                stream.write_all(&bytes)?;
-                stream.flush()?;
-            }
-            Ok(None) => break,
-            Err(err) => return Err(std::io::Error::other(err)),
-        }
-    }
-
-    Ok(())
-}
-
-fn write_headers<W: Write>(
-    mut headers: Headers,
-    body: &Body,
-    stream: &mut W,
-    config: &Config,
-) -> std::io::Result<()> {
-    if config.include_date_header {
-        headers.insert(headers::DATE, DateTime::now_utc().to_string());
-    }
-
-    if let Some(content_length) = body.size_hint() {
-        headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
-    }
-
-    for (name, mut values) in headers {
-        write!(stream, "{name}: ")?;
-
-        if let Some(first_value) = values.next() {
-            stream.write_all(first_value.as_str().as_bytes())?;
-        }
-
-        for value in values {
-            stream.write_all(b", ")?;
-            stream.write_all(value.as_str().as_bytes())?;
-        }
-
-        stream.write_all(b"\r\n")?;
-    }
-
-    // Headers end
-    write!(stream, "\r\n")?;
-
-    Ok(())
 }

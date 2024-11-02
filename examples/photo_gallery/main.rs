@@ -2,15 +2,20 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
     str::FromStr,
+    time::Duration,
 };
 
 use app::db::KeyValueDatabase;
 use http1::{common::uuid::Uuid, error::BoxError, server::Server};
 use http1_web::{
     app::App,
-    forms::{form_map::FormMap, multipart::{FormFile, Multipart}},
+    forms::{
+        form_map::FormMap,
+        multipart::{FormFile, Multipart},
+    },
     fs::ServeDir,
     html::{self, element::HTMLElement},
+    middleware::logging::Logging,
     mime::Mime,
     redirect::Redirect,
     state::State,
@@ -29,6 +34,7 @@ pub fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
     let app = App::new()
+        .middleware(Logging)
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
         .get(
             "/static/*",
@@ -132,10 +138,11 @@ serde::impl_deserialize_struct!(UploadFile => {
 
 fn upload(
     State(db): State<KeyValueDatabase>,
-    Multipart(form): Multipart<UploadFile>
+    Multipart(form): Multipart<UploadFile>,
 ) -> Result<Redirect, ErrorResponse> {
     //dbg!(&form);
 
+    std::thread::sleep(Duration::from_secs(10));
     let mime = Mime::from_str(form.image.content_type().unwrap())?;
     let cwd = std::env::current_dir().expect("failed to get current directory");
     let dir = cwd.join("examples/photo_gallery/static");
