@@ -2,11 +2,11 @@ use std::io::{BufRead, BufReader, Read};
 
 use super::{http_body::HttpBody, Body};
 
-const BUFFER_SIZE: usize = 4096;
+const BUFFER_SIZE: usize = 4 * 1024; // 4kb
 
 pub struct FixedLengthBodyReader<R> {
     reader: R,
-    buffer: [u8; BUFFER_SIZE],
+    buffer: Box<[u8]>,
     read_bytes: usize,
     content_length: Option<usize>,
 }
@@ -16,10 +16,12 @@ impl FixedLengthBodyReader<()> {
     where
         R: Read,
     {
+        let buffer = vec![0; BUFFER_SIZE].into_boxed_slice();
+
         FixedLengthBodyReader {
             reader,
             read_bytes: 0,
-            buffer: [0; BUFFER_SIZE],
+            buffer,
             content_length,
         }
     }
