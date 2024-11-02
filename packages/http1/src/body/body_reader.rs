@@ -47,13 +47,7 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
         if self.read_bytes >= self.max_body_size {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!(
-                    "Max request body size reached `{}` bytes",
-                    self.max_body_size
-                ),
-            ));
+            return Err(body_limit_error(self.read_bytes, self.max_body_size));
         }
 
         if let Some(content_length) = self.content_length {
@@ -136,15 +130,8 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        fn body_limit_reached(max_body_size: usize) -> std::io::Error {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Max request body size reached `{max_body_size}` bytes"),
-            )
-        }
-
         if self.read_bytes >= self.max_body_size {
-            return Err(body_limit_reached(self.max_body_size));
+            return Err(body_limit_error(self.read_bytes, self.max_body_size));
         }
 
         let mut str_buf = String::new();
@@ -159,7 +146,7 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
         })?;
 
         if self.read_bytes + chunk_length > self.max_body_size {
-            return Err(body_limit_reached(self.max_body_size));
+            return Err(body_limit_error(self.read_bytes, self.max_body_size));
         }
 
         // End of chunks
@@ -173,6 +160,13 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
 
         Ok(Some(byte_buf))
     }
+}
+
+fn body_limit_error(read_bytes: usize, max_body_size: usize) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::Other,
+        format!("Max request body size reached `{read_bytes} >= {max_body_size}` bytes",),
+    )
 }
 
 pub struct BodyReader {
