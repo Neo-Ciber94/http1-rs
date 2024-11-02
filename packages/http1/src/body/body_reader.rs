@@ -2,12 +2,14 @@ use std::io::{BufRead, BufReader, Read};
 
 use super::{http_body::HttpBody, Body};
 
-const BUFFER_SIZE: usize = 4 * 1024; // 4kb
+const DEFAULT_MAX_BODY_SIZE: usize = 64 * 1024; // 64mb
+const DEFAULT_BUFFER_SIZE: usize = 4 * 1024; // 4kb
 
 pub struct FixedLengthBodyReader<R> {
     reader: R,
     buffer: Box<[u8]>,
     read_bytes: usize,
+    max_body_size: usize,
     content_length: Option<usize>,
 }
 
@@ -16,11 +18,23 @@ impl FixedLengthBodyReader<()> {
     where
         R: Read,
     {
-        let buffer = vec![0; BUFFER_SIZE].into_boxed_slice();
+        Self::with_max_body_size(reader, content_length, DEFAULT_MAX_BODY_SIZE)
+    }
+
+    pub fn with_max_body_size<R>(
+        reader: R,
+        content_length: Option<usize>,
+        max_body_size: usize,
+    ) -> FixedLengthBodyReader<R>
+    where
+        R: Read,
+    {
+        let buffer = vec![0; DEFAULT_BUFFER_SIZE].into_boxed_slice();
 
         FixedLengthBodyReader {
             reader,
             read_bytes: 0,
+            max_body_size,
             buffer,
             content_length,
         }
@@ -32,9 +46,19 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        if self.read_bytes >= self.max_body_size {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "Max request body size reached `{}` bytes",
+                    self.max_body_size
+                ),
+            ));
+        }
+
         if let Some(content_length) = self.content_length {
             if self.read_bytes >= content_length {
-                return Ok(None); // Updated to >= to prevent over-reading
+                return Ok(None);
             }
         }
 
@@ -42,21 +66,17 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
             Some(content_length) => match content_length.checked_sub(self.read_bytes) {
                 Some(n) => n.min(self.buffer.len()),
                 None => {
-                    // The content length is less than the actual data length
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
                         "invalid content length",
                     ));
                 }
             },
-            None => {
-                // Attempting to fill the buffer in absence of a known content length
-                self.buffer.len()
-            }
+            None => self.buffer.len(),
         };
 
         if expected_len == 0 {
-            return Ok(None); // End of content reached
+            return Ok(None);
         }
 
         let buf = &mut self.buffer[..expected_len];
@@ -87,6 +107,8 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
 
 pub struct ChunkedBodyReader<R> {
     reader: BufReader<R>,
+    read_bytes: usize,
+    max_body_size: usize,
 }
 
 impl ChunkedBodyReader<()> {
@@ -94,8 +116,17 @@ impl ChunkedBodyReader<()> {
     where
         R: Read,
     {
+        Self::with_max_body_size(reader, DEFAULT_MAX_BODY_SIZE)
+    }
+
+    pub fn with_max_body_size<R>(reader: R, max_body_size: usize) -> ChunkedBodyReader<R>
+    where
+        R: Read,
+    {
         ChunkedBodyReader {
             reader: BufReader::new(reader),
+            read_bytes: 0,
+            max_body_size,
         }
     }
 }
@@ -105,15 +136,31 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        fn body_limit_reached(max_body_size: usize) -> std::io::Error {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Max request body size reached `{max_body_size}` bytes"),
+            )
+        }
+
+        if self.read_bytes >= self.max_body_size {
+            return Err(body_limit_reached(self.max_body_size));
+        }
+
         let mut str_buf = String::new();
         let mut byte_buf = Vec::new();
 
         // Read the chunk size line: {size in hex}\r\n
         self.reader.read_line(&mut str_buf)?;
+        self.read_bytes += str_buf.as_bytes().len();
 
         let chunk_length = usize::from_str_radix(str_buf.trim(), 16).map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk length")
         })?;
+
+        if self.read_bytes + chunk_length > self.max_body_size {
+            return Err(body_limit_reached(self.max_body_size));
+        }
 
         // End of chunks
         if chunk_length == 0 {
@@ -122,6 +169,7 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
 
         // Read the chunk
         self.reader.read_exact(&mut byte_buf)?;
+        self.read_bytes += byte_buf.len();
 
         Ok(Some(byte_buf))
     }
