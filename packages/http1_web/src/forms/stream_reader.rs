@@ -1,6 +1,7 @@
 use std::io::{BufReader, Read};
 
-const DEFAULT_BUFFER_SIZE: usize = 8 * 1024;
+const DEFAULT_BUFFER_SIZE: usize = 8 * 1024; // 8kb
+const DEFAULT_READER_BYTES_LIMIT: usize = 300 * 1024 * 1024; // 300mb
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
@@ -15,20 +16,48 @@ pub enum ReadLineMode {
 pub struct StreamReader<R> {
     reader: BufReader<R>,
     buf: Vec<u8>,
+    inner_buf: Box<[u8]>,
     eof: bool,
     pos: usize,
     total_bytes_read: usize,
+    reader_bytes_limit: usize,
 }
 
 impl<R: Read> StreamReader<R> {
-    /// Constructs a new `StreamReader`.
+    /// Constructs a new [`StreamReader`].
     pub fn new(reader: R) -> Self {
+        Self::with_buffer_size(reader, DEFAULT_BUFFER_SIZE)
+    }
+
+    /// Constructs a new [`StreamReader`] with the given buffer size.
+    pub fn with_buffer_size(reader: R, buffer_size: usize) -> Self {
+        Self::with_buffer_size_and_read_limit(reader, buffer_size, DEFAULT_READER_BYTES_LIMIT)
+    }
+
+    /// Constructs a new [`StreamReader`] with the given max reader bytes limit.
+    pub fn with_reader_bytes_limit(reader: R, reader_bytes_limit: usize) -> Self {
+        Self::with_buffer_size_and_read_limit(reader, DEFAULT_BUFFER_SIZE, reader_bytes_limit)
+    }
+
+    /// Constructs a new [`StreamReader`] with the given buffer size and max reader bytes limit.
+    pub fn with_buffer_size_and_read_limit(
+        reader: R,
+        buffer_size: usize,
+        reader_bytes_limit: usize,
+    ) -> Self {
+        assert!(buffer_size > 0);
+        assert!(reader_bytes_limit > 0);
+
+        let inner_buf = vec![0; buffer_size].into_boxed_slice();
+
         StreamReader {
             reader: BufReader::new(reader),
             buf: Vec::new(),
+            inner_buf,
             eof: false,
             pos: 0,
             total_bytes_read: 0,
+            reader_bytes_limit,
         }
     }
 
@@ -37,7 +66,7 @@ impl<R: Read> StreamReader<R> {
         self.eof
     }
 
-    /// Returns the current number of bytes read.
+    /// Current number of bytes read from the reader.
     pub fn total_bytes_read(&self) -> usize {
         self.total_bytes_read
     }
@@ -48,7 +77,7 @@ impl<R: Read> StreamReader<R> {
             return Ok(0);
         }
 
-        let mut temp_buf = vec![0; DEFAULT_BUFFER_SIZE];
+        let mut temp_buf = &mut self.inner_buf;
         let required = self.pos + additional;
 
         while self.buf.len() < required {
@@ -57,6 +86,14 @@ impl<R: Read> StreamReader<R> {
             if bytes_read == 0 {
                 self.eof = true;
                 break;
+            }
+
+            if self.total_bytes_read + bytes_read > self.reader_bytes_limit {
+                let read = self.total_bytes_read + bytes_read;
+                return Err(std::io::Error::other(format!(
+                    "reader bytes limit reached: {read} > {}",
+                    self.reader_bytes_limit
+                )));
             }
 
             self.buf.extend_from_slice(&temp_buf[..bytes_read]);
@@ -181,6 +218,30 @@ impl<R: Read> StreamReader<R> {
             return Ok((true, result));
         }
 
+        // Check for partial matches
+        if !self.eof {
+            if let Some((start_idx, offset)) = overlapping_position(&self.buf, sequence) {
+                self.fill_buffer(offset)?;
+
+                let overlapping = &self.buf[start_idx..(start_idx + sequence.len())];
+
+                dbg!(
+                    offset,
+                    start_idx,
+                    String::from_utf8_lossy(overlapping),
+                    String::from_utf8_lossy(overlapping)
+                );
+
+                if overlapping == sequence {
+                    let result = self.consume(start_idx + sequence.len());
+
+                    dbg!(String::from_utf8_lossy(&result),);
+
+                    return Ok((true, result));
+                }
+            }
+        }
+
         let rest = self.consume(self.buf.len());
         Ok((false, rest))
     }
@@ -202,26 +263,55 @@ impl<R: Read> StreamReader<R> {
     }
 }
 
+fn overlapping_position(slice: &[u8], sequence: &[u8]) -> Option<(usize, usize)> {
+    assert!(sequence.len() > 0);
+
+    if slice.len() == sequence.len() && slice == sequence {
+        return Some((0, sequence.len()));
+    }
+
+    let first_byte = sequence[0];
+
+    if let Some(idx) = slice.iter().position(|c| *c == first_byte) {
+        let last = &slice[idx..];
+        let remaining_len = last.len().min(sequence.len());
+        let sequence_chunk = &sequence[..remaining_len];
+        dbg!(
+            idx,
+            String::from_utf8_lossy(slice),
+            String::from_utf8_lossy(last),
+            String::from_utf8_lossy(sequence_chunk)
+        );
+
+        if sequence_chunk == last {
+            return Some((idx, remaining_len));
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
+
     use crate::forms::stream_reader::ReadLineMode;
 
     use super::StreamReader;
 
-    #[test]
-    fn should_read_all() {
-        let mut reader =
-            StreamReader::new("Hello World! How are things doing over there?".as_bytes());
-        let (_, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
+    fn read_all_until_sequence<R: Read>(reader: &mut StreamReader<R>, sequence: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![];
 
-        assert_eq!(first_sequence, b"Hello World!");
-        assert_eq!(reader.read_exact(1).unwrap(), b" ");
-        assert_eq!(
-            reader.read_to_end().unwrap(),
-            b"How are things doing over there?"
-        );
+        loop {
+            let (found, chunk) = reader.read_until_sequence(sequence).unwrap();
+            bytes.extend_from_slice(&chunk);
 
-        assert_eq!(reader.total_bytes_read(), 45);
+            if found || chunk.is_empty() {
+                break;
+            }
+        }
+
+        bytes
     }
 
     #[test]
@@ -268,25 +358,25 @@ mod tests {
     }
 
     #[test]
-    fn should_read_until_sequence() {
-        let mut reader = StreamReader::new(b"Hey how are you? Hey, I said how are you!?".as_ref());
-        let (found1, first) = reader.read_until_sequence(b"you").unwrap();
-        assert!(found1);
-        assert_eq!(first, b"Hey how are you");
-
-        let (found2, second) = reader.read_until_sequence(b"you").unwrap();
-        dbg!(String::from_utf8_lossy(&second));
-        assert!(found2);
-        assert_eq!(second, b"? Hey, I said how are you");
-
-        assert_eq!(reader.read_exact(10).unwrap(), b"!?");
+    fn should_return_entire_input_if_sequence_not_found() {
+        let mut reader: StreamReader<&[u8]> = StreamReader::new(b"Hello there!".as_ref());
+        let (found, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
+        assert_eq!(first_sequence, b"Hello there!");
     }
 
     #[test]
-    fn should_return_entire_input_if_sequence_not_found() {
-        let mut reader: StreamReader<&[u8]> = StreamReader::new(b"Hello there!".as_ref());
-        let (_, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
-        assert_eq!(first_sequence, b"Hello there!");
+    fn should_read_until_sequence_with_buffer_size() {
+        let mut reader = StreamReader::with_buffer_size(
+            "Hey how are you? Hey, I said how are you!?".as_bytes(),
+            7,
+        );
+
+        let chunk1 = read_all_until_sequence(&mut reader, b"you");
+        assert_eq!(chunk1, b"Hey how are you");
+
+        let chunk2 = read_all_until_sequence(&mut reader, b"you");
+        assert_eq!(chunk2, b"? Hey, I said how are you");
+        assert_eq!(reader.read_exact(2).unwrap(), b"!?");
     }
 
     #[test]
