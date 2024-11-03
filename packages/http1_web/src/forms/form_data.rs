@@ -186,6 +186,11 @@ impl FormData {
             .read_until_sequence(self.boundary.as_bytes())
             .map_err(|err| FieldError::IO(err))?;
 
+        // No more bytes to read
+        if bytes.is_empty() {
+            return Ok(true);
+        }
+
         // Boundary no found, continue reading
         if !found {
             buf.extend(bytes);

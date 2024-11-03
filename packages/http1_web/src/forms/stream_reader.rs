@@ -1,6 +1,6 @@
 use std::io::{BufReader, Read};
 
-const DEFAULT_BUFFER_SIZE: usize = 8 * 1024; // 8kb
+const DEFAULT_BUFFER_SIZE: usize = 2; //8 * 1024; // 8kb
 const DEFAULT_READER_BYTES_LIMIT: usize = 300 * 1024 * 1024; // 300mb
 
 /// How to read a line
@@ -360,8 +360,8 @@ mod tests {
     #[test]
     fn should_return_entire_input_if_sequence_not_found() {
         let mut reader: StreamReader<&[u8]> = StreamReader::new(b"Hello there!".as_ref());
-        let (found, first_sequence) = reader.read_until_sequence(b"World!").unwrap();
-        assert_eq!(first_sequence, b"Hello there!");
+        let result = read_all_until_sequence(&mut reader, b"World");
+        assert_eq!(result, b"Hello there!");
     }
 
     #[test]
