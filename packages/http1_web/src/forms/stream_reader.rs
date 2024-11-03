@@ -1,7 +1,6 @@
 use std::io::{BufReader, Read};
 
-const DEFAULT_BUFFER_SIZE: usize = 8 * 1024; // 8kb
-const DEFAULT_READER_BYTES_LIMIT: usize = 10 * 1024 * 1024; // 10mb
+const INTERNAL_BUFFER_SIZE: usize = 8 * 1024; // 8kb
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
@@ -26,17 +25,21 @@ pub struct StreamReader<R> {
 impl<R: Read> StreamReader<R> {
     /// Constructs a new [`StreamReader`].
     pub fn new(reader: R) -> Self {
-        Self::with_buffer_size(reader, DEFAULT_BUFFER_SIZE)
+        Self::with_buffer_size(reader, INTERNAL_BUFFER_SIZE)
     }
 
     /// Constructs a new [`StreamReader`] with the given buffer size.
     pub fn with_buffer_size(reader: R, buffer_size: usize) -> Self {
-        Self::with_buffer_size_and_read_limit(reader, buffer_size, DEFAULT_READER_BYTES_LIMIT)
+        Self::with_buffer_size_and_read_limit(
+            reader,
+            buffer_size,
+            http1::constants::DEFAULT_MAX_BODY_SIZE,
+        )
     }
 
     /// Constructs a new [`StreamReader`] with the given max reader bytes limit.
     pub fn with_reader_bytes_limit(reader: R, reader_bytes_limit: usize) -> Self {
-        Self::with_buffer_size_and_read_limit(reader, DEFAULT_BUFFER_SIZE, reader_bytes_limit)
+        Self::with_buffer_size_and_read_limit(reader, INTERNAL_BUFFER_SIZE, reader_bytes_limit)
     }
 
     /// Constructs a new [`StreamReader`] with the given buffer size and max reader bytes limit.
@@ -457,5 +460,18 @@ mod tests {
         let line = reader.read_line(ReadLineMode::Retain).unwrap();
         assert_eq!(line, b"Line with newline\n");
         assert_eq!(reader.total_bytes_read(), 18);
+    }
+
+    #[test]
+    fn should_reach_reader_limit() {
+        let data = std::iter::successors(Some(0), |n| Some((n + 1) % 255))
+            .take(200)
+            .collect::<Vec<u8>>();
+
+        let mut reader = StreamReader::with_reader_bytes_limit(data.as_slice(), 100);
+        let err = reader.read_to_end().unwrap_err();
+
+        assert_eq!(err.kind(), std::io::ErrorKind::Other);
+        assert!(err.to_string().contains("reader bytes limit reached"));
     }
 }

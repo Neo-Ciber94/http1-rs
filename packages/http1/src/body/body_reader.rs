@@ -2,7 +2,6 @@ use std::io::{BufRead, BufReader, Read};
 
 use super::{http_body::HttpBody, Body};
 
-const DEFAULT_MAX_BODY_SIZE: usize = 64 * 1024; // 64mb
 const DEFAULT_BUFFER_SIZE: usize = 4 * 1024; // 4kb
 
 pub struct FixedLengthBodyReader<R> {
@@ -23,7 +22,7 @@ impl FixedLengthBodyReader<()> {
         R: Read,
     {
         let buffer = vec![0; DEFAULT_BUFFER_SIZE].into_boxed_slice();
-        let max_body_size = max_body_size.unwrap_or(DEFAULT_MAX_BODY_SIZE);
+        let max_body_size = max_body_size.unwrap_or(crate::constants::DEFAULT_MAX_BODY_SIZE);
 
         FixedLengthBodyReader {
             reader,
@@ -104,7 +103,7 @@ impl ChunkedBodyReader<()> {
     where
         R: Read,
     {
-        let max_body_size = max_body_size.unwrap_or(DEFAULT_MAX_BODY_SIZE);
+        let max_body_size = max_body_size.unwrap_or(crate::constants::DEFAULT_MAX_BODY_SIZE);
 
         ChunkedBodyReader {
             reader: BufReader::new(reader),

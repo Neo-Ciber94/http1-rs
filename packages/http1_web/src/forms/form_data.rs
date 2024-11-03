@@ -63,10 +63,25 @@ impl Display for FieldError {
     }
 }
 
+pub const MAX_HEADER_LENGTH: usize = 1024; // 1kb
+
+/// Configuration for parsing `multipart/form-data`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FormDataOptions {
+pub struct FormDataConfig {
+    /// Max allowed length for the headers.
     pub max_header_length: Option<usize>,
+
+    /// Max allowed length for the entire form data body.
     pub max_body_size: usize,
+}
+
+impl Default for FormDataConfig {
+    fn default() -> Self {
+        Self {
+            max_header_length: Some(MAX_HEADER_LENGTH),
+            max_body_size: http1::constants::DEFAULT_MAX_BODY_SIZE,
+        }
+    }
 }
 
 /// Represents multipart/form-data stream.
@@ -91,12 +106,20 @@ struct ContentDisposition {
 
 impl FormData {
     pub fn new(boundary: impl Into<String>, body: impl Into<Body>) -> Self {
+        Self::with_config(boundary, body, Default::default())
+    }
+
+    pub fn with_config(
+        boundary: impl Into<String>,
+        body: impl Into<Body>,
+        config: FormDataConfig,
+    ) -> Self {
         let body_reader = BodyReader::new(body.into());
         let boundary = format!("--{}", boundary.into());
 
         FormData {
             boundary,
-            reader: StreamReader::new(body_reader),
+            reader: StreamReader::with_reader_bytes_limit(body_reader, config.max_body_size),
             state: State::First,
         }
     }
@@ -440,6 +463,12 @@ impl FromRequest for FormData {
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
+        let config = req
+            .extensions()
+            .get::<FormDataConfig>()
+            .cloned()
+            .unwrap_or_default();
+
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)
@@ -447,7 +476,7 @@ impl FromRequest for FormData {
 
         let boundary = get_multipart_and_boundary(content_type)?;
         let body = req.into_body();
-        Ok(FormData::new(boundary, body))
+        Ok(FormData::with_config(boundary, body, config))
     }
 }
 
