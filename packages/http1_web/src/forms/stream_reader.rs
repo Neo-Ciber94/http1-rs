@@ -162,45 +162,15 @@ impl<R: Read> StreamReader<R> {
         Ok(line)
     }
 
-    // /// Read until the given bytes sequence, if the sequence is never found returns all the bytes.
-    // pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, Vec<u8>)> {
-    //     if sequence.len() == 0 {
-    //         return Ok((true, Vec::new()));
-    //     }
-
-    //     let sequence_len = sequence.len();
-    //     let mut start_pos = 0;
-
-    //     loop {
-    //         // Check the chunk for any match
-    //         if let Some(idx) = self.buf[start_pos..]
-    //             .windows(sequence_len)
-    //             .position(|c| c == sequence)
-    //         {
-    //             let end = idx + sequence_len;
-    //             let slice = &self.buf[start_pos..end];
-
-    //             if slice.ends_with(sequence) {
-    //                 let result = self.consume(start_pos + end);
-    //                 return Ok((true, result));
-    //             }
-    //         }
-
-    //         let len = self.buf.len();
-    //         let bytes_read = self.fill_buffer(sequence_len)?;
-    //         start_pos = len;
-
-    //         if bytes_read == 0 {
-    //             break;
-    //         }
-    //     }
-
-    //     let rest = self.consume(self.buf.len());
-
-    //     Ok((false, rest))
-    // }
-
-    /// Read until the given bytes sequence; if the sequence is never found, returns all bytes up to the end.
+    /// Read until the sequence is found.
+    /// 
+    /// Because this method do not read all bytes at once but buffers them, this method should be called
+    /// multiple times until the sequence is found or no more bytes are available to read.
+    /// 
+    /// # Returns
+    /// - `(false, bytes)` If the sequence was not found, and more bytes can be read.
+    /// - `(false, empty)` If the sequence was no found and there is no more data to read.
+    /// - `(true, bytes)` If the sequence is found
     pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, Vec<u8>)> {
         if sequence.is_empty() {
             return Ok((true, Vec::new()));
