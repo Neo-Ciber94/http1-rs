@@ -1,7 +1,7 @@
 use std::io::{BufReader, Read};
 
-const DEFAULT_BUFFER_SIZE: usize = 2; //8 * 1024; // 8kb
-const DEFAULT_READER_BYTES_LIMIT: usize = 300 * 1024 * 1024; // 300mb
+const DEFAULT_BUFFER_SIZE: usize = 8 * 1024; // 8kb
+const DEFAULT_READER_BYTES_LIMIT: usize = 300 * 1024 * 1024; // 300mb FIXME: Too high
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
@@ -163,10 +163,10 @@ impl<R: Read> StreamReader<R> {
     }
 
     /// Read until the sequence is found.
-    /// 
+    ///
     /// Because this method do not read all bytes at once but buffers them, this method should be called
     /// multiple times until the sequence is found or no more bytes are available to read.
-    /// 
+    ///
     /// # Returns
     /// - `(false, bytes)` If the sequence was not found, and more bytes can be read.
     /// - `(false, empty)` If the sequence was no found and there is no more data to read.
@@ -191,22 +191,12 @@ impl<R: Read> StreamReader<R> {
         // Check for partial matches
         if !self.eof {
             if let Some((start_idx, offset)) = overlapping_position(&self.buf, sequence) {
-                self.fill_buffer(offset)?;
+                self.fill_buffer(start_idx + sequence.len())?;
 
                 let overlapping = &self.buf[start_idx..(start_idx + sequence.len())];
 
-                dbg!(
-                    offset,
-                    start_idx,
-                    String::from_utf8_lossy(overlapping),
-                    String::from_utf8_lossy(overlapping)
-                );
-
                 if overlapping == sequence {
                     let result = self.consume(start_idx + sequence.len());
-
-                    dbg!(String::from_utf8_lossy(&result),);
-
                     return Ok((true, result));
                 }
             }
@@ -246,12 +236,6 @@ fn overlapping_position(slice: &[u8], sequence: &[u8]) -> Option<(usize, usize)>
         let last = &slice[idx..];
         let remaining_len = last.len().min(sequence.len());
         let sequence_chunk = &sequence[..remaining_len];
-        dbg!(
-            idx,
-            String::from_utf8_lossy(slice),
-            String::from_utf8_lossy(last),
-            String::from_utf8_lossy(sequence_chunk)
-        );
 
         if sequence_chunk == last {
             return Some((idx, remaining_len));

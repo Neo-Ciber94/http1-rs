@@ -181,9 +181,11 @@ impl FormData {
     }
 
     fn next_chunk(&mut self, buf: &mut Vec<u8>) -> Result<bool, FieldError> {
+        let boundary_str = format!("\r\n{}", self.boundary);
+
         let (found, mut bytes) = self
             .reader
-            .read_until_sequence(self.boundary.as_bytes())
+            .read_until_sequence(boundary_str.as_bytes())
             .map_err(|err| FieldError::IO(err))?;
 
         // No more bytes to read
@@ -198,13 +200,13 @@ impl FormData {
         }
 
         // Boundary found, check if is the field end or form data end
-        if found && bytes.ends_with(self.boundary.as_bytes()) {
+        if found && bytes.ends_with(boundary_str.as_bytes()) {
             // Remove the boundary
-            bytes.truncate(bytes.len() - self.boundary.len());
+            bytes.truncate(bytes.len() - boundary_str.len());
 
+            // Check if this is the end of the form data
             let next_bytes = self.reader.peek(2).map_err(|err| FieldError::IO(err))?;
 
-            // End of the form data
             if next_bytes == b"--" {
                 self.state = State::Done;
                 self.reader
@@ -212,16 +214,16 @@ impl FormData {
                     .map_err(|err| FieldError::IO(err))?;
             }
 
-            let line_endings = self.reader.peek(2).map_err(|err| FieldError::IO(err))?;
+            // Ensure after boundary there is a line ending `\r\n`
+            let boundary_line_endings = self.reader.peek(2).map_err(|err| FieldError::IO(err))?;
 
-            if line_endings != b"\r\n" {
+            if boundary_line_endings != b"\r\n" {
                 return Err(FieldError::Other(String::from(
-                    "expected line endings `\\r\\n`after field end ",
+                    "expected line endings `\\r\\n` after boundary",
                 )));
             }
 
-            // Remove the line endings of the field \r\n
-            bytes.truncate(bytes.len() - 2);
+            // Remove boundary line endings
             self.reader
                 .read_exact(2)
                 .map_err(|err| FieldError::IO(err))?;
