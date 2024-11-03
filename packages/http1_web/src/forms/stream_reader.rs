@@ -1,7 +1,7 @@
 use std::io::{BufReader, Read};
 
 const DEFAULT_BUFFER_SIZE: usize = 8 * 1024; // 8kb
-const DEFAULT_READER_BYTES_LIMIT: usize = 300 * 1024 * 1024; // 300mb FIXME: Too high
+const DEFAULT_READER_BYTES_LIMIT: usize = 10 * 1024 * 1024; // 10mb
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]

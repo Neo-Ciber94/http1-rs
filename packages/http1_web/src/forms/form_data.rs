@@ -63,6 +63,12 @@ impl Display for FieldError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FormDataOptions {
+    pub max_header_length: Option<usize>,
+    pub max_body_size: usize,
+}
+
 /// Represents multipart/form-data stream.
 ///
 /// We parse the file according to: https://datatracker.ietf.org/doc/html/rfc7578
