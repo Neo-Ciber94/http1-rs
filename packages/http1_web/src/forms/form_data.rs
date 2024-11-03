@@ -17,7 +17,7 @@ use crate::{from_request::FromRequest, IntoResponse};
 
 use super::{
     form_field::{Disk, FormField, Memory, TempDisk},
-    stream_reader::{ReadLineMode, StreamReader},
+    stream_reader::StreamReader,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,23 +63,34 @@ impl Display for FieldError {
     }
 }
 
-pub const MAX_HEADER_LENGTH: usize = 1024; // 1kb
+#[derive(PartialEq, Eq)]
+enum ReadLineMode {
+    None,
+    Limited,
+}
+
+pub(crate) const MAX_HEADER_LENGTH: usize = 1024; // 1kb
+pub(crate) const PARSE_BUFFER_SIZE: usize = 8 * 1024; // 8kn
 
 /// Configuration for parsing `multipart/form-data`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FormDataConfig {
     /// Max allowed length for the headers.
-    pub max_header_length: Option<usize>,
+    pub max_header_length: usize,
 
     /// Max allowed length for the entire form data body.
     pub max_body_size: usize,
+
+    /// Size of the buffer used to parse the form data.
+    pub buffer_size: usize,
 }
 
 impl Default for FormDataConfig {
     fn default() -> Self {
         Self {
-            max_header_length: Some(MAX_HEADER_LENGTH),
+            max_header_length: MAX_HEADER_LENGTH,
             max_body_size: http1::constants::DEFAULT_MAX_BODY_SIZE,
+            buffer_size: PARSE_BUFFER_SIZE,
         }
     }
 }
@@ -91,6 +102,7 @@ pub struct FormData {
     reader: StreamReader<BodyReader>,
     boundary: String,
     state: State,
+    max_header_length: usize,
 }
 
 impl Debug for FormData {
@@ -116,25 +128,45 @@ impl FormData {
     ) -> Self {
         let body_reader = BodyReader::new(body.into());
         let boundary = format!("--{}", boundary.into());
+        let max_header_length = config.max_header_length;
+        let reader = StreamReader::with_buffer_size_and_read_limit(
+            body_reader,
+            config.buffer_size,
+            config.max_body_size,
+        );
 
         FormData {
             boundary,
-            reader: StreamReader::with_reader_bytes_limit(body_reader, config.max_body_size),
+            reader,
             state: State::First,
+            max_header_length,
         }
     }
 
-    fn read_line(&mut self) -> Result<Vec<u8>, FieldError> {
-        let result = self
+    fn read_line(&mut self, mode: ReadLineMode) -> Result<Vec<u8>, FieldError> {
+        let limit = if mode == ReadLineMode::Limited {
+            Some(self.max_header_length)
+        } else {
+            None
+        };
+
+        let mut line = self
             .reader
-            .read_line(ReadLineMode::Trim)
+            .read_line_with_limit(limit)
             .map_err(|err| FieldError::IO(err))?;
 
-        Ok(result)
+        if line.ends_with(b"\r\n") {
+            line.pop();
+            line.pop();
+        } else if line.ends_with(b"\n") {
+            line.pop();
+        }
+
+        Ok(line)
     }
 
     fn parse_newline(&mut self) -> Result<(), FieldError> {
-        let bytes = self.read_line()?;
+        let bytes = self.read_line(ReadLineMode::None)?;
 
         if !bytes.is_empty() {
             return Err(FieldError::Other(String::from("expected new line")));
@@ -144,7 +176,7 @@ impl FormData {
     }
 
     fn parse_boundary(&mut self) -> Result<(), FieldError> {
-        let line = self.read_line()?;
+        let line = self.read_line(ReadLineMode::None)?;
 
         if line != self.boundary.as_bytes() {
             return Err(FieldError::MissingBoundary(self.boundary.clone()));
@@ -154,7 +186,7 @@ impl FormData {
     }
 
     fn parse_content_disposition(&mut self) -> Result<ContentDisposition, FieldError> {
-        let bytes = self.read_line()?;
+        let bytes = self.read_line(ReadLineMode::Limited)?;
         let mut name: Result<String, FieldError> = Err(FieldError::MissingName);
         let mut filename: Result<Option<String>, FieldError> = Ok(None);
         let mut parts = bytes.split(|b| *b == b';').map(|s| s.trim_ascii());
@@ -190,7 +222,7 @@ impl FormData {
     }
 
     fn parse_content_type(&mut self) -> Result<String, FieldError> {
-        let bytes = self.read_line()?;
+        let bytes = self.read_line(ReadLineMode::Limited)?;
 
         if !bytes.starts_with(b"Content-Type:") {
             return Err(FieldError::MissingContentType);
@@ -518,12 +550,106 @@ fn get_quoted<'a>(quote: &'a str, value: &'a str) -> Option<&'a str> {
 }
 
 #[cfg(test)]
+enum TestFormField {
+    Text {
+        name: &'static str,
+        value: &'static str,
+    },
+    File {
+        name: &'static str,
+        filename: &'static str,
+        content_type: &'static str,
+        value: std::borrow::Cow<'static, [u8]>,
+    },
+}
+
+#[cfg(test)]
+struct TestForm {
+    boundary: &'static str,
+    fields: Vec<TestFormField>,
+}
+
+#[cfg(test)]
+impl TestForm {
+    pub fn new(boundary: &'static str) -> Self {
+        TestForm {
+            boundary,
+            fields: vec![],
+        }
+    }
+
+    pub fn text(mut self, name: &'static str, value: &'static str) -> Self {
+        self.fields.push(TestFormField::Text { name, value });
+        self
+    }
+
+    pub fn file(
+        mut self,
+        name: &'static str,
+        filename: &'static str,
+        content_type: &'static str,
+        value: std::borrow::Cow<'static, [u8]>,
+    ) -> Self {
+        self.fields.push(TestFormField::File {
+            name,
+            filename,
+            content_type,
+            value,
+        });
+        self
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let TestForm { boundary, fields } = self;
+        let mut form_data = vec![];
+
+        // start
+        form_data.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+
+        for (idx, field) in fields.iter().enumerate() {
+            if idx > 0 {
+                form_data.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+            }
+
+            match field {
+                TestFormField::Text { name, value } => {
+                    let content_disposition =
+                        format!("Content-Disposition: form-data; name=\"{name}\"\r\n\r\n");
+                    form_data.extend_from_slice(content_disposition.as_bytes());
+                    form_data.extend_from_slice(value.as_bytes());
+                    form_data.extend_from_slice(b"\r\n");
+                }
+                TestFormField::File {
+                    name,
+                    filename,
+                    content_type,
+                    value,
+                } => {
+                    let content_disposition = format!("Content-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\n");
+                    form_data.extend_from_slice(content_disposition.as_bytes());
+
+                    let content_type = format!("Content-Type: {content_type}\r\n\r\n");
+                    form_data.extend_from_slice(content_type.as_bytes());
+                    form_data.extend_from_slice(&value);
+                    form_data.extend_from_slice(b"\r\n");
+                }
+            }
+        }
+
+        // end
+        form_data.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+        form_data
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use http1::{body::Body, headers, request::Request};
 
-    use crate::from_request::FromRequest;
+    use crate::{forms::form_data::TestForm, from_request::FromRequest};
 
-    use super::FormData;
+    use super::{FormData, FormDataConfig};
 
     #[test]
     fn should_read_text_and_then_file() {
@@ -737,53 +863,115 @@ mod tests {
 
     #[test]
     fn should_read_byte_buffer_with_fixed_newline() {
-        let mut binary_data = Vec::new();
+        let mut binary_data = std::iter::successors(Some(0), |n| Some(n % 255))
+            .take(512)
+            .collect::<Vec<u8>>();
 
-        for i in 0..256 {
-            binary_data.push((i % 256) as u8);
-        }
+        binary_data.insert(binary_data.len() / 2, b'\n');
 
-        // Insert \r\n at a fixed position
-        let insert_position = 128;
-        binary_data.insert(insert_position, b'\r');
-        binary_data.insert(insert_position + 1, b'\n');
-
-        let boundary = "x-my-boundary";
-        let mut content = Vec::new();
-
-        // First field (binary)
-        content.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        content.extend_from_slice(
-            "Content-Disposition: form-data; name=\"binary_field\"; filename=\"binary.bin\"\r\n"
-                .as_bytes(),
+        let form = TestForm::new("my-form-data").file(
+            "binary_field",
+            "binary.bin",
+            "application/octet-stream",
+            binary_data.clone().into(),
         );
-        content.extend_from_slice("Content-Type: application/octet-stream\r\n\r\n".as_bytes());
-        content.extend_from_slice(&binary_data);
-        content.extend_from_slice(b"\r\n");
 
-        content.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+        let form_data = form.to_bytes();
 
         let req = Request::builder()
             .append_header(
                 headers::CONTENT_TYPE,
-                format!("multipart/form-data;boundary={boundary}"),
+                format!(
+                    "multipart/form-data;boundary={boundary}",
+                    boundary = form.boundary
+                ),
             )
-            .body(Body::new(content))
+            .body(Body::new(form_data))
             .unwrap();
 
         let mut form_data = FormData::from_request(req).unwrap();
 
-        {
-            let field = form_data.next_field().unwrap().unwrap();
-            assert_eq!(field.name(), "binary_field");
-            assert_eq!(field.filename(), Some("binary.bin"));
-            let received_data = field.bytes().unwrap();
-            assert_eq!(received_data, binary_data, "different bytes");
-        }
+        let field = form_data.next_field().unwrap().unwrap();
+        assert_eq!(field.name(), "binary_field");
+        assert_eq!(field.filename(), Some("binary.bin"));
+        assert_eq!(field.bytes().unwrap(), binary_data);
+    }
 
-        {
-            let field = form_data.next_field().unwrap();
-            assert!(field.is_none());
-        }
+    #[test]
+    fn should_fail_to_read_form_data_with_body_size_limit() {
+        let binary_data = std::iter::successors(Some(0), |n| Some(n % 255))
+            .take(512)
+            .collect::<Vec<u8>>();
+
+        let form = TestForm::new("my-form-data").file(
+            "binary_field",
+            "binary.bin",
+            "application/octet-stream",
+            binary_data.into(),
+        );
+
+        let form_data = form.to_bytes();
+
+        let mut req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!(
+                    "multipart/form-data;boundary={boundary}",
+                    boundary = form.boundary
+                ),
+            )
+            .body(Body::new(form_data))
+            .unwrap();
+
+        req.extensions_mut().insert(FormDataConfig {
+            max_body_size: 200,
+            buffer_size: 16,
+            ..Default::default()
+        });
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        let field = form_data.next_field().unwrap().unwrap();
+        assert_eq!(field.name(), "binary_field");
+        assert_eq!(field.filename(), Some("binary.bin"));
+        assert!(field.bytes().is_err());
+    }
+
+    #[test]
+    fn should_fail_to_read_form_data_header_size_limit() {
+        let form = TestForm::new("my-form-data")
+        .text("short", "hello")
+        .file(
+            "this is a large binary field name",
+            "this_is_a_large_file_name_for_the_binary_data_send_to_the_form_object.json",
+            "application/json;charset=utf8",
+            "Hello".as_bytes().into(),
+        );
+
+        let form_data = form.to_bytes();
+
+        let mut req = Request::builder()
+            .append_header(
+                headers::CONTENT_TYPE,
+                format!(
+                    "multipart/form-data;boundary={boundary}",
+                    boundary = form.boundary
+                ),
+            )
+            .body(Body::new(form_data))
+            .unwrap();
+
+        req.extensions_mut().insert(FormDataConfig {
+            max_header_length: 100,
+            ..Default::default()
+        });
+
+        let mut form_data = FormData::from_request(req).unwrap();
+
+        let field1 = form_data.next_field();
+        assert!(field1.is_ok());
+
+        let field2 = form_data.next_field();
+        assert!(field2.is_err());
     }
 }

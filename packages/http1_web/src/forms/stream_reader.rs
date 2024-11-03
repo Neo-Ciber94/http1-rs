@@ -1,16 +1,6 @@
 use std::io::{BufReader, Read};
 
-const INTERNAL_BUFFER_SIZE: usize = 8 * 1024; // 8kb
-
-/// How to read a line
-#[derive(Debug, PartialEq, Eq)]
-pub enum ReadLineMode {
-    /// Trim the `\n` or `\r\n` ending.
-    Trim,
-
-    /// Keep the line ending.
-    Retain,
-}
+use super::form_data::PARSE_BUFFER_SIZE;
 
 pub struct StreamReader<R> {
     reader: BufReader<R>,
@@ -25,7 +15,7 @@ pub struct StreamReader<R> {
 impl<R: Read> StreamReader<R> {
     /// Constructs a new [`StreamReader`].
     pub fn new(reader: R) -> Self {
-        Self::with_buffer_size(reader, INTERNAL_BUFFER_SIZE)
+        Self::with_buffer_size(reader, PARSE_BUFFER_SIZE)
     }
 
     /// Constructs a new [`StreamReader`] with the given buffer size.
@@ -39,7 +29,7 @@ impl<R: Read> StreamReader<R> {
 
     /// Constructs a new [`StreamReader`] with the given max reader bytes limit.
     pub fn with_reader_bytes_limit(reader: R, reader_bytes_limit: usize) -> Self {
-        Self::with_buffer_size_and_read_limit(reader, INTERNAL_BUFFER_SIZE, reader_bytes_limit)
+        Self::with_buffer_size_and_read_limit(reader, PARSE_BUFFER_SIZE, reader_bytes_limit)
     }
 
     /// Constructs a new [`StreamReader`] with the given buffer size and max reader bytes limit.
@@ -118,18 +108,44 @@ impl<R: Read> StreamReader<R> {
         chunk
     }
 
-    /// Read until the specified byte.
-    pub fn read_until(&mut self, byte: u8) -> std::io::Result<Vec<u8>> {
+    /// Read until the specified byte with the given max bytes limit.
+    ///
+    /// If more bytes than the given are read an error is returned.
+    pub fn read_until_with_limit(
+        &mut self,
+        byte: u8,
+        max_bytes_limit: Option<usize>,
+    ) -> std::io::Result<Vec<u8>> {
+        fn check_limit(read: usize, limit: Option<usize>) -> std::io::Result<()> {
+            let Some(limit) = limit else {
+                return Ok(());
+            };
+
+            if read > limit {
+                Err(std::io::Error::other(format!(
+                    "limit of bytes reached: {read} > {limit}"
+                )))
+            } else {
+                Ok(())
+            }
+        }
+
         let mut start_pos = 0;
+        let mut read = 0;
 
         loop {
             if let Some(idx) = self.buf[start_pos..].iter().position(|&b| b == byte) {
                 let offset = start_pos + idx + 1;
+                check_limit(offset, max_bytes_limit)?;
                 return Ok(self.consume(offset));
             }
 
             start_pos = self.buf.len();
             let bytes_read = self.fill_buffer(1)?;
+
+            // We check the limit before incrementing the read count
+            check_limit(read, max_bytes_limit)?;
+            read += bytes_read;
 
             if bytes_read == 0 {
                 break;
@@ -137,6 +153,11 @@ impl<R: Read> StreamReader<R> {
         }
 
         Ok(self.consume(self.buf.len()))
+    }
+
+    /// Read until the specified byte.
+    pub fn read_until(&mut self, byte: u8) -> std::io::Result<Vec<u8>> {
+        self.read_until_with_limit(byte, None)
     }
 
     /// Peek the given number of bytes.
@@ -149,20 +170,17 @@ impl<R: Read> StreamReader<R> {
         Ok(&self.buf[..len])
     }
 
+    /// Read the next line with the given max bytes limit.
+    pub fn read_line_with_limit(
+        &mut self,
+        max_bytes_limit: Option<usize>,
+    ) -> std::io::Result<Vec<u8>> {
+        self.read_until_with_limit(b'\n', max_bytes_limit)
+    }
+
     /// Read the next line.
-    pub fn read_line(&mut self, mode: ReadLineMode) -> std::io::Result<Vec<u8>> {
-        let mut line = self.read_until(b'\n')?;
-
-        if mode == ReadLineMode::Trim {
-            if line.ends_with(b"\r\n") {
-                line.pop();
-                line.pop();
-            } else if line.ends_with(b"\n") {
-                line.pop();
-            }
-        }
-
-        Ok(line)
+    pub fn read_line(&mut self) -> std::io::Result<Vec<u8>> {
+        self.read_line_with_limit(None)
     }
 
     /// Read until the sequence is found.
@@ -193,7 +211,7 @@ impl<R: Read> StreamReader<R> {
 
         // Check for partial matches
         if !self.eof {
-            if let Some((start_idx, offset)) = overlapping_position(&self.buf, sequence) {
+            if let Some((start_idx, _)) = overlapping_position(&self.buf, sequence) {
                 self.fill_buffer(start_idx + sequence.len())?;
 
                 let overlapping = &self.buf[start_idx..(start_idx + sequence.len())];
@@ -250,11 +268,8 @@ fn overlapping_position(slice: &[u8], sequence: &[u8]) -> Option<(usize, usize)>
 
 #[cfg(test)]
 mod tests {
-    use std::io::Read;
-
-    use crate::forms::stream_reader::ReadLineMode;
-
     use super::StreamReader;
+    use std::io::Read;
 
     fn read_all_until_sequence<R: Read>(reader: &mut StreamReader<R>, sequence: &[u8]) -> Vec<u8> {
         let mut bytes = vec![];
@@ -396,30 +411,16 @@ mod tests {
     }
 
     #[test]
-    fn should_read_line_with_trim() {
+    fn should_read_line() {
         let mut reader = StreamReader::new(b"Hello World!\nThis is a test.\n".as_ref());
 
         // Reading the first line with Trim mode
-        let line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(line, b"Hello World!");
-
-        // Reading the second line with Trim mode
-        let line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(line, b"This is a test.");
-    }
-
-    #[test]
-    fn should_read_line_with_retain() {
-        let mut reader = StreamReader::new(b"Hello World!\nThis is a test.\r\n".as_ref());
-
-        // Reading the first line with Retain mode
-        let line = reader.read_line(ReadLineMode::Retain).unwrap();
+        let line = reader.read_line().unwrap();
         assert_eq!(line, b"Hello World!\n");
 
-        // Reading the second line with Retain mode
-        let line = reader.read_line(ReadLineMode::Retain).unwrap();
-        assert_eq!(line, b"This is a test.\r\n");
-        assert_eq!(reader.total_bytes_read(), 30);
+        // Reading the second line with Trim mode
+        let line = reader.read_line().unwrap();
+        assert_eq!(line, b"This is a test.\n");
     }
 
     #[test]
@@ -427,7 +428,7 @@ mod tests {
         let mut reader = StreamReader::new(b"".as_ref());
 
         // Trying to read from an empty input should return an empty slice
-        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        let line = reader.read_line().unwrap();
         assert_eq!(line, b"");
         assert_eq!(reader.total_bytes_read(), 0);
     }
@@ -437,27 +438,17 @@ mod tests {
         let mut reader = StreamReader::new(b"Hello World!".as_ref());
 
         // Reading a line without a newline character
-        let line = reader.read_line(ReadLineMode::Trim).unwrap();
+        let line = reader.read_line().unwrap();
         assert_eq!(line, b"Hello World!");
         assert_eq!(reader.total_bytes_read(), 12);
     }
 
     #[test]
-    fn should_read_single_line_with_only_newline_trimmed() {
+    fn should_read_single_line_with_only_newline() {
         let mut reader = StreamReader::new(b"Line with newline\n".as_ref());
 
         // Reading with Trim mode should remove the newline
-        let line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(line, b"Line with newline");
-        assert_eq!(reader.total_bytes_read(), 18);
-    }
-
-    #[test]
-    fn should_read_single_line_with_only_newline_retained() {
-        let mut reader = StreamReader::new(b"Line with newline\n".as_ref());
-
-        // Reading with Retain mode should keep the newline
-        let line = reader.read_line(ReadLineMode::Retain).unwrap();
+        let line = reader.read_line().unwrap();
         assert_eq!(line, b"Line with newline\n");
         assert_eq!(reader.total_bytes_read(), 18);
     }
@@ -473,5 +464,16 @@ mod tests {
 
         assert_eq!(err.kind(), std::io::ErrorKind::Other);
         assert!(err.to_string().contains("reader bytes limit reached"));
+    }
+
+    #[test]
+    fn should_read_until_with_limit() {
+        let data = "Time is an illusion that helps things makes sense, So we're always living in the present tense";
+
+        let chunk1 = StreamReader::new(data.as_bytes()).read_until_with_limit(b'h', Some(10));
+        assert!(chunk1.is_err());
+
+        let chunk2 = StreamReader::new(data.as_bytes()).read_until_with_limit(b'h', Some(30));
+        assert_eq!(chunk2.unwrap(), b"Time is an illusion th");
     }
 }
