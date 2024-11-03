@@ -13,7 +13,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse, RequestExt};
 
 use super::{
     form_field::{Disk, FormField, Memory, TempDisk},
@@ -83,6 +83,23 @@ pub struct FormDataConfig {
 
     /// Size of the buffer used to parse the form data.
     pub buffer_size: usize,
+}
+
+impl FormDataConfig {
+    pub fn max_header_length(mut self, max_header_length: usize) -> Self {
+        self.max_header_length = max_header_length;
+        self
+    }
+
+    pub fn max_body_size(mut self, max_body_size: usize) -> Self {
+        self.max_body_size = max_body_size;
+        self
+    }
+
+    pub fn buffer_size(mut self, buffer_size: usize) -> Self {
+        self.buffer_size = buffer_size;
+        self
+    }
 }
 
 impl Default for FormDataConfig {
@@ -495,11 +512,7 @@ impl FromRequest for FormData {
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
-        let config = req
-            .extensions()
-            .get::<FormDataConfig>()
-            .cloned()
-            .unwrap_or_default();
+        let config = req.state::<FormDataConfig>().unwrap_or_default();
 
         let headers = req.headers();
         let content_type = headers
@@ -939,9 +952,7 @@ mod tests {
 
     #[test]
     fn should_fail_to_read_form_data_header_size_limit() {
-        let form = TestForm::new("my-form-data")
-        .text("short", "hello")
-        .file(
+        let form = TestForm::new("my-form-data").text("short", "hello").file(
             "this is a large binary field name",
             "this_is_a_large_file_name_for_the_binary_data_send_to_the_form_object.json",
             "application/json;charset=utf8",

@@ -1,9 +1,10 @@
-use http1::request::Request;
+use http1::{body::Body, request::Request};
 
 use crate::{
     cookies::{Cookie, Cookies},
     from_request::FromRequestRef,
     middleware::Middleware,
+    state::State,
 };
 
 struct Ext<T>(T);
@@ -37,9 +38,12 @@ pub trait RequestExt {
     fn cookie(&self, name: impl AsRef<str>) -> Option<&Cookie> {
         self.get_all_cookies().get(name)
     }
+
+    /// Get a request extension from its state.
+    fn state<T: Send + Sync + Clone + 'static>(&self) -> Option<T>;
 }
 
-impl<T> RequestExt for Request<T> {
+impl RequestExt for Request<Body> {
     fn get_all_cookies(&self) -> &Cookies {
         let ext = self
             .extensions()
@@ -47,5 +51,9 @@ impl<T> RequestExt for Request<T> {
             .expect("`RequestExtensions` middleware was not set or extensions where removed");
 
         &ext.0
+    }
+
+    fn state<T: Send + Sync + Clone + 'static>(&self) -> Option<T> {
+        State::<T>::from_request_ref(self).ok().map(|x| x.0.clone())
     }
 }

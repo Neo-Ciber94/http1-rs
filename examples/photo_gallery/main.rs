@@ -15,6 +15,7 @@ use http1::{
 use http1_web::{
     app::App,
     forms::{
+        form_data::FormDataConfig,
         form_map::FormMap,
         multipart::{FormFile, Multipart},
     },
@@ -26,6 +27,8 @@ use http1_web::{
     state::State,
     ErrorResponse,
 };
+
+const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024;
 
 struct Image {
     id: String,
@@ -41,6 +44,7 @@ pub fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(Logging)
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
+        .state(FormDataConfig::default().max_body_size(MAX_BODY_SIZE))
         .get(
             "/static/*",
             ServeDir::new("/static", "examples/photo_gallery/static"),
@@ -51,7 +55,7 @@ pub fn main() -> std::io::Result<()> {
         .post("/api/upload", upload);
 
     Server::new("localhost:5000")
-        .max_body_size(1024 * 1024 * 1024)
+        .max_body_size(MAX_BODY_SIZE)
         .on_ready(|addr| log::info!("Listening on: http://{addr}"))
         .start(app)
 }
