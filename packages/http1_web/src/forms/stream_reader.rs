@@ -1,6 +1,6 @@
 use std::io::{BufReader, Read};
 
-const DEFAULT_BUFFER_SIZE: usize = 4 * 1024;
+const DEFAULT_BUFFER_SIZE: usize = 8 * 1024;
 
 /// How to read a line
 #[derive(Debug, PartialEq, Eq)]
@@ -49,8 +49,9 @@ impl<R: Read> StreamReader<R> {
         }
 
         let mut temp_buf = vec![0; DEFAULT_BUFFER_SIZE];
+        let required = self.pos + additional;
 
-        while self.buf.len() < self.pos + additional {
+        while self.buf.len() < required {
             let bytes_read = self.reader.read(&mut temp_buf)?;
 
             if bytes_read == 0 {

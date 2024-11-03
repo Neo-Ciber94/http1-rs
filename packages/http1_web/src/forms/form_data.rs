@@ -293,7 +293,9 @@ impl<'a> Read for FieldReader<'a> {
             return Ok(0);
         }
 
-        self.read_chunk()?;
+        if self.chunk.is_empty() {
+            self.read_chunk()?;
+        }
 
         let mut read = 0;
 
