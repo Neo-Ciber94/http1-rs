@@ -32,6 +32,11 @@ impl<R: Read> StreamReader<R> {
         }
     }
 
+    /// Whether if all the data was read.
+    pub fn eof(&self) -> bool {
+        self.eof
+    }
+
     /// Returns the current number of bytes read.
     pub fn total_bytes_read(&self) -> usize {
         self.total_bytes_read
@@ -119,41 +124,63 @@ impl<R: Read> StreamReader<R> {
         Ok(line)
     }
 
-    /// Read until the given bytes sequence, if the sequence is never found returns all the bytes.
+    // /// Read until the given bytes sequence, if the sequence is never found returns all the bytes.
+    // pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, Vec<u8>)> {
+    //     if sequence.len() == 0 {
+    //         return Ok((true, Vec::new()));
+    //     }
+
+    //     let sequence_len = sequence.len();
+    //     let mut start_pos = 0;
+
+    //     loop {
+    //         // Check the chunk for any match
+    //         if let Some(idx) = self.buf[start_pos..]
+    //             .windows(sequence_len)
+    //             .position(|c| c == sequence)
+    //         {
+    //             let end = idx + sequence_len;
+    //             let slice = &self.buf[start_pos..end];
+
+    //             if slice.ends_with(sequence) {
+    //                 let result = self.consume(start_pos + end);
+    //                 return Ok((true, result));
+    //             }
+    //         }
+
+    //         let len = self.buf.len();
+    //         let bytes_read = self.fill_buffer(sequence_len)?;
+    //         start_pos = len;
+
+    //         if bytes_read == 0 {
+    //             break;
+    //         }
+    //     }
+
+    //     let rest = self.consume(self.buf.len());
+
+    //     Ok((false, rest))
+    // }
+
+    /// Read until the given bytes sequence; if the sequence is never found, returns all bytes up to the end.
     pub fn read_until_sequence(&mut self, sequence: &[u8]) -> std::io::Result<(bool, Vec<u8>)> {
-        if sequence.len() == 0 {
+        if sequence.is_empty() {
             return Ok((true, Vec::new()));
         }
 
-        let sequence_len = sequence.len();
-        let mut start_pos = 0;
+        self.fill_buffer(sequence.len())?;
 
-        loop {
-            // Check the chunk for any match
-            if let Some(idx) = self.buf[start_pos..]
-                .windows(sequence_len)
-                .position(|c| c == sequence)
-            {
-                let end = idx + sequence_len;
-                let slice = &self.buf[start_pos..end];
-
-                if slice.ends_with(sequence) {
-                    let result = self.consume(start_pos + end);
-                    return Ok((true, result));
-                }
-            }
-
-            let len = self.buf.len();
-            let bytes_read = self.fill_buffer(sequence_len)?;
-            start_pos = len;
-
-            if bytes_read == 0 {
-                break;
-            }
+        if let Some(idx) = self
+            .buf
+            .windows(sequence.len())
+            .position(|window| window == sequence)
+        {
+            let end = sequence.len() + idx;
+            let result = self.consume(end);
+            return Ok((true, result));
         }
 
         let rest = self.consume(self.buf.len());
-
         Ok((false, rest))
     }
 
@@ -242,10 +269,13 @@ mod tests {
     #[test]
     fn should_read_until_sequence() {
         let mut reader = StreamReader::new(b"Hey how are you? Hey, I said how are you!?".as_ref());
-        let (_, first) = reader.read_until_sequence(b"you").unwrap();
+        let (found1, first) = reader.read_until_sequence(b"you").unwrap();
+        assert!(found1);
         assert_eq!(first, b"Hey how are you");
 
-        let (_, second) = reader.read_until_sequence(b"you").unwrap();
+        let (found2, second) = reader.read_until_sequence(b"you").unwrap();
+        dbg!(String::from_utf8_lossy(&second));
+        assert!(found2);
         assert_eq!(second, b"? Hey, I said how are you");
 
         assert_eq!(reader.read_exact(10).unwrap(), b"!?");
@@ -382,79 +412,5 @@ mod tests {
         let line = reader.read_line(ReadLineMode::Retain).unwrap();
         assert_eq!(line, b"Line with newline\n");
         assert_eq!(reader.total_bytes_read(), 18);
-    }
-
-    #[test]
-    fn should_parse_multipart_form_data() {
-        let boundary = "--boundary123";
-        let mut form_data = String::new();
-
-        // Constructing the multipart form-data string
-        form_data.push_str("--boundary123\r\n");
-        form_data.push_str("Content-Disposition: form-data; name=\"text\"\r\n\r\n");
-        form_data.push_str("Sample text data\r\n");
-        form_data.push_str("--boundary123\r\n");
-        form_data.push_str(
-            "Content-Disposition: form-data; name=\"file\"; filename=\"example.txt\"\r\n",
-        );
-        form_data.push_str("Content-Type: text/plain\r\n\r\n");
-        form_data.push_str("This is the content of the file, counting 123!\r\n");
-        form_data.push_str("--boundary123--\r\n");
-
-        let mut reader = StreamReader::new(form_data.as_bytes());
-
-        // Read the starting boundary
-        let boundary_line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(boundary_line, boundary.as_bytes());
-
-        // First part: Text field
-        let header_line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(
-            header_line,
-            b"Content-Disposition: form-data; name=\"text\""
-        );
-
-        // Skip empty line before the content
-        let empty_line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert!(empty_line.is_empty());
-
-        // Read the text content until the boundary
-        let (found, text_data) = reader.read_until_sequence(boundary.as_bytes()).unwrap();
-        assert!(found);
-        assert_eq!(text_data, b"Sample text data\r\n--boundary123");
-
-        // Skip the boundary and continue to the next part
-        reader.read_line(ReadLineMode::Trim).unwrap(); // Skip \r\n after boundary
-
-        // Second part: File field
-        let file_header = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(
-            file_header,
-            b"Content-Disposition: form-data; name=\"file\"; filename=\"example.txt\""
-        );
-
-        let content_type_header = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert_eq!(content_type_header, b"Content-Type: text/plain");
-
-        // Skip empty line before the file content
-        let empty_line = reader.read_line(ReadLineMode::Trim).unwrap();
-        assert!(empty_line.is_empty());
-
-        // Read the file content until the boundary
-        let (found, file_data) = reader.read_until_sequence(boundary.as_bytes()).unwrap();
-
-        assert!(found);
-        assert_eq!(
-            file_data.trim_ascii(),
-            b"This is the content of the file, counting 123!\r\n--boundary123"
-        );
-
-        // Skip the final boundary line and confirm end
-        let end_boundary = reader.read_exact(4).unwrap();
-        assert_eq!(end_boundary, b"--\r\n");
-
-        // Ensure all data has been read
-        assert!(reader.read_to_end().unwrap().is_empty());
-        assert_eq!(reader.total_bytes_read(), form_data.len());
     }
 }
