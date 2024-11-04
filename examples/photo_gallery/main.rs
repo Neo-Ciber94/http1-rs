@@ -44,7 +44,6 @@ pub fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(Logging)
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
-        .state(FormDataConfig::default().max_body_size(MAX_BODY_SIZE))
         .get(
             "/static/*",
             ServeDir::new("/static", "examples/photo_gallery/static"),
@@ -55,7 +54,7 @@ pub fn main() -> std::io::Result<()> {
         .post("/api/upload", upload);
 
     Server::new("localhost:5000")
-        .max_body_size(MAX_BODY_SIZE)
+        .max_body_size(Some(MAX_BODY_SIZE))
         .on_ready(|addr| log::info!("Listening on: http://{addr}"))
         .start(app)
 }

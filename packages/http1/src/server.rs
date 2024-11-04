@@ -19,7 +19,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             include_date_header: true,
-            max_body_size: None,
+            max_body_size: Some(crate::constants::DEFAULT_MAX_BODY_SIZE),
         }
     }
 }
@@ -54,8 +54,12 @@ impl<A> Server<A> {
     }
 
     /// The max size in bytes the body is allowed to have, if the body surpasses that size the request will be rejected.
-    pub fn max_body_size(mut self, max_body_size_bytes: usize) -> Self {
-        self.config.max_body_size = Some(max_body_size_bytes);
+    pub fn max_body_size(mut self, max_body_size_bytes: Option<usize>) -> Self {
+        if let Some(max_body_size_bytes) = max_body_size_bytes {
+            assert!(max_body_size_bytes > 0);
+        }
+
+        self.config.max_body_size = max_body_size_bytes;
         self
     }
 }

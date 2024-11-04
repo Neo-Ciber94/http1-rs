@@ -8,7 +8,7 @@ pub struct FixedLengthBodyReader<R> {
     reader: R,
     buffer: Box<[u8]>,
     read_bytes: usize,
-    max_body_size: usize,
+    max_body_size: Option<usize>,
     content_length: Option<usize>,
 }
 
@@ -22,7 +22,6 @@ impl FixedLengthBodyReader<()> {
         R: Read,
     {
         let buffer = vec![0; DEFAULT_BUFFER_SIZE].into_boxed_slice();
-        let max_body_size = max_body_size.unwrap_or(crate::constants::DEFAULT_MAX_BODY_SIZE);
 
         FixedLengthBodyReader {
             reader,
@@ -39,8 +38,10 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        if self.read_bytes >= self.max_body_size {
-            return Err(body_limit_error(self.read_bytes, self.max_body_size));
+        if let Some(max_body_size) = self.max_body_size {
+            if self.read_bytes >= max_body_size {
+                return Err(body_limit_error(self.read_bytes, max_body_size));
+            }
         }
 
         if let Some(content_length) = self.content_length {
@@ -95,7 +96,7 @@ impl<R: Read> HttpBody for FixedLengthBodyReader<R> {
 pub struct ChunkedBodyReader<R> {
     reader: BufReader<R>,
     read_bytes: usize,
-    max_body_size: usize,
+    max_body_size: Option<usize>,
 }
 
 impl ChunkedBodyReader<()> {
@@ -103,8 +104,6 @@ impl ChunkedBodyReader<()> {
     where
         R: Read,
     {
-        let max_body_size = max_body_size.unwrap_or(crate::constants::DEFAULT_MAX_BODY_SIZE);
-
         ChunkedBodyReader {
             reader: BufReader::new(reader),
             read_bytes: 0,
@@ -118,8 +117,10 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
     type Data = Vec<u8>;
 
     fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
-        if self.read_bytes >= self.max_body_size {
-            return Err(body_limit_error(self.read_bytes, self.max_body_size));
+        if let Some(max_body_size) = self.max_body_size {
+            if self.read_bytes >= max_body_size {
+                return Err(body_limit_error(self.read_bytes, max_body_size));
+            }
         }
 
         let mut str_buf = String::new();
@@ -133,8 +134,10 @@ impl<R: Read> HttpBody for ChunkedBodyReader<R> {
             std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid chunk length")
         })?;
 
-        if self.read_bytes + chunk_length > self.max_body_size {
-            return Err(body_limit_error(self.read_bytes, self.max_body_size));
+        if let Some(max_body_size) = self.max_body_size {
+            if self.read_bytes + chunk_length > max_body_size {
+                return Err(body_limit_error(self.read_bytes, max_body_size));
+            }
         }
 
         // End of chunks
