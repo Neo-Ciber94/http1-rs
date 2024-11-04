@@ -30,6 +30,7 @@ use http1_web::{
 
 const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024;
 
+#[derive(Debug)]
 struct Image {
     id: String,
     image_url: String,
@@ -81,9 +82,17 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
         });
 
         html::body(|| {
+            html::header(|| {
+                html::a(|| {
+                    html::attr("href", "/");
+                    html::content("Photo Gallery");
+                });
+            });
+
             html::h2("Gallery");
 
             html::a(|| {
+                html::class("gallery-link");
                 html::attr("href", "/upload");
                 html::content("Upload Image");
             });
@@ -93,9 +102,13 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
                     html::h2("No images");
                 }
 
-                images.iter().for_each(|img| {
-                    html::img(|| {
-                        html::attr("href", format!("/static/{}", img.image_url));
+                html::div(|| {
+                    html::class("gallery");
+
+                    images.iter().for_each(|img| {
+                        html::img(|| {
+                            html::attr("src", format!("/static{}", img.image_url));
+                        });
                     });
                 });
             });
@@ -120,6 +133,13 @@ fn upload_page() -> HTMLElement {
         });
 
         html::body(|| {
+            html::header(|| {
+                html::a(|| {
+                    html::attr("href", "/");
+                    html::content("Photo Gallery");
+                });
+            });
+
             html::h2("Gallery | Upload Image");
 
             html::form(|| {
@@ -131,6 +151,7 @@ fn upload_page() -> HTMLElement {
                     html::attr("accept", "image/*");
                     html::attr("type", "file");
                     html::attr("name", "image");
+                    html::attr("required", true);
                 });
 
                 html::button(|| {
@@ -197,8 +218,8 @@ fn upload(
 
             // Remove file if fails to save
             std::fs::remove_file(file_path)?;
-        },
+        }
     }
 
-    Ok(Redirect::see_other("/upload"))
+    Ok(Redirect::see_other("/"))
 }

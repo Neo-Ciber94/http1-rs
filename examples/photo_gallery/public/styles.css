@@ -5,16 +5,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  min-height: 100vh;
   background-color: #f4f4f4;
 }
 
 h2 {
   color: #333;
   text-align: center;
-  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
-a {
+a.gallery-link {
   display: inline-block;
   text-decoration: none;
   color: #fff;
@@ -24,25 +26,108 @@ a {
   margin-bottom: 20px;
 }
 
-a:hover {
-  background-color: #0056b3;
-}
-
-/* Masonry grid layout */
-div {
+/* Gallery container with dynamic cell sizes */
+div.gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  grid-auto-rows: 200px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-rows: 300px;
+  grid-auto-flow: dense;
   gap: 10px;
   max-width: 1200px;
   padding: 10px;
   width: 100%;
 }
 
-img {
+/* Gallery images with varied spans */
+div.gallery img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Specific spans for different image cells to create varied sizes */
+div.gallery img:nth-child(3n) {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+div.gallery img:nth-child(4n) {
+  grid-column: span 2;
+}
+
+div.gallery img:nth-child(5n) {
+  grid-row: span 2;
+}
+
+/* Responsive design: single column on smaller screens */
+@media (max-width: 768px) {
+  div.gallery {
+    grid-template-columns: 1fr; /* Single column layout */
+    grid-auto-rows: auto; /* Adjust row height to image height */
+  }
+
+  /* Reset spans to avoid oversized images in the single column */
+  div.gallery img {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+}
+
+/* forms */
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+input[type="file"] {
+  margin-bottom: 15px;
+  font-size: 16px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+  max-width: 300px;
+}
+
+button {
+  font-size: 16px;
+  color: #fff;
+  background-color: #007bff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 15px 0;
+  background-color: #333;
+  text-align: center;
+}
+
+header a {
+  color: #fff;
+  text-decoration: none;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+header a:hover {
+  color: #ccc;
 }
