@@ -32,10 +32,12 @@ const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024;
 
 struct Image {
     id: String,
+    image_url: String,
 }
 
 serde::impl_serde_struct!(Image => {
     id: String,
+    image_url: String
 });
 
 pub fn main() -> std::io::Result<()> {
@@ -61,7 +63,7 @@ pub fn main() -> std::io::Result<()> {
 }
 
 fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, ErrorResponse> {
-    let images = db.scan::<Image>("images/")?;
+    let images = db.scan::<Image>("image/")?;
 
     Ok(html::html(|| {
         html::attr("lang", "en");
@@ -87,9 +89,13 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
             });
 
             html::div(|| {
+                if images.is_empty() {
+                    html::h2("No images");
+                }
+
                 images.iter().for_each(|img| {
                     html::img(|| {
-                        html::attr("href", format!("/static/{}", img.id));
+                        html::attr("href", format!("/static/{}", img.image_url));
                     });
                 });
             });
@@ -122,7 +128,7 @@ fn upload_page() -> HTMLElement {
                 html::attr("enctype", "multipart/form-data");
 
                 html::input(|| {
-                    // html::attr("accept", "image/*");
+                    html::attr("accept", "image/*");
                     html::attr("type", "file");
                     html::attr("name", "image");
                 });
@@ -144,39 +150,55 @@ serde::impl_deserialize_struct!(UploadFile => {
     image: FormFile
 });
 
-// fn upload(
-//     Multipart(form): Multipart<UploadFile>,
-// ) -> Result<Redirect, ErrorResponse> {
-//     //dbg!(&form);
+fn upload(
+    State(db): State<KeyValueDatabase>,
+    Multipart(form): Multipart<UploadFile>,
+) -> Result<Redirect, ErrorResponse> {
+    let mime = Mime::from_str(form.image.content_type().unwrap())?;
 
-//     std::thread::sleep(Duration::from_secs(10));
-//     let mime = Mime::from_str(form.image.content_type().unwrap())?;
-//     let cwd = std::env::current_dir().expect("failed to get current directory");
-//     let dir = cwd.join("examples/photo_gallery/static");
-//     let filename = Uuid::new_v4().to_simple_string();
-//     let file_path = dir.join(format!("{filename}.{}", mime.subtype()));
+    if !Mime::ANY_IMAGE.matches(&mime) {
+        return Err(ErrorResponse::from_error(
+            http1_web::ErrorStatusCode::BadRequest,
+            "expected image",
+        ));
+    }
 
-//     log::debug!("Writing file to: {file_path:?}");
+    let cwd = std::env::current_dir().expect("failed to get current directory");
+    let dir = cwd.join("examples/photo_gallery/static");
+    let filename = Uuid::new_v4().to_simple_string();
 
-//     let source = form.image.file().read(true).open().unwrap();
-//     let dest_file = File::create(file_path)?;
-//     let mut reader = BufReader::new(source);
-//     let mut writer = BufWriter::new(dest_file);
-//     std::io::copy(&mut reader, &mut writer)?;
+    let ext = mime.extension_with_sep().unwrap_or(".bin");
+    let file_path = dir.join(format!("{filename}{ext}",));
 
-//     Ok(Redirect::see_other("/upload"))
-// }
+    log::debug!("Writing image to: {file_path:?}");
 
-fn upload(mut input: FormMap) -> Result<Redirect, ErrorResponse> {
-    // let total_bytes = body.len();
+    let source = form.image.file().read(true).open().unwrap();
+    let dest_file = File::create(&file_path)?;
+    let mut reader = BufReader::new(source);
+    let mut writer = BufWriter::new(dest_file);
+    std::io::copy(&mut reader, &mut writer)?;
 
-    dbg!(&input);
+    // Save image on db
+    let id = Uuid::new_v4().to_simple_string();
+    let image_url = format!("/{filename}{ext}");
 
-    let mut reader = input.remove("file").unwrap().reader();
-    let total_bytes = std::io::copy(&mut reader, &mut std::io::sink()).unwrap();
+    match db.set(
+        format!("image/{id}"),
+        Image {
+            id: id.clone(),
+            image_url: image_url.clone(),
+        },
+    ) {
+        Ok(_) => {
+            log::info!("Image saved {id} => {image_url}")
+        }
+        Err(err) => {
+            log::error!("Failed to save image: {err}");
 
-    std::thread::sleep(Duration::from_secs(10));
+            // Remove file if fails to save
+            std::fs::remove_file(file_path)?;
+        },
+    }
 
-    log::info!("Body is {total_bytes} bytes");
     Ok(Redirect::see_other("/upload"))
 }
