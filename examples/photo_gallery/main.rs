@@ -43,6 +43,7 @@ pub fn main() -> std::io::Result<()> {
 
     let app = App::new()
         .middleware(Logging)
+        .state(FormDataConfig::default().max_body_size(MAX_BODY_SIZE))
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
         .get(
             "/static/*",
