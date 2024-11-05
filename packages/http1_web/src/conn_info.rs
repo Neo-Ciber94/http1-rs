@@ -5,7 +5,10 @@ use http1::headers;
 use crate::{from_request::FromRequestRef, ErrorStatusCode};
 
 /// Contains the ip address information of the request.
-#[derive(Clone, PartialEq, Eq)]
+/// 
+/// The address is check in the headers: `X-Forwarded-For`, `X-Real-IP`, `X-Client-IP` and `Forwarded`, if not found will be rejected,
+/// it's recommended to use [`Option<ConnectionInfo>`] in case its not found.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConnectionInfo(Vec<IpAddr>);
 
 impl ConnectionInfo {
