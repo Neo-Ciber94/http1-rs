@@ -14,6 +14,7 @@ pub mod query;
 pub mod redirect;
 pub mod routing;
 pub mod state;
+pub mod conn_info;
 
 mod request;
 mod response;

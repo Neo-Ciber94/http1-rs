@@ -48,7 +48,10 @@ define_header_names! {
     UPGRADE => "Upgrade",
     LOCATION => "Location",
     X_FORWARDED_FOR => "X-Forwarded-For",
+    X_REAL_IP => "X-Real-IP", // NON-STANDARD
+    X_CLIENT_IP => "X-Client-IP", // NON-STANDARD
     X_FRAME_OPTIONS => "X-Frame-Options",
+    FORWARDED => "Forwarded",
     ORIGIN => "Origin",
     DATE => "Date",
     ETAG => "ETag",
