@@ -1,10 +1,7 @@
 mod request;
 mod response;
 
-use std::{
-    io::ErrorKind,
-    sync::{Arc, Mutex},
-};
+use std::io::ErrorKind;
 
 use crate::{handler::RequestHandler, server::Config};
 
@@ -47,8 +44,14 @@ mod pipe {
     use crate::protocol::connection::Connection;
 
     #[derive(Clone)]
+    struct Inner {
+        read_buffer: Cursor<Vec<u8>>,
+        write_buffer: Vec<u8>,
+    }
+
+    #[derive(Clone)]
     pub struct Pipe {
-        buffer: Arc<Mutex<Cursor<Vec<u8>>>>,
+        inner: Arc<Mutex<Inner>>,
     }
 
     impl Pipe {
@@ -56,8 +59,15 @@ mod pipe {
             let bytes = bytes.into();
 
             Self {
-                buffer: Arc::new(Mutex::new(Cursor::new(bytes.into()))),
+                inner: Arc::new(Mutex::new(Inner {
+                    read_buffer: Cursor::new(bytes.into()),
+                    write_buffer: vec![],
+                })),
             }
+        }
+
+        pub fn into_writer(self) -> Vec<u8> {
+            self.inner.lock().unwrap().write_buffer.clone()
         }
     }
 
@@ -75,21 +85,20 @@ mod pipe {
 
     impl Read for Pipe {
         fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.read(buf)
+            let mut inner = self.inner.lock().unwrap();
+            inner.read_buffer.read(buf)
         }
     }
 
     impl Write for Pipe {
         fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            dbg!(String::from_utf8_lossy(buf));
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.write(buf)
+            let mut inner = self.inner.lock().unwrap();
+            inner.write_buffer.extend_from_slice(buf);
+            Ok(buf.len())
         }
 
         fn flush(&mut self) -> io::Result<()> {
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.flush()
+            self.inner.lock().unwrap().write_buffer.flush()
         }
     }
 
@@ -98,7 +107,7 @@ mod pipe {
 
         fn try_clone(&self) -> Result<Self, Self::Err> {
             Ok(Self {
-                buffer: Arc::clone(&self.buffer),
+                inner: Arc::clone(&self.inner),
             })
         }
     }
@@ -111,31 +120,9 @@ mod tests {
 
     use super::{handle_incoming, pipe::Pipe};
 
-    trait StrExt {
-        fn trim_margin(&self, margin: &str) -> String;
-    }
-
-    impl<'a> StrExt for &'a str {
-        fn trim_margin(&self, margin: &str) -> String {
-            self.trim()
-                .lines()
-                .map(|line| line.trim_start().trim_start_matches(margin))
-                .map(|line| format!("{line}\n"))
-                .collect()
-        }
-    }
-
     #[test]
     fn should_get_request_and_get_response() {
-        let request_body = r#"
-        | GET / HTTP/1.1
-        | Host: localhost:3000
-        "#
-        .trim_margin("| ");
-
-        dbg!(&request_body);
-
-        let mut pipe = Pipe::from(request_body);
+        let pipe = Pipe::from("GET / HTTP/1.1\nHost: localhost:3000");
 
         let config = Config {
             include_date_header: false,
@@ -146,15 +133,12 @@ mod tests {
 
         handle_incoming(&handler, &config, pipe.clone()).unwrap();
 
-        let response_text = std::io::read_to_string(&mut pipe).unwrap();
+        let data = pipe.into_writer();
+        let response_text = std::io::read_to_string(data.as_slice()).unwrap();
+
         assert_eq!(
             response_text,
-            r#"
-        | HTTP/1.1 200 OK
-        | 
-        | Hello World!
-        "#
-            .trim_margin("| ")
+            "HTTP/1.1 200 OK\r\nContent-Length: 12\r\n\r\nHello World!"
         );
     }
 }
