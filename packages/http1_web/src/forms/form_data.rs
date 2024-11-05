@@ -513,6 +513,7 @@ impl FromRequest for FormData {
         req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
         let config = req.state::<FormDataConfig>().unwrap_or_default();
+        dbg!(&config);
 
         let headers = req.headers();
         let content_type = headers
@@ -658,9 +659,11 @@ impl TestForm {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use http1::{body::Body, headers, request::Request};
 
-    use crate::{forms::form_data::TestForm, from_request::FromRequest};
+    use crate::{forms::form_data::TestForm, from_request::FromRequest, state::AppState};
 
     use super::{FormData, FormDataConfig};
 
@@ -936,11 +939,14 @@ mod tests {
             .body(Body::new(form_data))
             .unwrap();
 
-        req.extensions_mut().insert(FormDataConfig {
+        let mut app_state = AppState::default();
+        app_state.insert(FormDataConfig {
             max_body_size: 200,
             buffer_size: 16,
             ..Default::default()
         });
+
+        req.extensions_mut().insert(Arc::new(app_state));
 
         let mut form_data = FormData::from_request(req).unwrap();
 
@@ -972,10 +978,13 @@ mod tests {
             .body(Body::new(form_data))
             .unwrap();
 
-        req.extensions_mut().insert(FormDataConfig {
+        let mut app_state = AppState::default();
+        app_state.insert(FormDataConfig {
             max_header_length: 100,
             ..Default::default()
         });
+
+        req.extensions_mut().insert(Arc::new(app_state));
 
         let mut form_data = FormData::from_request(req).unwrap();
 
