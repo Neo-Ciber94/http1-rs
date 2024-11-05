@@ -12,7 +12,7 @@ impl Connection for TcpStream {
     type Err = std::io::Error;
 
     fn try_clone(&self) -> Result<Self, Self::Err> {
-        self.try_clone()
+        TcpStream::try_clone(&self)
     }
 }
 
