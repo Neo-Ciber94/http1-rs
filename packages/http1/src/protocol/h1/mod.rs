@@ -5,7 +5,7 @@ use std::io::ErrorKind;
 
 use crate::{handler::RequestHandler, server::Config};
 
-use super::connection::Connection;
+use super::connection::{Connected, Connection};
 
 /**
  * Handles and send a response to a HTTP1 request.
@@ -15,17 +15,24 @@ where
     H: RequestHandler + Send + Sync + 'static,
     C: Connection + Send + 'static,
 {
-    let mut writer = match conn.try_clone() {
+    let mut write_conn = match conn.try_clone() {
         Ok(conn) => conn,
         Err(err) => {
             return Err(std::io::Error::other(err.to_string()));
         }
     };
 
-    let request = request::read_request(conn, config)?;
+    let mut request = request::read_request(conn, config)?;
+
+    if config.insert_conn_info {
+        request
+            .extensions_mut()
+            .insert(Connected::from_connection(&write_conn));
+    }
+
     let response = handler.handle(request);
 
-    match response::write_response(response, &mut writer, config) {
+    match response::write_response(response, &mut write_conn, config) {
         Ok(_) => Ok(()),
         Err(err) if err.kind() == ErrorKind::ConnectionAborted => {
             log::debug!("Connection was aborted");
@@ -109,6 +116,10 @@ mod pipe {
             Ok(Self {
                 inner: Arc::clone(&self.inner),
             })
+        }
+
+        fn peer_addr(&self) -> Option<std::net::SocketAddr> {
+            None
         }
     }
 }

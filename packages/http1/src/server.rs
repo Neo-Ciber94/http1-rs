@@ -13,6 +13,9 @@ pub struct Config {
 
     /// Max body size in bytes.
     pub max_body_size: Option<usize>,
+
+    /// Whether if append connection information to the request extensions.
+    pub insert_conn_info: bool,
 }
 
 impl Default for Config {
@@ -20,6 +23,7 @@ impl Default for Config {
         Self {
             include_date_header: true,
             max_body_size: Some(crate::constants::DEFAULT_MAX_BODY_SIZE),
+            insert_conn_info: false,
         }
     }
 }
@@ -60,6 +64,12 @@ impl<A> Server<A> {
         }
 
         self.config.max_body_size = max_body_size_bytes;
+        self
+    }
+
+    /// Inserts connection information to the request extensions.
+    pub fn insert_conn_info(mut self, insert_conn_info: bool) -> Self {
+        self.config.insert_conn_info = insert_conn_info;
         self
     }
 }

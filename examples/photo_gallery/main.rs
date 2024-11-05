@@ -1,16 +1,26 @@
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
+    net::SocketAddr,
     str::FromStr,
 };
 
 use app::db::KeyValueDatabase;
-use http1::{common::uuid::Uuid, server::Server};
+use http1::{body::Body, common::uuid::Uuid, request::Request, server::Server};
 use http1_web::{
-    app::App, conn_info::ConnectionInfo, forms::{
+    app::App,
+    conn_info::ConnectionInfo,
+    forms::{
         form_data::FormDataConfig,
         multipart::{FormFile, Multipart},
-    }, fs::ServeDir, html::{self, element::HTMLElement}, middleware::logging::Logging, mime::Mime, redirect::Redirect, state::State, ErrorResponse
+    },
+    fs::ServeDir,
+    html::{self, element::HTMLElement},
+    middleware::logging::Logging,
+    mime::Mime,
+    redirect::Redirect,
+    state::State,
+    ErrorResponse,
 };
 
 const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024;
@@ -43,6 +53,7 @@ pub fn main() -> std::io::Result<()> {
         .post("/api/upload", upload);
 
     Server::new("localhost:5000")
+        .insert_conn_info(true)
         .max_body_size(Some(MAX_BODY_SIZE))
         .on_ready(|addr| log::info!("Listening on: http://{addr}"))
         .start(app)
@@ -101,7 +112,9 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
     }))
 }
 
-fn upload_page() -> HTMLElement {
+fn upload_page(conn: ConnectionInfo<SocketAddr>) -> HTMLElement {
+    dbg!(conn);
+    
     html::html(|| {
         html::attr("lang", "en");
         html::head(|| {
