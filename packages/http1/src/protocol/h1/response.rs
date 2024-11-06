@@ -11,6 +11,7 @@ use datetime::DateTime;
 pub fn write_response<W: Write>(
     response: Response<Body>,
     stream: &mut W,
+    discard_body: bool,
     config: &Config,
 ) -> std::io::Result<()> {
     let version = response.version();
@@ -24,14 +25,16 @@ pub fn write_response<W: Write>(
     write_headers(headers, &body, stream, config)?;
 
     // 3. Write body
-    loop {
-        match body.read_next() {
-            Ok(Some(bytes)) => {
-                stream.write_all(&bytes)?;
-                stream.flush()?;
+    if !discard_body {
+        loop {
+            match body.read_next() {
+                Ok(Some(bytes)) => {
+                    stream.write_all(&bytes)?;
+                    stream.flush()?;
+                }
+                Ok(None) => break,
+                Err(err) => return Err(std::io::Error::other(err)),
             }
-            Ok(None) => break,
-            Err(err) => return Err(std::io::Error::other(err)),
         }
     }
 

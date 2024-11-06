@@ -3,7 +3,9 @@ mod response;
 
 use std::io::ErrorKind;
 
-use crate::{body::Body, handler::RequestHandler, request::Request, server::Config};
+use crate::{
+    body::Body, handler::RequestHandler, method::Method, request::Request, server::Config,
+};
 
 use super::connection::{Connected, Connection};
 
@@ -29,10 +31,11 @@ where
     pre_process_request(&mut request, &write_conn, config);
 
     // Get the response from the handler
+    let discard_body = request.method() == Method::HEAD;
     let response = handler.handle(request);
 
     // Write the response to the stream
-    match response::write_response(response, &mut write_conn, config) {
+    match response::write_response(response, &mut write_conn, discard_body, config) {
         Ok(_) => Ok(()),
         Err(err) if err.kind() == ErrorKind::ConnectionAborted => {
             log::debug!("Connection was aborted");
