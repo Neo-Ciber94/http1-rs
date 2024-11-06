@@ -14,7 +14,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, server_info::BodySizeLimit, IntoResponse, RequestExt};
+use crate::{from_request::FromRequest, IntoResponse, RequestExt};
 
 use super::{
     form_field::{Disk, FormField, Memory, TempDisk},

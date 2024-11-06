@@ -12,6 +12,7 @@ pub struct StreamReader<R> {
     reader_bytes_limit: usize,
 }
 
+#[allow(dead_code)]
 impl<R: Read> StreamReader<R> {
     /// Constructs a new [`StreamReader`].
     pub fn new(reader: R) -> Self {
