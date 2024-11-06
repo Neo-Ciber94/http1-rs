@@ -49,7 +49,10 @@ fn write_headers<W: Write>(
     }
 
     if let Some(content_length) = body.size_hint() {
-        headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
+        // If the response provided a content-length we trust it
+        if !headers.contains_key(headers::CONTENT_LENGTH) {
+            headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
+        }
     }
 
     for (name, mut values) in headers {
