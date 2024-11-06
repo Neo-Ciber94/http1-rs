@@ -1,15 +1,13 @@
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
-    net::SocketAddr,
     str::FromStr,
 };
 
 use app::db::KeyValueDatabase;
-use http1::{body::Body, common::uuid::Uuid, request::Request, server::Server};
+use http1::{common::uuid::Uuid, server::Server};
 use http1_web::{
     app::App,
-    conn_info::ConnectionInfo,
     forms::{
         form_data::FormDataConfig,
         multipart::{FormFile, Multipart},
@@ -94,6 +92,8 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
             });
 
             html::div(|| {
+                html::class("gallery-container");
+
                 if images.is_empty() {
                     html::h2("No images");
                 }
@@ -104,6 +104,8 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
                     images.iter().for_each(|img| {
                         html::img(|| {
                             html::attr("src", format!("/static{}", img.image_url));
+                            html::attr("height", "400px");
+                            html::attr("width", "400px");
                         });
                     });
                 });
@@ -112,9 +114,7 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
     }))
 }
 
-fn upload_page(conn: ConnectionInfo<SocketAddr>) -> HTMLElement {
-    dbg!(conn);
-    
+fn upload_page() -> HTMLElement {
     html::html(|| {
         html::attr("lang", "en");
         html::head(|| {
