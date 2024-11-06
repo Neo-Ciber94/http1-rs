@@ -1,5 +1,8 @@
 use std::{
-    fmt::{Debug, Display}, marker::PhantomData, ops::{Deref, DerefMut}, sync::Arc
+    fmt::{Debug, Display},
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    sync::Arc,
 };
 
 use http1::{common::any_map::AnyMap, status::StatusCode};
@@ -59,7 +62,11 @@ pub struct AppStateError<T>(PhantomData<T>);
 
 impl<T> Display for AppStateError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to extract app state for: {}", std::any::type_name::<T>())
+        write!(
+            f,
+            "Failed to extract app state for: {}",
+            std::any::type_name::<T>()
+        )
     }
 }
 

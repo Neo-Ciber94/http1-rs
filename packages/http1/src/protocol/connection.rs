@@ -50,16 +50,15 @@ impl<T: Connection> Connection for Box<T> {
     }
 }
 
-
 /// Request connection information after a request is accepted.
-pub struct Connected { 
-    peer_addr: Option<SocketAddr>
+pub struct Connected {
+    peer_addr: Option<SocketAddr>,
 }
 
 impl Connected {
     pub fn from_connection<C: Connection>(conn: &C) -> Self {
         Connected {
-            peer_addr: conn.peer_addr()
+            peer_addr: conn.peer_addr(),
         }
     }
 

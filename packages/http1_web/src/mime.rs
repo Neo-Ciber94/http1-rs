@@ -377,9 +377,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_constant() {
-
-    }
+    fn test_constant() {}
 
     #[test]
     fn should_create_valid_mime_type() {

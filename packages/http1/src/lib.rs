@@ -1,5 +1,6 @@
 pub mod body;
 pub mod common;
+pub mod constants;
 pub mod error;
 pub mod handler;
 pub mod headers;
@@ -12,4 +13,3 @@ pub mod server;
 pub mod status;
 pub mod uri;
 pub mod version;
-pub mod constants;

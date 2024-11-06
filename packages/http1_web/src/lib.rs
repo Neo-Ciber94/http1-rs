@@ -1,4 +1,5 @@
 pub mod app;
+pub mod conn_info;
 pub mod cookies;
 pub mod forms;
 pub mod from_request;
@@ -13,9 +14,8 @@ pub mod path;
 pub mod query;
 pub mod redirect;
 pub mod routing;
-pub mod state;
-pub mod conn_info;
 pub mod server_info;
+pub mod state;
 
 mod request;
 mod response;

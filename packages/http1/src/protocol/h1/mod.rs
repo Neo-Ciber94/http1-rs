@@ -53,9 +53,7 @@ where
     }
 
     if config.include_server_info {
-        request
-            .extensions_mut()
-            .insert(config.clone());
+        request.extensions_mut().insert(config.clone());
     }
 }
 
