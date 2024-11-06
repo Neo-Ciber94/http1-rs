@@ -12,7 +12,9 @@ use crate::{
     ErrorResponse, ErrorStatusCode, IntoResponse,
 };
 use datetime::DateTime;
-use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};
+use http1::{
+    body::Body, headers, method::Method, request::Request, response::Response, status::StatusCode,
+};
 
 /// A handler to serve static files from a path.
 #[derive(Debug)]
@@ -70,6 +72,10 @@ impl Handler<Request<Body>> for ServeDir {
     type Output = Response<Body>;
 
     fn call(&self, req: Request<Body>) -> Self::Output {
+        if req.method() != Method::GET || req.method() != Method::HEAD {
+            return StatusCode::NOT_FOUND.into_response();
+        }
+
         let path = req.uri().path_and_query().path();
         let from = &self.from;
 
