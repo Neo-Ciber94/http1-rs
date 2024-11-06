@@ -92,3 +92,9 @@ impl std::fmt::Display for Method {
         write!(f, "{}", self.as_str())
     }
 }
+
+impl<'a> PartialEq<Method> for &'a Method {
+    fn eq(&self, other: &Method) -> bool {
+        self == other
+    }
+}
