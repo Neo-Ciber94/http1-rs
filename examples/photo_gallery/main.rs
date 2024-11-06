@@ -8,10 +8,7 @@ use app::db::KeyValueDatabase;
 use http1::{common::uuid::Uuid, server::Server};
 use http1_web::{
     app::App,
-    forms::{
-        form_data::FormDataConfig,
-        multipart::{FormFile, Multipart},
-    },
+    forms::multipart::{FormFile, Multipart},
     fs::ServeDir,
     html::{self, element::HTMLElement},
     middleware::logging::Logging,
@@ -39,7 +36,6 @@ pub fn main() -> std::io::Result<()> {
 
     let app = App::new()
         .middleware(Logging)
-        .state(FormDataConfig::default().max_body_size(MAX_BODY_SIZE))
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
         .get(
             "/static/*",
@@ -51,7 +47,7 @@ pub fn main() -> std::io::Result<()> {
         .post("/api/upload", upload);
 
     Server::new("localhost:5000")
-        .insert_conn_info(true)
+        .include_conn_info(true)
         .max_body_size(Some(MAX_BODY_SIZE))
         .on_ready(|addr| log::info!("Listening on: http://{addr}"))
         .start(app)
@@ -168,6 +164,15 @@ struct UploadFile {
 serde::impl_deserialize_struct!(UploadFile => {
     image: FormFile
 });
+
+// fn upload(mut form: FormMap) {
+//     dbg!(&form);
+//     let file = form.remove("file").unwrap();
+
+//     let mut reader = file.reader();
+//     let total_bytes = std::io::copy(&mut reader, &mut std::io::sink()).unwrap();
+//     log::info!("Total bytes: {total_bytes}");
+// }
 
 fn upload(
     State(db): State<KeyValueDatabase>,

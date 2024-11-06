@@ -3,7 +3,7 @@ mod response;
 
 use std::io::ErrorKind;
 
-use crate::{handler::RequestHandler, server::Config};
+use crate::{body::Body, handler::RequestHandler, request::Request, server::Config};
 
 use super::connection::{Connected, Connection};
 
@@ -22,16 +22,16 @@ where
         }
     };
 
+    // Create the request object
     let mut request = request::read_request(conn, config)?;
 
-    if config.insert_conn_info {
-        request
-            .extensions_mut()
-            .insert(Connected::from_connection(&write_conn));
-    }
+    // Append any extra information to the request
+    pre_process_request(&mut request, &write_conn, config);
 
+    // Get the response from the handler
     let response = handler.handle(request);
 
+    // Write the response to the stream
     match response::write_response(response, &mut write_conn, config) {
         Ok(_) => Ok(()),
         Err(err) if err.kind() == ErrorKind::ConnectionAborted => {
@@ -39,6 +39,23 @@ where
             Ok(())
         }
         Err(err) => Err(err),
+    }
+}
+
+fn pre_process_request<C>(request: &mut Request<Body>, conn: &C, config: &Config)
+where
+    C: Connection + Send + 'static,
+{
+    if config.include_conn_info {
+        request
+            .extensions_mut()
+            .insert(Connected::from_connection(conn));
+    }
+
+    if config.include_server_info {
+        request
+            .extensions_mut()
+            .insert(config.clone());
     }
 }
 

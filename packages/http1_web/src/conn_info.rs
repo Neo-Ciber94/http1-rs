@@ -45,7 +45,7 @@ impl<T: FromConnectionInfo> FromRequestRef for ConnectionInfo<T> {
                 Ok(ConnectionInfo(value))
             }
             None => {
-                log::warn!("Configure the server to expose the connection information with Server.insert_conn_info(true)");
+                log::warn!("Configure the server to expose the connection information with Server.include_conn_info(true)");
                 Err(ErrorStatusCode::InternalServerError.into_response())
             }
         }

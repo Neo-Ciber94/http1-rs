@@ -1,7 +1,5 @@
 use std::{
-    fmt::{Debug, Display},
-    ops::{Deref, DerefMut},
-    sync::Arc,
+    fmt::{Debug, Display}, marker::PhantomData, ops::{Deref, DerefMut}, sync::Arc
 };
 
 use http1::{common::any_map::AnyMap, status::StatusCode};
@@ -57,15 +55,15 @@ impl DerefMut for AppState {
 
 #[doc(hidden)]
 #[derive(Debug)]
-pub struct AppStateError;
+pub struct AppStateError<T>(PhantomData<T>);
 
-impl Display for AppStateError {
+impl<T> Display for AppStateError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to extract app state")
+        write!(f, "Failed to extract app state for: {}", std::any::type_name::<T>())
     }
 }
 
-impl IntoResponse for AppStateError {
+impl<T> IntoResponse for AppStateError<T> {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         log::error!("{self}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -73,7 +71,7 @@ impl IntoResponse for AppStateError {
 }
 
 impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
-    type Rejection = AppStateError;
+    type Rejection = AppStateError<T>;
 
     fn from_request_ref(
         req: &http1::request::Request<http1::body::Body>,
@@ -83,6 +81,6 @@ impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
             .and_then(|x| x.get::<T>())
             .cloned()
             .map(State)
-            .ok_or(AppStateError)
+            .ok_or(AppStateError(PhantomData))
     }
 }

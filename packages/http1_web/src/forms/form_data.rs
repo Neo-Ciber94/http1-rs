@@ -10,10 +10,11 @@ use http1::{
     body::{body_reader::BodyReader, Body},
     error::BoxError,
     headers::{self, HeaderValue},
+    request::Request,
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse, RequestExt};
+use crate::{from_request::FromRequest, server_info::BodySizeLimit, IntoResponse, RequestExt};
 
 use super::{
     form_field::{Disk, FormField, Memory, TempDisk},
@@ -512,9 +513,25 @@ impl FromRequest for FormData {
     fn from_request(
         req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
-        let config = req.state::<FormDataConfig>().unwrap_or_default();
-        dbg!(&config);
+        fn get_form_data_config(req: &Request<Body>) -> FormDataConfig {
+            match req.state::<FormDataConfig>() {
+                Some(config) => config,
+                None => {
+                    let mut config = FormDataConfig::default();
+                    if let Some(max_body_size) = req
+                        .extensions()
+                        .get::<http1::server::Config>()
+                        .and_then(|b| b.max_body_size)
+                    {
+                        config.max_body_size = max_body_size;
+                    }
 
+                    config
+                }
+            }
+        }
+
+        let config = get_form_data_config(&req);
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)
