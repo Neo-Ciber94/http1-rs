@@ -140,24 +140,21 @@ where
 fn get_route(route_info: RouteInfo, req_path: &str) -> String {
     let segments_count = route_info.iter().filter(|x| !x.is_catch_all()).count();
 
-    // let mut path = String::new();
+    let mut path = String::new();
 
-    // for (idx, segment) in get_segments(req_path).enumerate() {
-    //     if idx < segments_count {
-    //         continue;
-    //     }
+    for (idx, segment) in get_segments(req_path).enumerate() {
+        if idx < segments_count {
+            continue;
+        }
 
-    //     path.push_str(segment);
+        if !path.is_empty() {
+            path.push_str("/");
+        }
 
-    //     if 
-    // }
+        path.push_str(segment);
+    }
 
-    // path
-
-    get_segments(req_path)
-        .skip(segments_count) // Skip this route matched segments
-        .collect::<Vec<&str>>()
-        .join("/")
+    path
 }
 
 fn trim_slashes(mut s: &str) -> &str {
