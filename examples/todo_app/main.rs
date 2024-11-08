@@ -20,7 +20,7 @@ fn main() -> std::io::Result<()> {
         .state(KeyValueDatabase::new("examples/todo_app/db.json").unwrap())
         .middleware(Logging)
         .middleware(Redirection::new("/", "/login"))
-        .get("/*", ServeDir::new("/", "examples/todo_app/public"))
+        .get("/*", ServeDir::new("examples/todo_app/public"))
         .scope("/api", crate::routes::api::api_routes())
         .scope("/", crate::routes::pages::page_routes());
 

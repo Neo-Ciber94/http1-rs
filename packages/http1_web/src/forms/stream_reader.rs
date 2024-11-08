@@ -71,11 +71,11 @@ impl<R: Read> StreamReader<R> {
             return Ok(0);
         }
 
-        let mut temp_buf = &mut self.inner_buf;
+        let temp_buf = &mut self.inner_buf;
         let required = self.pos + additional;
 
         while self.buf.len() < required {
-            let bytes_read = self.reader.read(&mut temp_buf)?;
+            let bytes_read = self.reader.read(temp_buf)?;
 
             if bytes_read == 0 {
                 self.eof = true;
@@ -246,7 +246,7 @@ impl<R: Read> StreamReader<R> {
 }
 
 fn overlapping_position(slice: &[u8], sequence: &[u8]) -> Option<(usize, usize)> {
-    assert!(sequence.len() > 0);
+    assert!(!sequence.is_empty());
 
     if slice.len() == sequence.len() && slice == sequence {
         return Some((0, sequence.len()));

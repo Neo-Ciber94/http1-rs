@@ -212,7 +212,7 @@ impl Middleware for Cors {
             response
         }
 
-        if req.method() == &Method::OPTIONS {
+        if req.method() == Method::OPTIONS {
             create_cors_response(self, &req)
         } else {
             next.call(req)
