@@ -142,7 +142,7 @@ fn get_route(route_info: RouteInfo, req_path: &str) -> String {
 
     let mut path = String::new();
 
-    for (idx, segment) in get_segments(req_path).enumerate() {
+    for (idx, segment) in crate::routing::route::get_segments(req_path).enumerate() {
         if idx < segments_count {
             continue;
         }
@@ -155,23 +155,6 @@ fn get_route(route_info: RouteInfo, req_path: &str) -> String {
     }
 
     path
-}
-
-fn trim_slashes(mut s: &str) -> &str {
-    if s.starts_with("/") {
-        s = &s[1..];
-    }
-
-    if s.ends_with("/") {
-        s = &s[..(s.len() - 1)];
-    }
-
-    s
-}
-
-fn get_segments(s: &str) -> impl Iterator<Item = &str> + std::fmt::Debug {
-    let s = trim_slashes(s);
-    s.split("/")
 }
 
 fn list_directory_html(route: &str, dir: &Path) -> Result<HTMLElement, ErrorResponse> {
