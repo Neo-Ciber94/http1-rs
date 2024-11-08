@@ -61,13 +61,13 @@ impl<F> ServeDir<F> {
 
         ServeDir {
             root,
-            index_html: true,
+            index_html: false,
             list_directory: false,
             fallback,
         }
     }
 
-    /// Whether if try to send `/index.html` files from request with not file extension. By default is `true`.
+    /// Whether if try to send `/index.html` files from request with not file extension. By default is `false`.
     ///
     /// # Example
     /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
@@ -90,52 +90,12 @@ where
     type Output = Response<Body>;
 
     fn call(&self, req: Request<Body>) -> Self::Output {
-        if req.method() != Method::GET || req.method() != Method::HEAD {
+        if !(req.method() == Method::GET || req.method() == Method::HEAD) {
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        panic!("Adios");
-
         let route_info = RouteInfo::from_request_ref(&req).unwrap();
-        let route_info_str = route_info.to_string();
-        let segments = get_segments(&route_info_str);
-        let segment_len = segments.count();
-
-        let path = req.uri().path_and_query().path();
-        let route = get_segments(path)
-            .skip(segment_len)
-            .collect::<Vec<&str>>() // FIXME: Remove this collect
-            .join("/");
-
-        // let has_extension = route
-        //     .split("/")
-        //     .last()
-        //     .filter(|x| x.contains("."))
-        //     .is_some();
-
-        // let base_dir = &self.root;
-
-        // If the request its to a path without extension and there is not a file there, we try to get the /index.html for that path
-        // let serve_path = if !has_extension && self.index_html {
-        //     let index_html = format!("{route}/index.html");
-        //     let index_file = base_dir.join(index_html.trim_start_matches("/"));
-
-        //     if index_file.exists() {
-        //         index_file
-        //     } else {
-        //         let page_html = format!("{route}.html");
-        //         let index_file = base_dir.join(page_html.trim_start_matches("/"));
-
-        //         if index_file.exists() {
-        //             index_file
-        //         } else {
-        //             base_dir.join(route.trim_start_matches("/"))
-        //         }
-        //     }
-        // } else {
-        //     base_dir.join(route.trim_start_matches("/"))
-        // };
-
+        let route = get_route(route_info, req.uri().path_and_query().path());
         let mut serve_path = self.root.join(&route);
 
         if serve_path.is_dir() && self.index_html {
@@ -177,6 +137,29 @@ where
     }
 }
 
+fn get_route(route_info: RouteInfo, req_path: &str) -> String {
+    let segments_count = route_info.iter().filter(|x| !x.is_catch_all()).count();
+
+    // let mut path = String::new();
+
+    // for (idx, segment) in get_segments(req_path).enumerate() {
+    //     if idx < segments_count {
+    //         continue;
+    //     }
+
+    //     path.push_str(segment);
+
+    //     if 
+    // }
+
+    // path
+
+    get_segments(req_path)
+        .skip(segments_count) // Skip this route matched segments
+        .collect::<Vec<&str>>()
+        .join("/")
+}
+
 fn trim_slashes(mut s: &str) -> &str {
     if s.starts_with("/") {
         s = &s[1..];
@@ -189,10 +172,9 @@ fn trim_slashes(mut s: &str) -> &str {
     s
 }
 
-fn get_segments(s: &str) -> impl Iterator<Item = &str> {
+fn get_segments(s: &str) -> impl Iterator<Item = &str> + std::fmt::Debug {
     let s = trim_slashes(s);
-    let skip = if s.is_empty() { 1 } else { 0 };
-    s.split("/").skip(skip)
+    s.split("/")
 }
 
 fn list_directory_html(route: &str, dir: &Path) -> Result<HTMLElement, ErrorResponse> {

@@ -15,6 +15,20 @@ pub enum RouteSegment {
     CatchAll(String),
 }
 
+impl RouteSegment {
+    pub fn is_static(&self) -> bool {
+        matches!(self, RouteSegment::Static(_))
+    }
+
+    pub fn is_dynamic(&self) -> bool {
+        matches!(self, RouteSegment::Dynamic(_))
+    }
+
+    pub fn is_catch_all(&self) -> bool {
+        matches!(self, RouteSegment::CatchAll(_))
+    }
+}
+
 impl Ord for RouteSegment {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
