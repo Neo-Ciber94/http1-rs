@@ -99,13 +99,11 @@ where
         let mut serve_path = self.root.join(&route);
 
         if serve_path.is_dir() && self.index_html {
-            serve_path = serve_path.join("index.html")
-        }
+            let index_html = serve_path.join("index.html");
 
-        log::debug!("serving path: {serve_path:?}");
-
-        if !serve_path.exists() {
-            return self.fallback.call(req);
+            if index_html.exists() {
+                serve_path = index_html;
+            }
         }
 
         let mime = serve_path
@@ -118,9 +116,15 @@ where
             if self.list_directory {
                 return list_directory_html(&route, &serve_path).into_response();
             } else {
-                return StatusCode::NOT_FOUND.into_response();
+                return self.fallback.call(req);
             }
         }
+
+        if !serve_path.exists() {
+            return self.fallback.call(req);
+        }
+
+        log::debug!("serving path: {serve_path:?}");
 
         match File::open(&serve_path) {
             Ok(file) => {
