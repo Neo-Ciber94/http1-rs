@@ -6,9 +6,11 @@ use std::{
 };
 
 use crate::{
+    from_request::FromRequestRef,
     handler::Handler,
     html::{self, element::HTMLElement},
     mime::Mime,
+    routing::route_info::RouteInfo,
     ErrorResponse, ErrorStatusCode, IntoResponse,
 };
 use datetime::DateTime;
@@ -16,39 +18,52 @@ use http1::{
     body::Body, headers, method::Method, request::Request, response::Response, status::StatusCode,
 };
 
-/// A handler to serve static files from a path.
-#[derive(Debug)]
-pub struct ServeDir {
-    from: String,
-    to: PathBuf,
-    index_html: bool,
-    list_directory: bool,
+pub struct DefaultServeDirFallback;
+
+impl Handler<Request<Body>> for DefaultServeDirFallback {
+    type Output = Response<Body>;
+
+    fn call(&self, _: Request<Body>) -> Self::Output {
+        Response::new(StatusCode::NOT_FOUND, Body::empty())
+    }
 }
 
-impl ServeDir {
+/// A handler to serve static files from a path.
+#[derive(Debug)]
+pub struct ServeDir<F = DefaultServeDirFallback> {
+    root: PathBuf,
+    index_html: bool,
+    list_directory: bool,
+    fallback: F,
+}
+
+impl ServeDir<()> {
+    pub fn new(dir: impl AsRef<Path>) -> ServeDir<DefaultServeDirFallback> {
+        Self::with_fallback(dir, DefaultServeDirFallback)
+    }
+}
+
+impl<F> ServeDir<F> {
     /// Constructs a new `ServeDir`
     ///
     /// # Parameters
-    /// - `from_route` the route to match.
-    /// - `to_dir` to directory in the file system relative to the `cwd` to serve the files from.
-    pub fn new(from_route: impl Into<String>, to_dir: impl Into<PathBuf>) -> Self {
+    /// - `dir` to directory in the file system relative to the `cwd` to serve the files from.
+    /// - `fallback` the fallback service.
+    pub fn with_fallback<A: Handler<Request<Body>, Output = Response<Body>>>(
+        dir: impl AsRef<Path>,
+        fallback: A,
+    ) -> ServeDir<A> {
         let cwd = std::env::current_dir().expect("unable to get current directory");
-        let to = cwd.join(to_dir.into());
-        let from = from_route.into();
+        let path = dir.as_ref();
+        let root = cwd.join(path);
 
-        assert!(from.starts_with("/"), "from route should starts with `/`");
-
-        if from.len() > 1 {
-            assert!(!from.ends_with("/"), "from route cannot ends with `/`");
-        }
-
-        assert!(to.is_dir(), "`{to:?}` is not a directory");
+        assert!(root.is_dir(), "`{root:?}` is not a directory");
 
         ServeDir {
-            from,
-            to,
+            root,
             index_html: true,
             list_directory: false,
+            fallback,
         }
     }
 
@@ -68,54 +83,69 @@ impl ServeDir {
     }
 }
 
-impl Handler<Request<Body>> for ServeDir {
+impl<F> Handler<Request<Body>> for ServeDir<F>
+where
+    F: Handler<Request<Body>, Output = Response<Body>>,
+{
     type Output = Response<Body>;
 
     fn call(&self, req: Request<Body>) -> Self::Output {
         if req.method() != Method::GET || req.method() != Method::HEAD {
-            return StatusCode::NOT_FOUND.into_response();
+            return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
+
+        panic!("Adios");
+
+        let route_info = RouteInfo::from_request_ref(&req).unwrap();
+        let route_info_str = route_info.to_string();
+        let segments = get_segments(&route_info_str);
+        let segment_len = segments.count();
 
         let path = req.uri().path_and_query().path();
-        let from = &self.from;
+        let route = get_segments(path)
+            .skip(segment_len)
+            .collect::<Vec<&str>>() // FIXME: Remove this collect
+            .join("/");
 
-        if !path.starts_with(from) {
-            return StatusCode::NOT_FOUND.into_response();
-        }
+        // let has_extension = route
+        //     .split("/")
+        //     .last()
+        //     .filter(|x| x.contains("."))
+        //     .is_some();
 
-        let route = &path[from.len()..];
-        let has_extension = route
-            .split("/")
-            .last()
-            .filter(|x| x.contains("."))
-            .is_some();
-        let base_dir = &self.to;
+        // let base_dir = &self.root;
 
         // If the request its to a path without extension and there is not a file there, we try to get the /index.html for that path
-        let serve_path = if !has_extension && self.index_html {
-            let index_html = format!("{route}/index.html");
-            let index_file = base_dir.join(index_html.trim_start_matches("/"));
+        // let serve_path = if !has_extension && self.index_html {
+        //     let index_html = format!("{route}/index.html");
+        //     let index_file = base_dir.join(index_html.trim_start_matches("/"));
 
-            if index_file.exists() {
-                index_file
-            } else {
-                let page_html = format!("{route}.html");
-                let index_file = base_dir.join(page_html.trim_start_matches("/"));
+        //     if index_file.exists() {
+        //         index_file
+        //     } else {
+        //         let page_html = format!("{route}.html");
+        //         let index_file = base_dir.join(page_html.trim_start_matches("/"));
 
-                if index_file.exists() {
-                    index_file
-                } else {
-                    base_dir.join(route.trim_start_matches("/"))
-                }
-            }
-        } else {
-            base_dir.join(route.trim_start_matches("/"))
-        };
+        //         if index_file.exists() {
+        //             index_file
+        //         } else {
+        //             base_dir.join(route.trim_start_matches("/"))
+        //         }
+        //     }
+        // } else {
+        //     base_dir.join(route.trim_start_matches("/"))
+        // };
+
+        let mut serve_path = self.root.join(&route);
+
+        if serve_path.is_dir() && self.index_html {
+            serve_path = serve_path.join("index.html")
+        }
 
         log::debug!("serving path: {serve_path:?}");
 
         if !serve_path.exists() {
-            return StatusCode::NOT_FOUND.into_response();
+            return self.fallback.call(req);
         }
 
         let mime = serve_path
@@ -126,7 +156,7 @@ impl Handler<Request<Body>> for ServeDir {
 
         if serve_path.is_dir() {
             if self.list_directory {
-                return list_directory_html(&self.from, route, &serve_path).into_response();
+                return list_directory_html(&route, &serve_path).into_response();
             } else {
                 return StatusCode::NOT_FOUND.into_response();
             }
@@ -147,21 +177,34 @@ impl Handler<Request<Body>> for ServeDir {
     }
 }
 
-fn list_directory_html(
-    base_dir: &str,
-    mut route: &str,
-    dir: &Path,
-) -> Result<HTMLElement, ErrorResponse> {
+fn trim_slashes(mut s: &str) -> &str {
+    if s.starts_with("/") {
+        s = &s[1..];
+    }
+
+    if s.ends_with("/") {
+        s = &s[..(s.len() - 1)];
+    }
+
+    s
+}
+
+fn get_segments(s: &str) -> impl Iterator<Item = &str> {
+    let s = trim_slashes(s);
+    let skip = if s.is_empty() { 1 } else { 0 };
+    s.split("/").skip(skip)
+}
+
+fn list_directory_html(route: &str, dir: &Path) -> Result<HTMLElement, ErrorResponse> {
     let read_dir = std::fs::read_dir(dir).map_err(|err| {
         log::error!("Failed to list directory: {err}");
         ErrorResponse::new(ErrorStatusCode::InternalServerError, ())
     })?;
 
-    route = route.trim_end_matches("/");
-    let dir_name = if route.is_empty() {
-        base_dir.to_string()
+    let dir_name = if route.starts_with("/") {
+        route.to_string()
     } else {
-        format!("{base_dir}{route}")
+        format!("/{route}")
     };
 
     Ok(html::html(|| {

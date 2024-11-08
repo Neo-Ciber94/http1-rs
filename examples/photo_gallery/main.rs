@@ -37,11 +37,8 @@ pub fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(Logging)
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
-        .get(
-            "/static/*",
-            ServeDir::new("/static", "examples/photo_gallery/static"),
-        )
-        .get("/*", ServeDir::new("/", "examples/photo_gallery/public"))
+        .get("/static/*", ServeDir::new("examples/photo_gallery/static"))
+        .get("/*", ServeDir::new("examples/photo_gallery/public"))
         .get("/", gallery_page)
         .get("/upload", upload_page)
         .post("/api/upload", upload);
