@@ -67,11 +67,11 @@ impl<F> ServeDir<F> {
         }
     }
 
-    /// Whether if try to send `/index.html` files from request with not file extension. By default is `false`.
+    /// Whether if try to append `/index.html` when request a directory, defaults to false.
     ///
     /// # Example
     /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
-    pub fn index_html(mut self, index_html: bool) -> Self {
+    pub fn append_html_index(mut self, index_html: bool) -> Self {
         self.index_html = index_html;
         self
     }
