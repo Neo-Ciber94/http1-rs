@@ -95,6 +95,6 @@ impl std::fmt::Display for Method {
 
 impl<'a> PartialEq<Method> for &'a Method {
     fn eq(&self, other: &Method) -> bool {
-        self == other
+        *self == other
     }
 }
