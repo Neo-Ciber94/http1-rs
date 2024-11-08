@@ -95,7 +95,8 @@ where
         }
 
         let route_info = RouteInfo::from_request_ref(&req).unwrap();
-        let route = get_route(route_info, req.uri().path_and_query().path());
+        let req_path = req.uri().path_and_query().path();
+        let route = get_route(route_info, req_path);
         let mut serve_path = self.root.join(&route);
 
         if serve_path.is_dir() && self.index_html {
@@ -114,7 +115,7 @@ where
 
         if serve_path.is_dir() {
             if self.list_directory {
-                return list_directory_html(&route, &serve_path).into_response();
+                return list_directory_html(req_path, &serve_path).into_response();
             } else {
                 return self.fallback.call(req);
             }
@@ -141,37 +142,15 @@ where
     }
 }
 
-fn get_route(route_info: RouteInfo, req_path: &str) -> String {
-    let segments_count = route_info.iter().filter(|x| !x.is_catch_all()).count();
-
-    let mut path = String::new();
-
-    for (idx, segment) in crate::routing::route::get_segments(req_path).enumerate() {
-        if idx < segments_count {
-            continue;
-        }
-
-        if !path.is_empty() {
-            path.push_str("/");
-        }
-
-        path.push_str(segment);
-    }
-
-    path
-}
-
-fn list_directory_html(route: &str, dir: &Path) -> Result<HTMLElement, ErrorResponse> {
+fn list_directory_html(req_path: &str, dir: &Path) -> Result<HTMLElement, ErrorResponse> {
     let read_dir = std::fs::read_dir(dir).map_err(|err| {
         log::error!("Failed to list directory: {err}");
         ErrorResponse::new(ErrorStatusCode::InternalServerError, ())
     })?;
 
-    let dir_name = if route.starts_with("/") {
-        route.to_string()
-    } else {
-        format!("/{route}")
-    };
+    let req_segments = crate::routing::route::get_segments(req_path);
+    let route = interspace("/", req_segments).collect::<String>();
+    let dir_name = format!("/{route}");
 
     Ok(html::html(|| {
         html::head(|| {
@@ -280,4 +259,33 @@ fn list_directory_html(route: &str, dir: &Path) -> Result<HTMLElement, ErrorResp
             });
         });
     }))
+}
+
+fn get_route(route_info: RouteInfo, req_path: &str) -> String {
+    let segments_count = route_info.iter().filter(|x| !x.is_catch_all()).count();
+    let segments = crate::routing::route::get_segments(req_path);
+    interspace("/", segments.skip(segments_count)).collect::<String>()
+}
+
+fn interspace<T, I>(separator: T, iter: I) -> impl Iterator<Item = T>
+where
+    I: Iterator<Item = T>,
+    T: Clone,
+{
+    let mut iter = iter.peekable();
+    let mut insert_separator = false;
+
+    std::iter::from_fn(move || {
+        if insert_separator && iter.peek().is_some() {
+            insert_separator = false;
+            Some(separator.clone())
+        } else {
+            if let Some(next) = iter.next() {
+                insert_separator = true;
+                Some(next)
+            } else {
+                None
+            }
+        }
+    })
 }
