@@ -162,15 +162,6 @@ serde::impl_deserialize_struct!(UploadFile => {
     image: FormFile
 });
 
-// fn upload(mut form: FormMap) {
-//     dbg!(&form);
-//     let file = form.remove("file").unwrap();
-
-//     let mut reader = file.reader();
-//     let total_bytes = std::io::copy(&mut reader, &mut std::io::sink()).unwrap();
-//     log::info!("Total bytes: {total_bytes}");
-// }
-
 fn upload(
     State(db): State<KeyValueDatabase>,
     Multipart(form): Multipart<UploadFile>,
