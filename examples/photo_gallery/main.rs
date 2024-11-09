@@ -18,7 +18,7 @@ use http1_web::{
     ErrorResponse,
 };
 
-const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024;
+const MAX_BODY_SIZE: usize = 1024 * 1024 * 1024; // 1 GB
 
 #[derive(Debug)]
 struct Image {
