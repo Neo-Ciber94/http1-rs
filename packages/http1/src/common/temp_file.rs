@@ -23,9 +23,9 @@ impl TempFile {
         let file_name = rng::sequence::<Alphanumeric>().take(20).collect::<String>();
 
         if let Some(p) = path {
-            temp_path.push(p.as_ref());
+            let sub_path = p.as_ref().strip_prefix("/").unwrap_or(p.as_ref());
+            temp_path.push(sub_path);
 
-            // Create the directory
             std::fs::create_dir_all(&temp_path)?;
         }
 
