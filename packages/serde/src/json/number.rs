@@ -25,17 +25,17 @@ impl Number {
     // Floats
     pub fn as_f32(&self) -> Option<f32> {
         match self {
-            Number::Float(f) => (*f as f32).try_into().ok(),
-            Number::Integer(i) => (*i as f32).try_into().ok(), // Convert signed integer to float
-            Number::UInteger(u) => (*u as f32).try_into().ok(), // Convert unsigned integer to float
+            Number::Float(f) => Some(*f as f32),
+            Number::Integer(i) => Some(*i as f32),
+            Number::UInteger(u) => Some(*u as f32),
         }
     }
 
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Number::Float(f) => Some(*f),
-            Number::Integer(i) => (*i as f64).try_into().ok(),
-            Number::UInteger(u) => (*u as f64).try_into().ok(),
+            Number::Integer(i) => Some(*i as f64),
+            Number::UInteger(u) => Some(*u as f64),
         }
     }
 
@@ -44,7 +44,7 @@ impl Number {
         match self {
             Number::Integer(i) => (*i).try_into().ok(),
             Number::UInteger(u) => (*u).try_into().ok(),
-            Number::Float(f) => (*f as i8).try_into().ok(), // Convert float to signed integer
+            Number::Float(f) => Some(*f as i8),
         }
     }
 
@@ -52,7 +52,7 @@ impl Number {
         match self {
             Number::Integer(i) => (*i).try_into().ok(),
             Number::UInteger(u) => (*u).try_into().ok(),
-            Number::Float(f) => (*f as i16).try_into().ok(),
+            Number::Float(f) => Some(*f as i16),
         }
     }
 
@@ -60,7 +60,7 @@ impl Number {
         match self {
             Number::Integer(i) => (*i).try_into().ok(),
             Number::UInteger(u) => (*u).try_into().ok(),
-            Number::Float(f) => (*f as i32).try_into().ok(),
+            Number::Float(f) => Some(*f as i32),
         }
     }
 
@@ -68,7 +68,7 @@ impl Number {
         match self {
             Number::Integer(i) => (*i).try_into().ok(),
             Number::UInteger(u) => (*u).try_into().ok(),
-            Number::Float(f) => (*f as i64).try_into().ok(),
+            Number::Float(f) => Some(*f as i64),
         }
     }
 
@@ -76,7 +76,7 @@ impl Number {
         match self {
             Number::Integer(i) => Some(*i),
             Number::UInteger(u) => (*u).try_into().ok(),
-            Number::Float(f) => (*f as i128).try_into().ok(),
+            Number::Float(f) => Some(*f as i128),
         }
     }
 
@@ -85,7 +85,7 @@ impl Number {
         match self {
             Number::UInteger(u) => (*u).try_into().ok(),
             Number::Integer(i) => (*i).try_into().ok(),
-            Number::Float(f) => (*f as u8).try_into().ok(), // Convert float to unsigned integer
+            Number::Float(f) => Some(*f as u8),
         }
     }
 
@@ -93,7 +93,7 @@ impl Number {
         match self {
             Number::UInteger(u) => (*u).try_into().ok(),
             Number::Integer(i) => (*i).try_into().ok(),
-            Number::Float(f) => (*f as u16).try_into().ok(),
+            Number::Float(f) => Some(*f as u16),
         }
     }
 
@@ -101,7 +101,7 @@ impl Number {
         match self {
             Number::UInteger(u) => (*u).try_into().ok(),
             Number::Integer(i) => (*i).try_into().ok(),
-            Number::Float(f) => (*f as u32).try_into().ok(),
+            Number::Float(f) => Some(*f as u32),
         }
     }
 
@@ -109,7 +109,7 @@ impl Number {
         match self {
             Number::UInteger(u) => (*u).try_into().ok(),
             Number::Integer(i) => (*i).try_into().ok(),
-            Number::Float(f) => (*f as u64).try_into().ok(),
+            Number::Float(f) => Some(*f as u64),
         }
     }
 
@@ -117,7 +117,7 @@ impl Number {
         match self {
             Number::UInteger(u) => Some(*u),
             Number::Integer(i) => (*i).try_into().ok(),
-            Number::Float(f) => (*f as u128).try_into().ok(),
+            Number::Float(f) => Some(*f as u128),
         }
     }
 }
