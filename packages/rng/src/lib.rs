@@ -1,8 +1,11 @@
 use std::cell::RefCell;
 
-use random::{Random, RandomSequence};
+use pick::Pick;
+use random::RandomSequence;
 
+pub mod pick;
 pub mod random;
+
 mod xorshift;
 
 /// A random number generator source.
@@ -44,20 +47,9 @@ pub fn sequence<T: random::Random>() -> RandomSequence<LocalRng, T> {
 }
 
 /// Returns a value within the given range.
-pub fn random_range<T>(rng: &mut impl Rng, min: T, max: T) -> T
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Copy,
-{
-    assert!(min < max, "max must be greater than min: {max} < {min}");
-    let n = T::random(rng);
-    min + (n % (max - min))
+pub fn pick<T: Pick>(range: T) -> T::Output {
+    let mut rng = local_rng();
+    range.pick(&mut rng)
 }
 
 #[cfg(test)]
