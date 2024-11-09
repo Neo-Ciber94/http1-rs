@@ -22,8 +22,13 @@ jobs:
 
     - name: Clippy
       run: cargo clippy
-      
+
+    - name: Setup temp directory
+      run: |
+        mkdir -p ${{ runner.temp }}/test-tmp
+        chmod 777 ${{ runner.temp }}/test-tmp
+          
     - name: Run tests
       run: cargo test --workspace --verbose
       env:
-        RUNNER_TEMP: ${{ runner.temp }}
+        TMPDIR: ${{ runner.temp }}/test-tmp
