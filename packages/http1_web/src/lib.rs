@@ -16,6 +16,7 @@ pub mod redirect;
 pub mod routing;
 pub mod server_info;
 pub mod state;
+pub mod client_ip;
 
 mod request;
 mod response;
