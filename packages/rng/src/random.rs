@@ -110,3 +110,15 @@ impl Random for Ascii {
         char::from_u32(n).expect("failed to get char")
     }
 }
+
+pub struct Hexadecimal;
+
+impl Random for Hexadecimal {
+    type Output = char;
+
+    fn random<R: Rng>(rng: &mut R) -> char {
+        static HEX_CHARS: &str = "0123456789abcdef";
+        let idx = crate::random_range(rng, 0, HEX_CHARS.len());
+        HEX_CHARS.chars().nth(idx).expect("failed to get hex char")
+    }
+}
