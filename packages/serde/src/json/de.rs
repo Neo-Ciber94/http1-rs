@@ -75,12 +75,12 @@ impl<R: Read> JsonDeserializer<R> {
                     return Ok(b);
                 }
 
-                Err(Error::error(format!(
+                Err(Error::other(format!(
                     "expected `{}` but was `{}`",
                     expected as char, b as char
                 )))
             }
-            None => Err(Error::error(format!(
+            None => Err(Error::other(format!(
                 "expected `{}` but was empty",
                 expected as char
             ))),
@@ -118,7 +118,7 @@ impl<R: Read> JsonDeserializer<R> {
 
         if let Some(b) = self.next.take() {
             if !b.is_ascii_whitespace() {
-                return Err(Error::error(format!(
+                return Err(Error::other(format!(
                     "expected only whitespace after end but found: `{}`",
                     b as char
                 )));
@@ -128,7 +128,7 @@ impl<R: Read> JsonDeserializer<R> {
         let mut buffer = [0; 64]; // buffer to hold a single byte
 
         loop {
-            let read_count = self.reader.read(&mut buffer).map_err(Error::error)?;
+            let read_count = self.reader.read(&mut buffer).map_err(Error::other)?;
 
             match read_count {
                 0 => break,
@@ -136,7 +136,7 @@ impl<R: Read> JsonDeserializer<R> {
                     let chunk = &buffer[..n];
                     if !chunk.iter().all(u8::is_ascii_whitespace) {
                         let s = String::from_utf8_lossy(chunk);
-                        return Err(Error::error(format!(
+                        return Err(Error::other(format!(
                             "expected only whitespace after end but found: `{s}`"
                         )));
                     }
@@ -156,12 +156,12 @@ impl<R: Read> JsonDeserializer<R> {
                 b'"' => self.parse_string().map(JsonValue::String),
                 b'[' => self.parse_array().map(JsonValue::Array),
                 b'{' => self.parse_object().map(JsonValue::Object),
-                _ => Err(Error::error(format!(
+                _ => Err(Error::other(format!(
                     "unexpected json token `{}`",
                     b as char,
                 ))),
             },
-            None => Err(Error::error("empty value")),
+            None => Err(Error::other("empty value")),
         }
     }
 
@@ -174,9 +174,9 @@ impl<R: Read> JsonDeserializer<R> {
             }
             Ok(n) => {
                 let s = String::from_utf8_lossy(&buf[..n]);
-                Err(Error::error(format!("expected 'null' but was `{s}`")))
+                Err(Error::other(format!("expected 'null' but was `{s}`")))
             }
-            Err(err) => Err(Error::error(err)),
+            Err(err) => Err(Error::other(err)),
         }
     }
 
@@ -184,15 +184,15 @@ impl<R: Read> JsonDeserializer<R> {
         let (len, expected) = match self.peek() {
             Some(b't') => (4, "true"),  // length of "true"
             Some(b'f') => (5, "false"), // length of "false"
-            _ => return Err(Error::error("expected 'boolean'")),
+            _ => return Err(Error::other("expected 'boolean'")),
         };
 
         let mut buf = [0u8; 5];
-        let read = self.read(&mut buf[..len]).map_err(Error::error)?;
+        let read = self.read(&mut buf[..len]).map_err(Error::other)?;
 
         if &buf[..read] != expected.as_bytes() {
             let s = String::from_utf8_lossy(&buf[..read]);
-            return Err(Error::error(format!("expected `{expected}` but was {s}",)));
+            return Err(Error::other(format!("expected `{expected}` but was {s}",)));
         }
 
         self.consume_rest()?;
@@ -208,11 +208,11 @@ impl<R: Read> JsonDeserializer<R> {
             }
 
             match self.peek() {
-                None => return Err(Error::error("expected number")),
+                None => return Err(Error::other("expected number")),
                 Some(byte) => match byte {
                     b'-' | b'.' | b'e' => {
                         if byte == b'.' && s.contains(".") {
-                            return Err(Error::error("invalid decimal number"));
+                            return Err(Error::other("invalid decimal number"));
                         }
 
                         s.push(byte as char);
@@ -230,17 +230,17 @@ impl<R: Read> JsonDeserializer<R> {
         self.consume_rest()?;
 
         if s.contains(".") || s.contains("e") {
-            let f: f64 = s.parse().map_err(Error::error)?;
+            let f: f64 = s.parse().map_err(Error::other)?;
             return Ok(Number::from(f));
         }
 
         let is_negative = s.starts_with("-");
 
         if is_negative {
-            let i: i128 = s.parse().map_err(Error::error)?;
+            let i: i128 = s.parse().map_err(Error::other)?;
             Ok(Number::from(i))
         } else {
-            let u: u128 = s.parse().map_err(Error::error)?;
+            let u: u128 = s.parse().map_err(Error::other)?;
             Ok(Number::from(u))
         }
     }
@@ -253,7 +253,7 @@ impl<R: Read> JsonDeserializer<R> {
 
         loop {
             match self.peek() {
-                None => return Err(Error::error("expected next string char")),
+                None => return Err(Error::other("expected next string char")),
                 Some(byte) => match byte {
                     b'\\' => match self.read_byte() {
                         Some(b'"') => s.push('"'),
@@ -261,12 +261,12 @@ impl<R: Read> JsonDeserializer<R> {
                         Some(b'n') => s.push('\n'),
                         Some(b't') => s.push('\t'),
                         Some(other) => {
-                            return Err(Error::error(format!(
+                            return Err(Error::other(format!(
                                 "unexpected escape sequence: \\{}",
                                 other as char
                             )));
                         }
-                        None => return Err(Error::error("expected character after escape")),
+                        None => return Err(Error::other("expected character after escape")),
                     },
                     b'"' => {
                         self.read_byte();
@@ -366,12 +366,12 @@ impl<R: Read> JsonDeserializer<R> {
                     break;
                 }
                 Some(b) => {
-                    return Err(Error::error(format!(
+                    return Err(Error::other(format!(
                         "invalid object element token {}",
                         b as char
                     )))
                 }
-                None => return Err(Error::error("expected object element but was empty")),
+                None => return Err(Error::other("expected object element but was empty")),
             }
         }
 
@@ -565,13 +565,13 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
         let mut string = self.parse_string()?;
 
         if string.is_empty() {
-            return Err(Error::error(
+            return Err(Error::other(
                 "expected char but was empty string".to_string(),
             ));
         }
 
         if string.len() > 1 {
-            return Err(Error::error(format!("expected char but was `{string}`")));
+            return Err(Error::other(format!("expected char but was `{string}`")));
         }
 
         let c = string.pop().unwrap();
@@ -642,7 +642,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
                 let bytes = value.into_bytes();
                 visitor.visit_bytes_seq(JsonBytesAccess::new(bytes))
             }
-            _ => Err(Error::error("expected bytes")),
+            _ => Err(Error::other("expected bytes")),
         }
     }
 }
@@ -986,13 +986,13 @@ mod tests {
                         mut map: Map,
                     ) -> Result<Self::Value, crate::de::Error> {
                         let mut name: Result<String, crate::de::Error> =
-                            Err(crate::de::Error::error("missing field 'name'"));
+                            Err(crate::de::Error::other("missing field 'name'"));
                         let mut age: Result<u32, crate::de::Error> =
-                            Err(crate::de::Error::error("missing field 'age'"));
+                            Err(crate::de::Error::other("missing field 'age'"));
                         let mut likes_art: Result<bool, crate::de::Error> =
-                            Err(crate::de::Error::error("missing field 'likes_art'"));
+                            Err(crate::de::Error::other("missing field 'likes_art'"));
                         let mut friends: Result<Vec<BluePeriodCharacter>, crate::de::Error> =
-                            Err(crate::de::Error::error("missing field 'friends'"));
+                            Err(crate::de::Error::other("missing field 'friends'"));
 
                         while let Some(k) = map.next_key::<String>()? {
                             match k.as_str() {
@@ -1000,7 +1000,7 @@ mod tests {
                                     name = match map.next_value::<String>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::de::Error::error(
+                                            return Err(crate::de::Error::other(
                                                 "missing field 'name'",
                                             ))
                                         }
@@ -1010,7 +1010,7 @@ mod tests {
                                     age = match map.next_value::<u32>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::de::Error::error(
+                                            return Err(crate::de::Error::other(
                                                 "missing field 'age'",
                                             ))
                                         }
@@ -1020,7 +1020,7 @@ mod tests {
                                     likes_art = match map.next_value::<bool>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::de::Error::error(
+                                            return Err(crate::de::Error::other(
                                                 "missing field 'likes_art'",
                                             ))
                                         }
@@ -1030,14 +1030,14 @@ mod tests {
                                     friends = match map.next_value::<Vec<BluePeriodCharacter>>()? {
                                         Some(x) => Ok(x),
                                         None => {
-                                            return Err(crate::de::Error::error(
+                                            return Err(crate::de::Error::other(
                                                 "missing field 'friends'",
                                             ))
                                         }
                                     };
                                 }
                                 _ => {
-                                    return Err(crate::de::Error::error(format!(
+                                    return Err(crate::de::Error::other(format!(
                                         "Unknown field '{k}'"
                                     )));
                                 }

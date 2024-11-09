@@ -25,7 +25,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn error<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(error: E) -> Self {
+    pub fn other<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(error: E) -> Self {
         Error::Other(error.into())
     }
 
@@ -357,11 +357,11 @@ impl Visitor for F32Visitor {
 
     fn visit_f64(self, value: f64) -> Result<Self::Value, Error> {
         if value > f32::MAX as f64 {
-            return Err(Error::error("f32 overflow"));
+            return Err(Error::other("f32 overflow"));
         }
 
         if value < f32::MIN as f64 {
-            return Err(Error::error("f32 underflow"));
+            return Err(Error::other("f32 underflow"));
         }
 
         self.visit_f32(value as f32)
@@ -400,7 +400,7 @@ impl Deserialize for f64 {
 macro_rules! impl_deserialize_to_uint {
     ($T:ty : $base_method:ident => $U:ty : $uint_visitor:ident) => {
         fn $uint_visitor(self, value: $U) -> Result<Self::Value, Error> {
-            let v = value.try_into().map_err(Error::error)?;
+            let v = value.try_into().map_err(Error::other)?;
             self.$base_method(v)
         }
     };
@@ -409,7 +409,7 @@ macro_rules! impl_deserialize_to_uint {
 macro_rules! impl_deserialize_to_int {
     ($T:ty : $base_method:ident => $U:ty : $int_visitor:ident) => {
         fn $int_visitor(self, value: $U) -> Result<Self::Value, Error> {
-            let v = value.try_into().map_err(Error::error)?;
+            let v = value.try_into().map_err(Error::other)?;
             self.$base_method(v)
         }
     };
@@ -453,7 +453,7 @@ macro_rules! impl_deserialize_atomic {
             }
 
             fn $visitor_method(self, value: $T) -> Result<Self::Value, Error> {
-                let v: $Cast = value.try_into().map_err(Error::error)?;
+                let v: $Cast = value.try_into().map_err(Error::other)?;
                 Ok($Atomic(v))
             }
 
@@ -782,7 +782,7 @@ macro_rules! impl_deserialize_tuple {
                     let $T = match seq.next_element()? {
                         Some(x) => x,
                         None => {
-                            return Err(Error::error(format!("expected `{}` but was empty", std::any::type_name::<$T>())));
+                            return Err(Error::other(format!("expected `{}` but was empty", std::any::type_name::<$T>())));
                         }
                     };
                 )*

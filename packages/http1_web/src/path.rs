@@ -79,7 +79,7 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
         visitor.visit_string(s.to_owned())
     }
 
@@ -97,9 +97,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = bool::from_str(s).map_err(serde::de::Error::error)?;
+        let value = bool::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_bool(value)
     }
 
@@ -110,9 +110,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = u8::from_str(s).map_err(serde::de::Error::error)?;
+        let value = u8::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_u8(value)
     }
 
@@ -123,9 +123,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = u16::from_str(s).map_err(serde::de::Error::error)?;
+        let value = u16::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_u16(value)
     }
 
@@ -136,9 +136,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = u32::from_str(s).map_err(serde::de::Error::error)?;
+        let value = u32::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_u32(value)
     }
 
@@ -149,9 +149,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = u64::from_str(s).map_err(serde::de::Error::error)?;
+        let value = u64::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_u64(value)
     }
 
@@ -162,9 +162,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = u128::from_str(s).map_err(serde::de::Error::error)?;
+        let value = u128::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_u128(value)
     }
 
@@ -175,9 +175,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = i8::from_str(s).map_err(serde::de::Error::error)?;
+        let value = i8::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_i8(value)
     }
 
@@ -188,9 +188,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = i16::from_str(s).map_err(serde::de::Error::error)?;
+        let value = i16::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_i16(value)
     }
 
@@ -201,9 +201,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = i32::from_str(s).map_err(serde::de::Error::error)?;
+        let value = i32::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_i32(value)
     }
 
@@ -214,9 +214,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = i64::from_str(s).map_err(serde::de::Error::error)?;
+        let value = i64::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_i64(value)
     }
 
@@ -227,9 +227,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = i128::from_str(s).map_err(serde::de::Error::error)?;
+        let value = i128::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_i128(value)
     }
 
@@ -240,9 +240,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = f32::from_str(s).map_err(serde::de::Error::error)?;
+        let value = f32::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_f32(value)
     }
 
@@ -253,9 +253,9 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
-        let value = f64::from_str(s).map_err(serde::de::Error::error)?;
+        let value = f64::from_str(s).map_err(serde::de::Error::other)?;
         visitor.visit_f64(value)
     }
 
@@ -266,14 +266,14 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
         if s.is_empty() {
-            return Err(serde::de::Error::error("expected char but was empty"));
+            return Err(serde::de::Error::other("expected char but was empty"));
         }
 
         if s.len() != 1 {
-            return Err(serde::de::Error::error(format!(
+            return Err(serde::de::Error::other(format!(
                 "cannot deserialize `{s}` to char"
             )));
         }
@@ -289,7 +289,7 @@ impl Deserializer for PathDeserializer {
         let s = self
             .0
             .get_index(0)
-            .ok_or_else(|| serde::de::Error::error("cannot get first param of the path"))?;
+            .ok_or_else(|| serde::de::Error::other("cannot get first param of the path"))?;
 
         visitor.visit_string(s.to_owned())
     }
@@ -298,7 +298,7 @@ impl Deserializer for PathDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(String::from(
+        Err(serde::de::Error::other(String::from(
             "cannot deserialize `path` to option",
         )))
     }
@@ -324,7 +324,7 @@ impl Deserializer for PathDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(String::from(
+        Err(serde::de::Error::other(String::from(
             "cannot deserialize `path` to bytes",
         )))
     }
@@ -333,7 +333,7 @@ impl Deserializer for PathDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(String::from(
+        Err(serde::de::Error::other(String::from(
             "cannot deserialize `path` to bytes",
         )))
     }

@@ -31,7 +31,7 @@ macro_rules! impl_deserialize_struct {
                         mut map: Map,
                     ) -> Result<Self::Value, $crate::de::Error>  {
                         $(
-                            let mut $field: Result<$value, $crate::de::Error> = Err($crate::de::Error::error(concat!("missing field '", stringify!($field), "'")));
+                            let mut $field: Result<$value, $crate::de::Error> = Err($crate::de::Error::other(concat!("missing field '", stringify!($field), "'")));
                         )*
 
                         while let Some(k) = map.next_key::<String>()?  {
@@ -41,14 +41,14 @@ macro_rules! impl_deserialize_struct {
                                         $field = match map.next_value::<$value>()? {
                                             Some(x) => Ok(x),
                                             None => {
-                                                return Err($crate::de::Error::error(concat!("missing field '", stringify!($field), "'")));
+                                                return Err($crate::de::Error::other(concat!("missing field '", stringify!($field), "'")));
                                             }
                                         };
                                     }
                                 )*
 
                                 _ => {
-                                    return Err($crate::de::Error::error(format!(
+                                    return Err($crate::de::Error::other(format!(
                                         "Unknown field '{k}'"
                                     )));
                                 }
@@ -140,7 +140,7 @@ macro_rules! impl_deserialize_enum_str {
                         stringify!($variant) => Ok($enum :: $variant),
                     )*
                     v => {
-                        Err($crate::de::Error::error(format!(
+                        Err($crate::de::Error::other(format!(
                             "Unknown enum variant `{v}`, valid variants: {KNOWN_VARIANTS:?}"
                         )))
                     },

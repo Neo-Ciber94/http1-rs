@@ -130,11 +130,11 @@ impl Deserialize for FormFile {
                 mut map: Map,
             ) -> Result<Self::Value, serde::de::Error> {
                 let mut name: Result<String, serde::de::Error> =
-                    Err(serde::de::Error::error("FormFile `name` not found"));
+                    Err(serde::de::Error::other("FormFile `name` not found"));
                 let mut filename: Result<Option<String>, serde::de::Error> = Ok(None);
                 let mut content_type: Result<Option<String>, serde::de::Error> = Ok(None);
                 let mut data: Result<TempFile, serde::de::Error> =
-                    Err(serde::de::Error::error("FormFile `data` not found"));
+                    Err(serde::de::Error::other("FormFile `data` not found"));
 
                 while let Some(key) = map.next_key::<String>()? {
                     match key.as_str() {
@@ -157,7 +157,7 @@ impl Deserialize for FormFile {
                             }
                         }
                         _ => {
-                            return Err(serde::de::Error::error(format!(
+                            return Err(serde::de::Error::other(format!(
                                 "unknown FormField: `{key}`"
                             )))
                         }
@@ -190,28 +190,28 @@ impl Deserialize for TempFileData {
             }
 
             fn visit_string(self, value: String) -> Result<Self::Value, serde::de::Error> {
-                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
+                let temp_file = TempFile::random().map_err(serde::de::Error::other)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(serde::de::Error::error)?;
+                    .map_err(serde::de::Error::other)?;
 
                 f.write_all(value.as_bytes())
-                    .map_err(serde::de::Error::error)?;
+                    .map_err(serde::de::Error::other)?;
 
                 Ok(TempFileData(temp_file))
             }
 
             fn visit_bytes_buf(self, bytes: Vec<u8>) -> Result<Self::Value, serde::de::Error> {
-                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
+                let temp_file = TempFile::random().map_err(serde::de::Error::other)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(serde::de::Error::error)?;
+                    .map_err(serde::de::Error::other)?;
 
-                f.write_all(&bytes).map_err(serde::de::Error::error)?;
+                f.write_all(&bytes).map_err(serde::de::Error::other)?;
 
                 Ok(TempFileData(temp_file))
             }
@@ -220,12 +220,12 @@ impl Deserialize for TempFileData {
                 self,
                 mut bytes: B,
             ) -> Result<Self::Value, serde::de::Error> {
-                let temp_file = TempFile::random().map_err(serde::de::Error::error)?;
+                let temp_file = TempFile::random().map_err(serde::de::Error::other)?;
                 let mut f = temp_file
                     .file()
                     .write(true)
                     .open()
-                    .map_err(serde::de::Error::error)?;
+                    .map_err(serde::de::Error::other)?;
 
                 bytes.next_bytes(&mut f)?;
                 Ok(TempFileData(temp_file))
@@ -243,7 +243,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `any`"))
+        Err(serde::de::Error::other("cannot deserialize form to `any`"))
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
@@ -257,105 +257,105 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `bool`"))
+        Err(serde::de::Error::other("cannot deserialize form to `bool`"))
     }
 
     fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `u8`"))
+        Err(serde::de::Error::other("cannot deserialize form to `u8`"))
     }
 
     fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `u16`"))
+        Err(serde::de::Error::other("cannot deserialize form to `u16`"))
     }
 
     fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `u32`"))
+        Err(serde::de::Error::other("cannot deserialize form to `u32`"))
     }
 
     fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `u64`"))
+        Err(serde::de::Error::other("cannot deserialize form to `u64`"))
     }
 
     fn deserialize_u128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `u128`"))
+        Err(serde::de::Error::other("cannot deserialize form to `u128`"))
     }
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `i8`"))
+        Err(serde::de::Error::other("cannot deserialize form to `i8`"))
     }
 
     fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `i16`"))
+        Err(serde::de::Error::other("cannot deserialize form to `i16`"))
     }
 
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `i32`"))
+        Err(serde::de::Error::other("cannot deserialize form to `i32`"))
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `i64`"))
+        Err(serde::de::Error::other("cannot deserialize form to `i64`"))
     }
 
     fn deserialize_i128<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `i128`"))
+        Err(serde::de::Error::other("cannot deserialize form to `i128`"))
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `f32`"))
+        Err(serde::de::Error::other("cannot deserialize form to `f32`"))
     }
 
     fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `f64`"))
+        Err(serde::de::Error::other("cannot deserialize form to `f64`"))
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `char`"))
+        Err(serde::de::Error::other("cannot deserialize form to `char`"))
     }
 
     fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form to `string`",
         ))
     }
@@ -364,14 +364,14 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error("cannot deserialize form to `seq`"))
+        Err(serde::de::Error::other("cannot deserialize form to `seq`"))
     }
 
     fn deserialize_bytes_buf<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form to `bytes`",
         ))
     }
@@ -390,7 +390,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: serde::visitor::Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form to `option`",
         ))
     }
@@ -399,7 +399,7 @@ impl Deserializer for MultipartDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form to `bytes`",
         ))
     }
@@ -433,7 +433,7 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
                     let value = V::deserialize(deserializer)?;
                     Ok(Some(value))
                 } else {
-                    let s = field.text().map_err(serde::de::Error::error)?;
+                    let s = field.text().map_err(serde::de::Error::other)?;
                     let value = V::deserialize(DeserializeFromStr::Str(s))?;
                     Ok(Some(value))
                 }
@@ -449,7 +449,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `any`",
         ))
     }
@@ -458,7 +458,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `unit`",
         ))
     }
@@ -467,7 +467,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `bool`",
         ))
     }
@@ -476,7 +476,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `u8`",
         ))
     }
@@ -485,7 +485,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `u16`",
         ))
     }
@@ -494,7 +494,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `u32`",
         ))
     }
@@ -503,7 +503,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `u64`",
         ))
     }
@@ -512,7 +512,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `u128`",
         ))
     }
@@ -521,7 +521,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `i8`",
         ))
     }
@@ -530,7 +530,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `i16`",
         ))
     }
@@ -539,7 +539,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `i32`",
         ))
     }
@@ -548,7 +548,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `i64`",
         ))
     }
@@ -557,7 +557,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `i128`",
         ))
     }
@@ -566,7 +566,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `f32`",
         ))
     }
@@ -575,7 +575,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `f64`",
         ))
     }
@@ -584,7 +584,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `char`",
         ))
     }
@@ -593,7 +593,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `string`",
         ))
     }
@@ -602,7 +602,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `seq`",
         ))
     }
@@ -611,7 +611,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `bytes`",
         ))
     }
@@ -620,7 +620,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `bytes`",
         ))
     }
@@ -642,7 +642,7 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
-        Err(serde::de::Error::error(
+        Err(serde::de::Error::other(
             "cannot deserialize form file to `option`",
         ))
     }

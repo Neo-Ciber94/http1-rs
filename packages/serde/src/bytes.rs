@@ -10,7 +10,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `any`",
         ))
     }
@@ -19,7 +19,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `unit`",
         ))
     }
@@ -28,7 +28,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `bool`",
         ))
     }
@@ -37,7 +37,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `u8`",
         ))
     }
@@ -46,7 +46,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `u16`",
         ))
     }
@@ -55,7 +55,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `u32`",
         ))
     }
@@ -64,7 +64,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `u64`",
         ))
     }
@@ -73,7 +73,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `u128`",
         ))
     }
@@ -82,7 +82,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `i8`",
         ))
     }
@@ -91,7 +91,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `i16`",
         ))
     }
@@ -100,7 +100,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `i32`",
         ))
     }
@@ -109,7 +109,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `i64`",
         ))
     }
@@ -118,7 +118,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `i128`",
         ))
     }
@@ -127,7 +127,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `f32`",
         ))
     }
@@ -136,7 +136,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `f64`",
         ))
     }
@@ -145,7 +145,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `char`",
         ))
     }
@@ -154,7 +154,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        let buf = std::io::read_to_string(self.0).map_err(crate::de::Error::error)?;
+        let buf = std::io::read_to_string(self.0).map_err(crate::de::Error::other)?;
         visitor.visit_string(buf)
     }
 
@@ -162,7 +162,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `sequence`",
         ))
     }
@@ -174,7 +174,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
         let mut buf = Vec::new();
         self.0
             .read_to_end(&mut buf)
-            .map_err(crate::de::Error::error)?;
+            .map_err(crate::de::Error::other)?;
         visitor.visit_bytes_buf(buf)
     }
 
@@ -185,7 +185,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
         let mut buf: Vec<u8> = Vec::new();
         self.0
             .read_to_end(&mut buf)
-            .map_err(crate::de::Error::error)?;
+            .map_err(crate::de::Error::other)?;
 
         let seq = BytesSeqAccess(buf.into_iter());
         visitor.visit_seq(seq)
@@ -195,7 +195,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize bytes to `option`",
         ))
     }
@@ -213,7 +213,7 @@ impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
             ) -> Result<(), super::de::Error> {
                 std::io::copy(&mut self.0, writer)
                     .map(|_| ())
-                    .map_err(super::de::Error::error)
+                    .map_err(super::de::Error::other)
             }
         }
 
@@ -227,7 +227,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `any`",
         ))
     }
@@ -236,7 +236,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `unit`",
         ))
     }
@@ -337,7 +337,7 @@ impl Deserializer for ByteDeserializer {
         V: Visitor,
     {
         let c = char::from_u32(self.0 as u32).ok_or_else(|| {
-            super::de::Error::error(format!("failed to convert `{}` from char", self.0))
+            super::de::Error::other(format!("failed to convert `{}` from char", self.0))
         })?;
 
         visitor.visit_char(c)
@@ -347,7 +347,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `string`",
         ))
     }
@@ -356,7 +356,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `seq`",
         ))
     }
@@ -373,7 +373,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `map`",
         ))
     }
@@ -382,7 +382,7 @@ impl Deserializer for ByteDeserializer {
     where
         V: Visitor,
     {
-        Err(crate::de::Error::error(
+        Err(crate::de::Error::other(
             "failed to deserialize byte to `option`",
         ))
     }
@@ -400,9 +400,9 @@ impl Deserializer for ByteDeserializer {
                 match self.0.take() {
                     Some(b) => {
                         let buf = std::slice::from_ref(&b);
-                        writer.write_all(buf).map_err(super::de::Error::error)
+                        writer.write_all(buf).map_err(super::de::Error::other)
                     }
-                    None => Err(super::de::Error::error("no bytes to write")),
+                    None => Err(super::de::Error::other("no bytes to write")),
                 }
             }
         }
