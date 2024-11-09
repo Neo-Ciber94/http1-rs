@@ -171,7 +171,7 @@ impl FormData {
         let mut line = self
             .reader
             .read_line_with_limit(limit)
-            .map_err( FieldError::IO)?;
+            .map_err(FieldError::IO)?;
 
         if line.ends_with(b"\r\n") {
             line.pop();
@@ -265,7 +265,7 @@ impl FormData {
         let (found, mut bytes) = self
             .reader
             .read_until_sequence(boundary_str.as_bytes())
-            .map_err( FieldError::IO)?;
+            .map_err(FieldError::IO)?;
 
         // No more bytes to read
         if bytes.is_empty() {
@@ -284,17 +284,15 @@ impl FormData {
             bytes.truncate(bytes.len() - boundary_str.len());
 
             // Check if this is the end of the form data
-            let next_bytes = self.reader.peek(2).map_err( FieldError::IO)?;
+            let next_bytes = self.reader.peek(2).map_err(FieldError::IO)?;
 
             if next_bytes == b"--" {
                 self.state = State::Done;
-                self.reader
-                    .read_exact(2)
-                    .map_err( FieldError::IO)?;
+                self.reader.read_exact(2).map_err(FieldError::IO)?;
             }
 
             // Ensure after boundary there is a line ending `\r\n`
-            let boundary_line_endings = self.reader.peek(2).map_err( FieldError::IO)?;
+            let boundary_line_endings = self.reader.peek(2).map_err(FieldError::IO)?;
 
             if boundary_line_endings != b"\r\n" {
                 return Err(FieldError::Other(String::from(
@@ -303,9 +301,7 @@ impl FormData {
             }
 
             // Remove boundary line endings
-            self.reader
-                .read_exact(2)
-                .map_err( FieldError::IO)?;
+            self.reader.read_exact(2).map_err(FieldError::IO)?;
 
             buf.extend(bytes);
             Ok(true)
