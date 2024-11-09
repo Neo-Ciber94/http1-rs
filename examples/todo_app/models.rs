@@ -209,7 +209,7 @@ pub fn get_all_todos(db: &KeyValueDatabase, user_id: u64) -> Result<Vec<Todo>, B
 }
 
 pub fn create_session(db: &KeyValueDatabase, user_id: u64) -> Result<Session, BoxError> {
-    let id = rng::sequence::<rng::random::Alphanumeric>()
+    let id = rng::sequence::<rng::Alphanumeric>()
         .take(32)
         .collect::<String>();
 

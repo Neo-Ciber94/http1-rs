@@ -1,12 +1,10 @@
 use std::cell::RefCell;
 
-use pick::Pick;
-use random::RandomSequence;
-
-pub mod pick;
-pub mod random;
-
+mod pick;
+mod random;
 mod xorshift;
+
+pub use {pick::*, random::*};
 
 /// A random number generator source.
 pub trait Rng {

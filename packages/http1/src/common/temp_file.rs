@@ -3,8 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rng::random::Alphanumeric;
-
 /// Represents a temporal file which is deleted after drop.
 #[derive(Debug)]
 pub struct TempFile(PathBuf);
@@ -20,7 +18,9 @@ impl TempFile {
 
     fn create<P: AsRef<Path>>(path: Option<P>) -> std::io::Result<Self> {
         let mut temp_path = std::env::temp_dir();
-        let file_name = rng::sequence::<Alphanumeric>().take(20).collect::<String>();
+        let file_name = rng::sequence::<rng::Alphanumeric>()
+            .take(20)
+            .collect::<String>();
 
         if let Some(p) = path {
             let sub_path = p.as_ref().strip_prefix("/").unwrap_or(p.as_ref());

@@ -190,7 +190,7 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
 }
 
 fn generate_session_id(_req: &Request<Body>) -> String {
-    rng::sequence::<rng::random::Alphanumeric>()
+    rng::sequence::<rng::Alphanumeric>()
         .take(36)
         .collect::<String>()
 }
