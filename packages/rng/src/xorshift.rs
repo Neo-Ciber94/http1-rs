@@ -19,8 +19,8 @@ impl XorShiftRng128 {
 
         let mut s: [u32; 4] = [0, 0, 0, 0];
         s[0] = (state >> 96) as u32;
-        s[1] = (state >> 64) as u32 & 0xFFFFFFFF;
-        s[2] = (state >> 32) as u32 & 0xFFFFFFFF;
+        s[1] = (state >> 64) as u32;
+        s[2] = (state >> 32) as u32;
         s[3] = (state & 0xFFFFFFFF) as u32;
 
         XorShiftRng128(s)
