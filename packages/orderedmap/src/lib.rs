@@ -52,7 +52,7 @@ where
         Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {
-        self.map.get(&key)
+        self.map.get(key)
     }
 
     /// Retrieves a mutable reference to the value corresponding to the key.
@@ -61,7 +61,7 @@ where
         Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {
-        self.map.get_mut(&key)
+        self.map.get_mut(key)
     }
 
     /// Returns the reference to the element with the key at the given position.
