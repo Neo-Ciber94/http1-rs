@@ -32,7 +32,7 @@ pub trait Random: Sized {
 impl Random for bool {
     type Output = bool;
     fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_32() > u32::MAX / 2
+        u32::random(rng) & 1 == 1
     }
 }
 
@@ -40,7 +40,7 @@ impl Random for f32 {
     type Output = f32;
     fn random<R: Rng>(rng: &mut R) -> Self {
         // Generate a random u32 and convert it to f32 in the range [0.0, 1.0)
-        let n = rng.next_32();
+        let n = u32::random(rng);
         n as f32 / u32::MAX as f32
     }
 }
@@ -49,94 +49,27 @@ impl Random for f64 {
     type Output = f64;
     fn random<R: Rng>(rng: &mut R) -> Self {
         // Generate a random u64 and convert it to f64 in the range [0.0, 1.0)
-        let n = rng.next_64();
+        let n = u64::random(rng);
         n as f64 / u64::MAX as f64
     }
 }
 
-impl Random for u8 {
-    type Output = u8;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        (rng.next_32() % u8::MAX as u32) as u8
-    }
+macro_rules! impl_primitive_random {
+    ($($T:ident),*) => {
+       $(
+            impl Random for $T {
+                type Output = $T;
+                fn random<R: Rng>(rng: &mut R) -> Self {
+                    let mut bytes = (0 as Self).to_ne_bytes();
+                    rng.fill_bytes(&mut bytes);
+                    $T::from_ne_bytes(bytes)
+                }
+            }
+       )*
+    };
 }
 
-impl Random for u16 {
-    type Output = u16;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        (rng.next_32() % u16::MAX as u32) as u16
-    }
-}
-
-impl Random for u32 {
-    type Output = u32;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_32()
-    }
-}
-
-impl Random for u64 {
-    type Output = u64;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_64()
-    }
-}
-
-impl Random for u128 {
-    type Output = u128;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_128()
-    }
-}
-
-impl Random for i8 {
-    type Output = i8;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        (rng.next_32() % u8::MAX as u32) as i8
-    }
-}
-
-impl Random for i16 {
-    type Output = i16;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        (rng.next_32() % u16::MAX as u32) as i16
-    }
-}
-
-impl Random for i32 {
-    type Output = i32;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_32() as i32
-    }
-}
-
-impl Random for i64 {
-    type Output = i64;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_64() as i64
-    }
-}
-
-impl Random for i128 {
-    type Output = i128;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_128() as i128
-    }
-}
-
-impl Random for usize {
-    type Output = usize;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_128() as usize
-    }
-}
-
-impl Random for isize {
-    type Output = isize;
-    fn random<R: Rng>(rng: &mut R) -> Self {
-        rng.next_128() as isize
-    }
-}
+impl_primitive_random!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 pub struct Alphabetic;
 impl Random for Alphabetic {

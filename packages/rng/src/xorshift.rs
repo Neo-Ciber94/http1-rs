@@ -47,16 +47,18 @@ impl XorShiftRng128 {
 }
 
 impl Rng for XorShiftRng128 {
-    fn next_32(&mut self) -> u32 {
-        self.next() as u32
-    }
+    fn fill_bytes(&mut self, buf: &mut [u8]) {
+        let mut pos = 0;
 
-    fn next_64(&mut self) -> u64 {
-        self.next() as u64
-    }
+        while pos < buf.len() {
+            let bytes = self.next().to_ne_bytes();
+            let count = bytes.len().min(buf.len() - pos);
 
-    fn next_128(&mut self) -> u128 {
-        self.next()
+            let src = &bytes[..count];
+            let dst = &mut buf[pos..(pos + count)];
+            dst.copy_from_slice(src);
+            pos += bytes.len();
+        }
     }
 }
 
