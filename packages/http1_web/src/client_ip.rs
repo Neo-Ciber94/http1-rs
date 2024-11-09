@@ -21,7 +21,7 @@ impl ClientIp {
     /// Gets the client ip address.
     pub fn ip(&self) -> IpAddr {
         match &self.0 {
-            Inner::Ip(ip_addr) => ip_addr.clone(),
+            Inner::Ip(ip_addr) => *ip_addr,
             Inner::List(vec) => vec[0],
         }
     }
@@ -92,7 +92,7 @@ fn get_ip_from_headers(headers: &Headers) -> Option<Inner> {
                 let maybe_ip: &str = if raw.starts_with("\"") && raw.ends_with("\"") {
                     &raw[1..raw.len() - 1]
                 } else {
-                    &raw
+                    raw
                 };
 
                 match IpAddr::from_str(maybe_ip) {

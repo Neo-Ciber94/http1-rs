@@ -69,26 +69,17 @@ impl JsonValue {
 
     /// Returns `true` if the value is a floating-point number (`JsonValue::Number::Float`).
     pub fn is_f64(&self) -> bool {
-        match self {
-            JsonValue::Number(Number::Float(_)) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Number(Number::Float(_)))
     }
 
     /// Returns `true` if the value is an unsigned integer (`JsonValue::Number::UInteger`).
     pub fn is_u128(&self) -> bool {
-        match self {
-            JsonValue::Number(Number::UInteger(_)) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Number(Number::UInteger(_)))
     }
 
     /// Returns `true` if the value is a signed integer (`JsonValue::Number::Integer`).
     pub fn is_i128(&self) -> bool {
-        match self {
-            JsonValue::Number(Number::Integer(_)) => true,
-            _ => false,
-        }
+        matches!(self, JsonValue::Number(Number::Integer(_)))
     }
 
     /// If the value is a `JsonValue::String`, returns the string as a `&str`.

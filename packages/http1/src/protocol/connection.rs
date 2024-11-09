@@ -18,7 +18,7 @@ impl Connection for TcpStream {
     type Err = std::io::Error;
 
     fn try_clone(&self) -> Result<Self, Self::Err> {
-        TcpStream::try_clone(&self)
+        TcpStream::try_clone(self)
     }
 
     fn peer_addr(&self) -> Option<SocketAddr> {
@@ -30,7 +30,7 @@ impl Connection for File {
     type Err = std::io::Error;
 
     fn try_clone(&self) -> Result<Self, Self::Err> {
-        File::try_clone(&self)
+        File::try_clone(self)
     }
 
     fn peer_addr(&self) -> Option<SocketAddr> {
@@ -42,11 +42,11 @@ impl<T: Connection> Connection for Box<T> {
     type Err = T::Err;
 
     fn try_clone(&self) -> Result<Self, Self::Err> {
-        (&**self).try_clone().map(Box::new)
+        (**self).try_clone().map(Box::new)
     }
 
     fn peer_addr(&self) -> Option<SocketAddr> {
-        (&**self).peer_addr()
+        (**self).peer_addr()
     }
 }
 

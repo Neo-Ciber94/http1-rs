@@ -279,13 +279,11 @@ where
         if insert_separator && iter.peek().is_some() {
             insert_separator = false;
             Some(separator.clone())
+        } else if let Some(next) = iter.next() {
+            insert_separator = true;
+            Some(next)
         } else {
-            if let Some(next) = iter.next() {
-                insert_separator = true;
-                Some(next)
-            } else {
-                None
-            }
+            None
         }
     })
 }
