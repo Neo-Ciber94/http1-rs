@@ -83,15 +83,15 @@ impl<F> ServeDir<F> {
         self
     }
 
-    /// Whether if append cache-control headers for the files.
-    pub fn use_cache_headers(mut self, use_cache_headers: bool) -> Self {
-        self.use_cache_headers = use_cache_headers;
-        self
-    }
-
     /// Enables directory listing. By default is `false`.
     pub fn list_directory(mut self, list_directory: bool) -> Self {
         self.list_directory = list_directory;
+        self
+    }
+
+    /// Whether if append cache-control headers for the files.
+    pub fn use_cache_headers(mut self, use_cache_headers: bool) -> Self {
+        self.use_cache_headers = use_cache_headers;
         self
     }
 
