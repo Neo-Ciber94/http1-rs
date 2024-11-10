@@ -30,7 +30,6 @@ impl Handler<Request<Body>> for DefaultServeDirFallback {
     }
 }
 
-
 type OnResponseHandler = Arc<Mutex<dyn FnMut(&mut Response<Body>) + Send>>;
 
 /// A handler to serve static files from a path.
