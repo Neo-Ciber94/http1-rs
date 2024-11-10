@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, BufWriter},
     str::FromStr,
@@ -13,6 +14,7 @@ use http1_web::{
     html::{self, element::HTMLElement},
     middleware::logging::Logging,
     mime::Mime,
+    query::Query,
     redirect::Redirect,
     state::State,
     ErrorResponse,
@@ -37,7 +39,10 @@ pub fn main() -> std::io::Result<()> {
     let app = App::new()
         .middleware(Logging)
         .state(KeyValueDatabase::new("examples/photo_gallery/db.json").unwrap())
-        .get("/static/*", ServeDir::new("examples/photo_gallery/static"))
+        .get(
+            "/static/*",
+            ServeDir::new("examples/photo_gallery/static").use_cache_headers(true),
+        )
         .get("/*", ServeDir::new("examples/photo_gallery/public"))
         .get("/", gallery_page)
         .get("/upload", upload_page)
@@ -50,8 +55,12 @@ pub fn main() -> std::io::Result<()> {
         .start(app)
 }
 
-fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, ErrorResponse> {
+fn gallery_page(
+    State(db): State<KeyValueDatabase>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Result<HTMLElement, ErrorResponse> {
     let images = db.scan::<Image>("image/")?;
+    let preview_img = query.get("preview");
 
     Ok(html::html(|| {
         html::attr("lang", "en");
@@ -78,6 +87,12 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
 
             html::h2("Gallery");
 
+            if let Some(preview_image_id) = preview_img {
+                if let Some(img) = images.iter().find(|x| x.id.as_str() == preview_image_id) {
+                    components::image_preview(&img.image_url);
+                }
+            }
+
             html::a(|| {
                 html::class("gallery-link");
                 html::attr("href", "/upload");
@@ -95,10 +110,14 @@ fn gallery_page(State(db): State<KeyValueDatabase>) -> Result<HTMLElement, Error
                     html::class("gallery");
 
                     images.iter().for_each(|img| {
-                        html::img(|| {
-                            html::attr("src", format!("/static{}", img.image_url));
-                            html::attr("height", "400px");
-                            html::attr("width", "400px");
+                        html::a(|| {
+                            html::class("gallery-image");
+                            html::attr("href", format!("?preview={}", img.id));
+                            html::img(|| {
+                                html::attr("src", format!("/static{}", img.image_url));
+                                html::attr("height", "400px");
+                                html::attr("width", "400px");
+                            });
                         });
                     });
                 });
@@ -151,6 +170,27 @@ fn upload_page() -> HTMLElement {
             });
         });
     })
+}
+
+mod components {
+    use http1_web::html;
+
+    pub fn image_preview(src: &str) {
+        html::a(|| {
+            html::class("image-preview");
+            html::attr("href", "/");
+
+            html::div(|| {
+                html::attr("data-close-btn", true);
+                html::content("✖");
+            });
+        });
+
+        html::img(|| {
+            html::class("image-preview-img");
+            html::attr("src", format!("/static{src}"));
+        });
+    }
 }
 
 #[derive(Debug)]

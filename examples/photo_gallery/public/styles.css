@@ -8,6 +8,7 @@ body {
   justify-content: center;
   min-height: 100vh;
   background-color: #f4f4f4;
+  scrollbar-gutter: stable both-edges;
 }
 
 h2 {
@@ -42,7 +43,12 @@ div.gallery {
   width: 100%;
 }
 
-div.gallery img {
+div.gallery .gallery-image {
+  transition-duration: 400ms;
+  cursor: pointer;
+}
+
+div.gallery .gallery-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -51,16 +57,20 @@ div.gallery img {
   aspect-ratio: 16 / 9;
 }
 
-div.gallery img:nth-child(3n) {
+div.gallery .gallery-image:hover {
+  transform: scale(0.95);
+}
+
+div.gallery .gallery-image:nth-child(3n) {
   grid-column: span 2;
   grid-row: span 2;
 }
 
-div.gallery img:nth-child(4n) {
+div.gallery .gallery-image:nth-child(4n) {
   grid-column: span 2;
 }
 
-div.gallery img:nth-child(5n) {
+div.gallery .gallery-image:nth-child(5n) {
   grid-row: span 2;
 }
 
@@ -70,7 +80,7 @@ div.gallery img:nth-child(5n) {
     grid-auto-rows: auto;
   }
 
-  div.gallery img {
+  div.gallery .gallery-image {
     grid-column: span 1;
     grid-row: span 1;
   }
@@ -82,7 +92,7 @@ div.gallery img:nth-child(5n) {
     grid-auto-rows: auto;
   }
 
-  div.gallery img {
+  div.gallery .gallery-image {
     grid-column: span 1;
     grid-row: span 1;
   }
@@ -94,9 +104,50 @@ div.gallery img:nth-child(5n) {
     grid-auto-rows: auto;
   }
 
-  div.gallery img {
+  div.gallery .gallery-image {
     grid-column: span 1;
     grid-row: span 1;
+  }
+}
+
+body:has(.image-preview) {
+  overflow: hidden;
+}
+
+.image-preview {
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.8);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: fadeIn forwards 300ms linear;
+}
+
+.image-preview-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 1/1;
+}
+
+.image-preview > [data-close-btn] {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  color: white;
+  font-size: 30px;
+  text-decoration: none;
+}
+
+@keyframes fadeIn {
+  100% {
+    opacity: 1;
   }
 }
 
