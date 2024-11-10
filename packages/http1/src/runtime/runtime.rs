@@ -1,7 +1,22 @@
-use crate::{handler::RequestHandler, server::Config};
+use crate::{
+    handler::RequestHandler,
+    server::{Config, ServerHandle},
+};
 use std::net::TcpListener;
 
-/// A runtime to handle requests.
+/// Configuration to start the runtime.
+pub struct StartRuntime {
+    /// The socket that receives the connections.
+    pub listener: TcpListener,
+
+    /// Server configuration.
+    pub config: Config,
+
+    /// The server handle.
+    pub handle: ServerHandle,
+}
+
+/// The server runtime to handle requests.
 pub trait Runtime {
     /// The result when running the runtime.
     type Output;
@@ -12,13 +27,9 @@ pub trait Runtime {
     /// which manages http1 connections.
     ///
     /// # Parameters
-    /// - `listener`: The socket that receives the connections.
-    /// - `config`: The additional server configuration.
+    /// - `args`: The additional configuration.
     /// - `handler`: The request handler.
-    fn start<H: RequestHandler + Send + Sync + 'static>(
-        self,
-        listener: TcpListener,
-        config: Config,
-        handler: H,
-    ) -> std::io::Result<Self::Output>;
+    fn start<H>(self, args: StartRuntime, handler: H) -> std::io::Result<Self::Output>
+    where
+        H: RequestHandler + Send + Sync + 'static;
 }

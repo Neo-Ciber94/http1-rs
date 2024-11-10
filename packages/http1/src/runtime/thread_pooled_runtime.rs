@@ -1,8 +1,11 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    io::ErrorKind,
+    sync::{Arc, Mutex},
+};
 
 use crate::{common::thread_pool::ThreadPool, protocol::h1::handle_incoming};
 
-use super::runtime::Runtime;
+use super::runtime::{Runtime, StartRuntime};
 
 pub struct ThreadPooledRuntime(ThreadPool);
 
@@ -26,18 +29,30 @@ impl Runtime for ThreadPooledRuntime {
 
     fn start<H: crate::handler::RequestHandler + Send + Sync + 'static>(
         self,
-        listener: std::net::TcpListener,
-        config: crate::server::Config,
+        args: StartRuntime,
         handler: H,
     ) -> std::io::Result<Self::Output> {
+        let StartRuntime {
+            listener,
+            config,
+            handle,
+        } = args;
+
+        listener.set_nonblocking(true)?;
+
+        let signal = handle.shutdown_signal;
         let thread_pool = &self.0;
         let handler = Mutex::new(Arc::new(handler));
 
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let config = config.clone();
+        loop {
+            if signal.is_stopped() {
+                break;
+            }
+
+            match listener.accept() {
+                Ok((stream, _)) => {
                     let lock = handler.lock().expect("Failed to acquire handler lock");
+                    let config = config.clone();
                     let handler = lock.clone();
 
                     thread_pool.execute(move || {
@@ -47,7 +62,12 @@ impl Runtime for ThreadPooledRuntime {
                         }
                     })?;
                 }
-                Err(err) => return Err(err),
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::yield_now();
+                }
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
 

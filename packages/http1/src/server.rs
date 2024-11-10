@@ -1,9 +1,39 @@
-use std::net::{TcpListener, ToSocketAddrs};
+use std::{
+    net::{TcpListener, ToSocketAddrs},
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use crate::{
     handler::RequestHandler,
-    runtime::{runtime::Runtime, DefaultRuntime},
+    runtime::{
+        runtime::{Runtime, StartRuntime},
+        DefaultRuntime,
+    },
 };
+
+#[derive(Clone)]
+pub struct ShutdownSignal(Arc<AtomicBool>);
+
+impl ShutdownSignal {
+    fn new() -> Self {
+        ShutdownSignal(Arc::default())
+    }
+
+    /// Signal the server to stop.
+    pub fn shutdown(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Whether the server was signal to shutdown.
+    pub fn is_stopped(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerHandle {
+    pub shutdown_signal: ShutdownSignal,
+}
 
 /// Server configuration.
 #[derive(Clone, Debug)]
@@ -39,16 +69,21 @@ pub struct Server<A> {
     addr: A,
     config: Config,
     on_ready: OnReady<A>,
+    handle: ServerHandle,
 }
 
 impl Server<()> {
     /// Constructs a new server.
     pub fn new<A: ToSocketAddrs>(addr: A) -> Server<A> {
         let config = Config::default();
+        let handle = ServerHandle {
+            shutdown_signal: ShutdownSignal::new(),
+        };
 
         Server {
             addr,
             config,
+            handle,
             on_ready: None,
         }
     }
@@ -82,6 +117,11 @@ impl<A> Server<A> {
         self.config.include_server_info = include_server_info;
         self
     }
+
+    /// Returns a handle to stop the server.
+    pub fn handle(&self) -> ServerHandle {
+        self.handle.clone()
+    }
 }
 
 impl<A: ToSocketAddrs> Server<A> {
@@ -92,22 +132,23 @@ impl<A: ToSocketAddrs> Server<A> {
     }
 
     /// Starts listening for requests using the default http1 `Runtime`.
-    pub fn start<H: RequestHandler + Send + Sync + 'static>(
-        self,
-        handler: H,
-    ) -> std::io::Result<()> {
+    pub fn start<H>(self, handler: H) -> std::io::Result<()>
+    where
+        H: RequestHandler + Send + Sync + 'static,
+    {
         self.start_with(DefaultRuntime::default(), handler)
     }
 
     /// Starts listening for requests using the given `Runtime`.
-    pub fn start_with<R: Runtime, H: RequestHandler + Send + Sync + 'static>(
-        self,
-        runtime: R,
-        handler: H,
-    ) -> std::io::Result<R::Output> {
+    pub fn start_with<R, H>(self, runtime: R, handler: H) -> std::io::Result<R::Output>
+    where
+        R: Runtime,
+        H: RequestHandler + Send + Sync + 'static,
+    {
         let Self {
             addr,
             config,
+            handle,
             mut on_ready,
         } = self;
 
@@ -117,6 +158,12 @@ impl<A: ToSocketAddrs> Server<A> {
             on_ready(&addr)
         }
 
-        runtime.start(listener, config, handler)
+        let args = StartRuntime {
+            listener,
+            config,
+            handle,
+        };
+
+        runtime.start(args, handler)
     }
 }

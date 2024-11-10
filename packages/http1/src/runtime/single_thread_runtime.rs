@@ -1,6 +1,8 @@
+use std::io::ErrorKind;
+
 use crate::protocol::h1::handle_incoming;
 
-use super::runtime::Runtime;
+use super::runtime::{Runtime, StartRuntime};
 
 pub struct SingleThreadRuntime;
 
@@ -9,20 +11,34 @@ impl Runtime for SingleThreadRuntime {
 
     fn start<H: crate::handler::RequestHandler + Send + Sync + 'static>(
         self,
-        listener: std::net::TcpListener,
-        config: crate::server::Config,
+        args: StartRuntime,
         handler: H,
     ) -> std::io::Result<Self::Output> {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let config = config.clone();
-                    match handle_incoming(&handler, &config, stream) {
-                        Ok(_) => {}
-                        Err(err) => log::error!("{err}"),
-                    }
+        let StartRuntime {
+            config,
+            handle,
+            listener,
+        } = args;
+
+        let signal = handle.shutdown_signal;
+        listener.set_nonblocking(true)?;
+
+        loop {
+            if signal.is_stopped() {
+                break;
+            }
+
+            match listener.accept() {
+                Ok((stream, _)) => match handle_incoming(&handler, &config, stream) {
+                    Ok(_) => {}
+                    Err(err) => log::error!("{err}"),
+                },
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::yield_now();
                 }
-                Err(err) => return Err(err),
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
 
