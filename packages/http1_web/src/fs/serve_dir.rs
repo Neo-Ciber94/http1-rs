@@ -1,7 +1,9 @@
 use std::{
+    fmt::Debug,
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
     time::UNIX_EPOCH,
 };
 
@@ -28,13 +30,17 @@ impl Handler<Request<Body>> for DefaultServeDirFallback {
     }
 }
 
+
+type OnResponseHandler = Arc<Mutex<dyn FnMut(&mut Response<Body>) + Send>>;
+
 /// A handler to serve static files from a path.
-#[derive(Debug)]
 pub struct ServeDir<F = DefaultServeDirFallback> {
     root: PathBuf,
-    index_html: bool,
+    append_index_html: bool,
     list_directory: bool,
+    use_cache_headers: bool,
     fallback: F,
+    on_response: Option<OnResponseHandler>,
 }
 
 impl ServeDir<()> {
@@ -61,8 +67,10 @@ impl<F> ServeDir<F> {
 
         ServeDir {
             root,
-            index_html: false,
+            append_index_html: false,
             list_directory: false,
+            use_cache_headers: false,
+            on_response: None,
             fallback,
         }
     }
@@ -72,7 +80,13 @@ impl<F> ServeDir<F> {
     /// # Example
     /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
     pub fn append_html_index(mut self, index_html: bool) -> Self {
-        self.index_html = index_html;
+        self.append_index_html = index_html;
+        self
+    }
+
+    /// Whether if append cache-control headers for the files.
+    pub fn use_cache_headers(mut self, use_cache_headers: bool) -> Self {
+        self.use_cache_headers = use_cache_headers;
         self
     }
 
@@ -80,6 +94,26 @@ impl<F> ServeDir<F> {
     pub fn list_directory(mut self, list_directory: bool) -> Self {
         self.list_directory = list_directory;
         self
+    }
+
+    /// Add a handler that run each time a response is about to be send.
+    pub fn on_response<U>(mut self, on_response: U) -> Self
+    where
+        U: FnMut(&mut Response<Body>) + Send + 'static,
+    {
+        self.on_response = Some(Arc::new(Mutex::new(on_response)));
+        self
+    }
+}
+
+impl Debug for ServeDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServeDir")
+            .field("root", &self.root)
+            .field("append_index_html", &self.append_index_html)
+            .field("list_directory", &self.list_directory)
+            .field("use_cache_headers", &self.use_cache_headers)
+            .finish_non_exhaustive()
     }
 }
 
@@ -99,7 +133,7 @@ where
         let route = get_route(route_info, req_path);
         let mut serve_path = self.root.join(&route);
 
-        if serve_path.is_dir() && self.index_html {
+        if serve_path.is_dir() && self.append_index_html {
             let index_html = serve_path.join("index.html");
 
             if index_html.exists() {
@@ -130,9 +164,23 @@ where
         match File::open(&serve_path) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                Response::builder()
+                let mut res = Response::builder()
                     .append_header(headers::CONTENT_TYPE, mime.to_string())
-                    .body(Body::new(reader))
+                    .body(Body::new(reader));
+
+                if self.use_cache_headers {
+                    res.headers_mut().insert(
+                        headers::CACHE_CONTROL,
+                        format!("public, max-age=604800, immutable"),
+                    );
+                }
+
+                if let Some(mtx) = self.on_response.as_ref() {
+                    let mut on_response = mtx.lock().expect("failed to get on_response");
+                    (on_response)(&mut res);
+                }
+
+                res
             }
             Err(err) => {
                 log::error!("Failed to open file: {err}");
