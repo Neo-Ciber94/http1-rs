@@ -62,7 +62,7 @@ impl Default for Config {
     }
 }
 
-type OnReady<A> = Option<Box<dyn FnOnce(&A)>>;
+type OnReady<A> = Option<Box<dyn FnOnce(&A) + Send>>;
 
 /// The server implementation.
 pub struct Server<A> {
@@ -126,7 +126,10 @@ impl<A> Server<A> {
 
 impl<A: ToSocketAddrs> Server<A> {
     /// Adds a callback that will be executed right after the server starts.
-    pub fn on_ready<F: FnOnce(&A) + 'static>(mut self, f: F) -> Self {
+    pub fn on_ready<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&A) + Send + 'static,
+    {
         self.on_ready = Some(Box::new(f));
         self
     }
