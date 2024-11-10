@@ -1,8 +1,5 @@
-use std::marker::PhantomData;
-
-use crate::pick::Pick;
-
 use super::Rng;
+use std::marker::PhantomData;
 
 /// An iterator for a random sequence of values.
 pub struct RandomSequence<R, T> {
@@ -80,7 +77,7 @@ impl Random for Alphabetic {
         static ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
         let len = ALPHABET.len();
-        let idx = (0..len).pick(rng);
+        let idx = crate::range_with(0..len, rng);
         let n = ALPHABET.as_bytes()[idx] as u32;
         char::from_u32(n).expect("failed to get char")
     }
@@ -93,7 +90,7 @@ impl Random for Alphanumeric {
         static ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
         let len = ALPHABET.len();
-        let idx = (0..len).pick(rng);
+        let idx = crate::range_with(0..len, rng);
         let n = ALPHABET.as_bytes()[idx] as u32;
         char::from_u32(n).expect("failed to get char")
     }
@@ -108,7 +105,7 @@ impl Random for Ascii {
         let min = 32;
         let max = 126;
 
-        let n = (min..=max).pick(rng);
+        let n = crate::range_with(min..=max, rng);
         char::from_u32(n).expect("failed to get char")
     }
 }
@@ -120,7 +117,8 @@ impl Random for Hexadecimal {
 
     fn random<R: Rng>(rng: &mut R) -> char {
         static HEX_CHARS: &str = "0123456789abcdef";
-        let idx = (0..HEX_CHARS.len()).pick(rng);
+
+        let idx = crate::range_with(0..HEX_CHARS.len(), rng);
         HEX_CHARS.chars().nth(idx).expect("failed to get hex char")
     }
 }

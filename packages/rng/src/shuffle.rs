@@ -1,4 +1,4 @@
-use crate::{Pick, Rng};
+use crate::Rng;
 
 /// Allow to reorder the elements.
 pub trait Shuffle: Sized {
@@ -15,7 +15,7 @@ pub trait Shuffle: Sized {
 impl<'a, T> Shuffle for &'a mut [T] {
     fn shuffle_in_place(&mut self, rng: &mut impl Rng) {
         for i in 0..self.len() {
-            let idx = (i..self.len()).pick(rng);
+            let idx = crate::range_with(i..self.len(), rng);
             self.swap(i, idx);
         }
     }
@@ -49,7 +49,7 @@ impl Shuffle for String {
         let count = self.chars().count();
 
         for i in 0..count {
-            let idx = (i..count).pick(rng);
+            let idx = crate::range_with(i..count, rng);
             swap(self, i, idx);
         }
     }

@@ -1,145 +1,41 @@
-use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
+use crate::Rng;
 
-use crate::{random::Random, Rng};
-
-trait Numeric: Sized {
-    fn min_value() -> Self;
-    fn max_value() -> Self;
+pub struct PickMultipleIter<'a, T, R> {
+    src: &'a T,
+    rng: &'a mut R,
 }
 
-macro_rules! impl_min_max {
-    ($($T:ident),*) => {
-        $(
-            impl Numeric for $T {
-                fn min_value() -> Self {
-                    $T::MIN
-                }
+impl<'a, T, R> Iterator for PickMultipleIter<'a, T, R>
+where
+    T: Pick<Output = T>,
+    R: Rng,
+{
+    type Item = &'a T;
 
-                fn max_value() -> Self {
-                    $T::MAX
-                }
-            }
-        )*
-    };
+    fn next(&mut self) -> Option<Self::Item> {
+        self.src.pick(self.rng)
+    }
 }
-
-impl_min_max!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
 
 /// Picks a random value.
-pub trait Pick {
+pub trait Pick: Sized {
     type Output;
 
-    /// Gets a random value from this.
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output;
-}
+    /// Returns a random value from this.
+    fn pick(&self, rng: &mut impl Rng) -> Option<&Self::Output>;
 
-impl<T> Pick for Range<T>
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Clone,
-{
-    type Output = T;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let min = self.start.clone();
-        let max = self.end.clone();
-        assert!(min < max, "max must be greater than min: {max} < {min}");
-        let n = T::random(rng);
-        min.clone() + (n % (max - min))
+    /// Returns an iterator over that picks multiple values from this.
+    fn pick_multiple<'a, R>(&'a self, rng: &'a mut R) -> PickMultipleIter<'a, Self, R> {
+        PickMultipleIter { src: self, rng }
     }
 }
 
-impl<T> Pick for RangeInclusive<T>
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Clone,
-{
+impl<'a, T> Pick for &'a [T] {
     type Output = T;
 
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let min = self.start().clone();
-        let max = self.end().clone();
-        assert!(
-            min <= max,
-            "max must be greater than or equal to min: {max} <= {min}"
-        );
-        let n = T::random(rng);
-        min.clone() + (n % (max - min + T::random(rng)))
-    }
-}
-
-impl<T> Pick for RangeFrom<T>
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Numeric
-        + Clone,
-{
-    type Output = T;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let min = self.start.clone();
-        let max = T::max_value();
-        (min..=max).pick(rng)
-    }
-}
-
-impl<T> Pick for RangeToInclusive<T>
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Numeric
-        + Clone,
-{
-    type Output = T;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let min = T::min_value();
-        let max = self.end.clone();
-        (min..=max).pick(rng)
-    }
-}
-
-impl<T> Pick for RangeTo<T>
-where
-    T: Random<Output = T>
-        + PartialOrd
-        + std::ops::Sub<Output = T>
-        + std::ops::Add<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::fmt::Debug
-        + std::fmt::Display
-        + Numeric
-        + Clone,
-{
-    type Output = T;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let min = T::min_value();
-        let max = self.end.clone();
-        (min..max).pick(rng)
+    fn pick(&self, rng: &mut impl Rng) -> Option<&Self::Output> {
+        let idx = crate::range_with(0..self.len(), rng);
+        self.get(idx)
     }
 }
 
@@ -149,46 +45,18 @@ where
 {
     type Output = T;
 
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let idx = (0..self.len()).pick(rng);
-        self[idx].clone()
+    fn pick(&self, rng: &mut impl Rng) -> Option<&Self::Output> {
+        let idx = crate::range_with(0..self.len(), rng);
+        self.get(idx)
     }
 }
 
 impl<'a, const N: usize, T> Pick for &'a [T; N] {
-    type Output = &'a T;
+    type Output = T;
 
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        self.as_slice().pick(rng)
-    }
-}
-
-impl<'a, T> Pick for &'a [T] {
-    type Output = &'a T;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let idx = (0..self.len()).pick(rng);
-        &self[idx]
-    }
-}
-
-impl<'a> Pick for &'a str {
-    type Output = char;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        let idx = (0..self.len()).pick(rng);
-        self.char_indices()
-            .find(|(i, _)| *i == idx)
-            .map(|(_, c)| c)
-            .unwrap()
-    }
-}
-
-impl Pick for String {
-    type Output = char;
-
-    fn pick(&self, rng: &mut impl Rng) -> Self::Output {
-        self.as_str().pick(rng)
+    fn pick(&self, rng: &mut impl Rng) -> Option<&Self::Output> {
+        let idx = crate::range_with(0..self.len(), rng);
+        self.get(idx)
     }
 }
 
@@ -205,15 +73,15 @@ macro_rules! impl_tuple_pick {
         {
             type Output = T;
 
-            fn pick(&self, rng: &mut impl Rng) -> Self::Output {
+            fn pick(&self, rng: &mut impl Rng) -> Option<&Self::Output> {
                 let len = count!($($index),+);
-                let idx = (0..len).pick(rng);
+                let idx = crate::range_with(0..len, rng);
 
                 match idx {
                     $(
-                        n if n == $index => self.$index.clone(),
+                        n if n == $index => Some(&self.$index),
                     )*
-                    _ => unreachable!(),
+                    _ => None,
                 }
             }
         }

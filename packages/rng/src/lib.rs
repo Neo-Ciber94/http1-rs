@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, ops::RangeBounds};
 
 mod pick;
 mod random;
@@ -45,10 +45,10 @@ pub fn sequence<T: random::Random>() -> RandomSequence<LocalRng, T> {
     T::sequence(rng)
 }
 
-/// Returns a value within the given range.
-pub fn pick<T: Pick>(range: T) -> T::Output {
+/// Gets a random value from the given source.
+pub fn pick<T: Pick>(source: &T) -> Option<&T::Output> {
     let mut rng = local_rng();
-    range.pick(&mut rng)
+    source.pick(&mut rng)
 }
 
 /// Reorder the values of the value in place.
@@ -61,6 +61,85 @@ pub fn shuffle_in_place<T: Shuffle>(value: &mut T) {
 pub fn shuffle<T: Shuffle>(value: T) -> T {
     let mut rng = local_rng();
     value.shuffle(&mut rng)
+}
+
+#[doc(hidden)]
+pub trait Numeric: Sized {
+    fn one() -> Self;
+    fn min_value() -> Self;
+    fn max_value() -> Self;
+}
+
+macro_rules! impl_numeric {
+    ($($T:ident),*) => {
+        $(
+            impl Numeric for $T {
+                fn one() -> Self {
+                    1 as Self
+                }
+
+                fn min_value() -> Self {
+                    $T::MIN
+                }
+
+                fn max_value() -> Self {
+                    $T::MAX
+                }
+            }
+        )*
+    };
+}
+
+impl_numeric!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64);
+
+/// Gets a random number in the given range.
+pub fn range<T>(range: impl RangeBounds<T>) -> T
+where
+    T: Random<Output = T>
+        + PartialOrd
+        + std::ops::Sub<Output = T>
+        + std::ops::Add<Output = T>
+        + std::ops::Rem<Output = T>
+        + std::fmt::Debug
+        + std::fmt::Display
+        + Numeric
+        + Clone,
+{
+    let mut rng = local_rng();
+    range_with(range, &mut rng)
+}
+
+/// Gets a random number in the given range using the specified `Rng`.
+pub fn range_with<T>(range: impl RangeBounds<T>, rng: &mut impl Rng) -> T
+where
+    T: Random<Output = T>
+        + PartialOrd
+        + std::ops::Sub<Output = T>
+        + std::ops::Add<Output = T>
+        + std::ops::Rem<Output = T>
+        + std::fmt::Debug
+        + std::fmt::Display
+        + Numeric
+        + Clone,
+{
+    let min = match range.start_bound().cloned() {
+        std::ops::Bound::Included(x) => x,
+        std::ops::Bound::Excluded(x) => x + T::one(),
+        std::ops::Bound::Unbounded => T::min_value(),
+    };
+
+    let max = match range.end_bound().cloned() {
+        std::ops::Bound::Included(x) => x + T::one(),
+        std::ops::Bound::Excluded(x) => x,
+        std::ops::Bound::Unbounded => T::max_value(),
+    };
+
+    assert!(min < max, "max must be greater than min: {max} < {min}");
+
+    dbg!(&min, &max);
+
+    let n = T::random(rng);
+    min.clone() + (n % (max - min))
 }
 
 #[cfg(test)]
