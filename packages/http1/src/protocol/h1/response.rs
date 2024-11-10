@@ -1,10 +1,15 @@
-use std::io::Write;
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    str::FromStr,
+};
 
 use crate::{
-    body::{http_body::HttpBody, Body},
+    body::{body_writer::BodyWriter, http_body::HttpBody, Body},
     headers::{self, Headers},
     response::Response,
     server::Config,
+    status::StatusCode,
+    version::Version,
 };
 use datetime::DateTime;
 
@@ -15,7 +20,7 @@ pub fn write_response<W: Write>(
     config: &Config,
 ) -> std::io::Result<()> {
     let version = response.version();
-    let (status, headers, mut body) = response.into_parts();
+    let (status, headers, mut body, ..) = response.into_parts();
     let reason_phrase = status.reason_phrase().unwrap_or("");
 
     // 1. Write response line
@@ -77,4 +82,84 @@ fn write_headers<W: Write>(
     write!(stream, "\r\n")?;
 
     Ok(())
+}
+
+pub fn read_response<R: Read>(reader: R) -> std::io::Result<Response<Body>> {
+    let mut buf = String::new();
+    let mut buf_reader = BufReader::new(reader);
+
+    let mut response = Response::builder();
+
+    // Read response line
+    let (version, status) = read_response_line(&mut buf_reader, &mut buf)?;
+    *response.version_mut() = version;
+    *response.status_mut() = status;
+
+    // Read headers
+    let headers = crate::protocol::h1::request::read_headers(&mut buf_reader, &mut buf)?;
+    response.headers_mut().extend(headers);
+
+    // Read body
+    buf_reader.read_line(&mut buf)?; // Empty line
+
+    if !buf.trim().is_empty() {
+        return Err(std::io::Error::other(format!(
+            "Expected empty line before body but was: {buf}"
+        )));
+    }
+
+    let body = read_response_body(&mut buf_reader)?;
+
+    Ok(response.body(body))
+}
+
+fn read_response_line<R: Read>(
+    reader: &mut BufReader<R>,
+    mut buf: &mut String,
+) -> std::io::Result<(Version, StatusCode)> {
+    reader.read_line(&mut buf)?;
+
+    if buf.is_empty() {
+        return Err(std::io::Error::other("response was empty"));
+    }
+
+    let (version_str, status_code_str) = buf.split_once(" ").ok_or_else(|| {
+        std::io::Error::other("failed to get response HTTP version and status code")
+    })?;
+
+    let version = Version::from_str(version_str).map_err(std::io::Error::other)?;
+
+    // We ignore the status code phrase
+    let status_code = status_code_str
+        .split(" ")
+        .next()
+        .and_then(|s| u16::from_str(s).ok())
+        .and_then(|s| StatusCode::try_from_status(s).ok())
+        .ok_or_else(|| {
+            std::io::Error::other(format!(
+                "Failed to parse status code from `{status_code_str}`"
+            ))
+        })?;
+
+    Ok((version, status_code))
+}
+
+const BODY_READER_BUFFER_SIZE: usize = 4 * 1024; // 4kb
+
+fn read_response_body<R: Read>(reader: &mut BufReader<R>) -> std::io::Result<Body> {
+    let (body, sender) = BodyWriter::<Vec<u8>>::new();
+
+    let mut buf = vec![0; BODY_READER_BUFFER_SIZE].into_boxed_slice();
+
+    loop {
+        match reader.read(&mut buf)? {
+            0 => break,
+            n => {
+                let chunk = buf[..n].to_vec();
+                sender.send(chunk).map_err(std::io::Error::other)?;
+            }
+        }
+    }
+
+    Ok(Body::new(body))
 }

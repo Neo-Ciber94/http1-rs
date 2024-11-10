@@ -1,5 +1,5 @@
-mod request;
-mod response;
+pub mod request;
+pub mod response;
 
 use std::io::ErrorKind;
 

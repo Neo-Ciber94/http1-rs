@@ -9,10 +9,20 @@ impl StatusCode {
     pub const fn new(status: u16) -> Self {
         // https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
         if status < 100 || status > 599 {
-            panic!("Invalid status code, expected value between 100 and 599")
+            panic!("Invalid status code, expected value between 100 and 599 but was")
         }
 
         StatusCode(status)
+    }
+
+    /// Constructs an status code and return an error if the value is an invalid status code.
+    pub fn try_from_status(status: u16) -> Result<Self, u16> {
+        // https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
+        if status < 100 || status > 599 {
+            return Err(status);
+        }
+
+        Ok(Self::new(status))
     }
 
     /// Returns the status as `u16`.

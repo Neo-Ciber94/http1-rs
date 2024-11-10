@@ -1,9 +1,10 @@
 use std::{fmt::Display, str::FromStr};
 
 /// Represents the http protocol version.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Version {
     // HTTP/1.1 version.
+    #[default]
     Http1_1,
 }
 
@@ -26,6 +27,14 @@ impl Display for Version {
 #[derive(Debug)]
 pub struct InvalidVersion {
     _priv: (),
+}
+
+impl std::error::Error for InvalidVersion {}
+
+impl Display for InvalidVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid http version")
+    }
 }
 
 impl FromStr for Version {

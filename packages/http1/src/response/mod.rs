@@ -14,6 +14,7 @@ use super::{
 #[derive(Debug)]
 pub struct Response<T> {
     status: StatusCode,
+    version: Version,
     headers: Headers,
     extensions: AnyMap,
     body: T,
@@ -29,9 +30,15 @@ impl<T> Response<T> {
     /// # Returns
     /// A `Response` with the provided status and body, and empty headers.
     pub fn new(status: StatusCode, body: T) -> Self {
+        Self::with_version(status, Version::Http1_1, body)
+    }
+
+    /// Creates a new `Response` with the given status code and body and version
+    pub fn with_version(status: StatusCode, version: Version, body: T) -> Self {
         Response {
             status,
             body,
+            version,
             headers: Headers::new(),
             extensions: Default::default(),
         }
@@ -47,6 +54,16 @@ impl<T> Response<T> {
         &mut self.status
     }
 
+    /// Returns the http version of the response.
+    pub fn version(&self) -> Version {
+        self.version
+    }
+
+    /// Returns a mutable reference of the http version of the response.
+    pub fn version_mut(&mut self) -> &mut Version {
+        &mut self.version
+    }
+
     /// Returns a reference to the response headers.
     pub fn headers(&self) -> &Headers {
         &self.headers
@@ -55,13 +72,6 @@ impl<T> Response<T> {
     /// Returns a mutable reference to the response headers.
     pub fn headers_mut(&mut self) -> &mut Headers {
         &mut self.headers
-    }
-
-    /// Returns the HTTP version of the response.
-    ///
-    /// Currently, this always returns `Version::Http1_1`.
-    pub fn version(&self) -> Version {
-        Version::Http1_1
     }
 
     /// Returns a reference to the response body.
@@ -91,6 +101,7 @@ impl<T> Response<T> {
             body: new_body,
             headers: self.headers,
             status: self.status,
+            version: self.version,
             extensions: self.extensions,
         }
     }
@@ -100,15 +111,16 @@ impl<T> Response<T> {
     ///
     /// # Returns
     /// A tuple containing the status code, headers, and body.
-    pub fn into_parts(self) -> (StatusCode, Headers, T) {
+    pub fn into_parts(self) -> (StatusCode, Headers, T, Version) {
         let Self {
             status,
             headers,
             body,
+            version,
             extensions: _,
         } = self;
 
-        (status, headers, body)
+        (status, headers, body, version)
     }
 
     /// Returns a the body.
@@ -141,6 +153,7 @@ impl Response<()> {
 pub struct Builder {
     status: StatusCode,
     headers: Headers,
+    version: Version,
     extensions: AnyMap,
 }
 
@@ -150,6 +163,7 @@ impl Builder {
         Builder {
             status: StatusCode::OK,
             headers: Headers::new(),
+            version: Version::Http1_1,
             extensions: Default::default(),
         }
     }
@@ -164,6 +178,22 @@ impl Builder {
     pub fn status(mut self, status: StatusCode) -> Self {
         self.status = status;
         self
+    }
+
+    /// Returns a mutable reference to the status code.
+    pub fn status_mut(&mut self) -> &mut StatusCode {
+        &mut self.status
+    }
+
+    /// Sets the http version of the response.
+    pub fn version(mut self, version: Version) -> Self {
+        self.version = version;
+        self
+    }
+
+    /// Returns a mutable reference to the http version.
+    pub fn version_mut(&mut self) -> &mut Version {
+        &mut self.version
     }
 
     /// Returns a reference to the headers being set in the `Builder`.
@@ -236,12 +266,14 @@ impl Builder {
             status,
             headers,
             extensions,
+            version,
         } = self;
 
         Response {
             status,
             headers,
             extensions,
+            version,
             body,
         }
     }

@@ -6,11 +6,12 @@ use std::{
 use crate::{
     body::{
         body_reader::{ChunkedBodyReader, FixedLengthBodyReader},
+        http_body::HttpBody,
         Body,
     },
     headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
     method::Method,
-    request::Request,
+    request::{Parts, Request},
     server::Config,
     uri::uri::Uri,
     version::Version,
@@ -36,23 +37,8 @@ pub fn read_request<R: Read + Send + 'static>(
     *builder.version_mut().unwrap() = version;
 
     // Read headers
-    let mut headers = Headers::new();
     buf.clear();
-
-    while reader.read_line(&mut buf).unwrap() > 0 {
-        let line = buf.trim();
-        if line.is_empty() {
-            break;
-        }
-
-        if let Some((key, values)) = read_header(line) {
-            values.into_iter().for_each(|v| {
-                headers.append(HeaderName::from(key), v);
-            })
-        }
-
-        buf.clear();
-    }
+    let headers = read_headers(&mut reader, &mut buf)?;
 
     // Read the body
     let body = read_request_body(reader, &headers, can_discard_body, config)?;
@@ -136,7 +122,33 @@ fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
     Ok((method, url, version))
 }
 
-fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
+pub(crate) fn read_headers<R: Read>(
+    reader: &mut BufReader<R>,
+    mut buf: &mut String,
+) -> std::io::Result<Headers> {
+    buf.clear();
+    
+    let mut headers = Headers::new();
+
+    while reader.read_line(&mut buf).unwrap() > 0 {
+        let line = buf.trim();
+        if line.is_empty() {
+            break;
+        }
+
+        if let Some((key, values)) = read_header_line(line) {
+            values.into_iter().for_each(|v| {
+                headers.append(HeaderName::from(key), v);
+            })
+        }
+
+        buf.clear();
+    }
+
+    Ok(headers)
+}
+
+fn read_header_line(buf: &str) -> Option<(&str, Vec<String>)> {
     let str = buf.trim();
     let (name, rest) = str.split_once(": ")?;
 
@@ -154,4 +166,53 @@ fn read_header(buf: &str) -> Option<(&str, Vec<String>)> {
     };
 
     Some((name, values))
+}
+
+pub fn write_request<W: std::io::Write>(
+    mut writer: W,
+    request: Request<Body>,
+) -> std::io::Result<()> {
+    let (
+        mut body,
+        Parts {
+            uri,
+            method,
+            version,
+            mut headers,
+            ..
+        },
+    ) = request.into_parts();
+
+    if !headers.contains_key(headers::CONTENT_LENGTH) {
+        if let Some(size) = body.size_hint() {
+            headers.append(headers::CONTENT_LENGTH, size.to_string());
+        }
+    }
+
+    // Write request line: <method> <path> <version>
+    let line = format!("{method} {uri} {version}\r\n");
+    writer.write_all(line.as_bytes())?;
+
+    // Write headers
+    for (name, values) in headers {
+        writer.write(name.as_str().as_bytes())?;
+        writer.write(b": ")?;
+
+        for (pos, val) in values.enumerate() {
+            if pos > 0 {
+                writer.write(b", ")?;
+            }
+
+            writer.write(val.as_str().as_bytes())?;
+        }
+    }
+
+    // Write body
+    writer.write(b"\r\n")?;
+
+    while let Some(chunk) = body.read_next().map_err(std::io::Error::other)? {
+        writer.write_all(&chunk)?;
+    }
+
+    Ok(())
 }

@@ -10,6 +10,7 @@ pub mod request;
 pub mod response;
 pub mod runtime;
 pub mod server;
+pub mod client;
 pub mod status;
 pub mod uri;
 pub mod version;

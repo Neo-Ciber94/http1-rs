@@ -11,18 +11,24 @@ use super::{
     version::Version,
 };
 
+/// Request parts.
+#[derive(Debug)]
+pub struct Parts {
+    pub headers: Headers,
+    pub method: Method,
+    pub version: Version,
+    pub uri: Uri,
+    pub extensions: AnyMap,
+}
+
 /// Represents an HTTP request.
 ///
 /// This struct holds the HTTP method, version, URL, headers, and body of the request.
 /// The body is generic, allowing flexibility in request content.
 #[derive(Debug)]
 pub struct Request<T> {
-    extensions: AnyMap,
-    headers: Headers,
-    method: Method,
-    version: Version,
-    uri: Uri,
     body: T,
+    parts: Parts,
 }
 
 impl<T> Request<T> {
@@ -39,57 +45,59 @@ impl<T> Request<T> {
     pub fn new(method: Method, version: Version, uri: Uri, body: T) -> Self {
         Request {
             body,
-            method,
-            version,
-            uri,
-            headers: Headers::default(),
-            extensions: AnyMap::new(),
+            parts: Parts {
+                method,
+                version,
+                uri,
+                headers: Headers::default(),
+                extensions: AnyMap::new(),
+            },
         }
     }
 
     /// Returns a reference to the HTTP method of the request.
     pub fn method(&self) -> &Method {
-        &self.method
+        &self.parts.method
     }
 
     /// Returns a mutable reference to the HTTP method of the request.
     pub fn method_mut(&mut self) -> &mut Method {
-        &mut self.method
+        &mut self.parts.method
     }
 
     /// Returns a reference to the HTTP version of the request.
     pub fn version(&self) -> &Version {
-        &self.version
+        &self.parts.version
     }
 
     /// Returns a mutable reference to the HTTP version of the request.
     pub fn version_mut(&mut self) -> &mut Version {
-        &mut self.version
+        &mut self.parts.version
     }
 
     /// Returns a reference to the URL of the request.
     pub fn uri(&self) -> &Uri {
-        &self.uri
+        &self.parts.uri
     }
 
     /// Returns a reference to the headers of the request.
     pub fn headers(&self) -> &Headers {
-        &self.headers
+        &self.parts.headers
     }
 
     /// Returns a mutable reference to the headers of the request.
     pub fn headers_mut(&mut self) -> &mut Headers {
-        &mut self.headers
+        &mut self.parts.headers
     }
 
     /// Returns this request extensions.
     pub fn extensions(&self) -> &AnyMap {
-        &self.extensions
+        &self.parts.extensions
     }
 
     /// Returns a mutable reference to the request extensions.
     pub fn extensions_mut(&mut self) -> &mut AnyMap {
-        &mut self.extensions
+        &mut self.parts.extensions
     }
 
     /// Returns a reference to the body of the request.
@@ -105,6 +113,12 @@ impl<T> Request<T> {
     /// Returns the body
     pub fn into_body(self) -> T {
         self.body
+    }
+
+    /// Split this request into its body and rest of the parts.
+    pub fn into_parts(self) -> (T, Parts) {
+        let Self { body, parts } = self;
+        (body, parts)
     }
 }
 
@@ -124,14 +138,6 @@ impl Request<()> {
     pub fn builder() -> Builder {
         Builder::new()
     }
-}
-
-struct Parts {
-    headers: Headers,
-    method: Method,
-    version: Version,
-    uri: Uri,
-    extensions: AnyMap,
 }
 
 #[derive(Debug)]
@@ -314,12 +320,14 @@ impl Builder {
         } = inner;
 
         Ok(Request {
-            method,
-            version,
-            uri,
-            headers,
             body,
-            extensions,
+            parts: Parts {
+                method,
+                version,
+                uri,
+                headers,
+                extensions,
+            },
         })
     }
 }
