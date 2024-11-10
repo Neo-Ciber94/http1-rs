@@ -127,16 +127,18 @@ pub(crate) fn read_headers<R: Read>(
     mut buf: &mut String,
 ) -> std::io::Result<Headers> {
     buf.clear();
-    
+
     let mut headers = Headers::new();
 
-    while reader.read_line(&mut buf).unwrap() > 0 {
+    loop {
+        let read = reader.read_line(&mut buf)?;
         let line = buf.trim();
-        if line.is_empty() {
+
+        if line.is_empty() || read == 0 {
             break;
         }
 
-        if let Some((key, values)) = read_header_line(line) {
+        if let Some((key, values)) = parse_header_line(line) {
             values.into_iter().for_each(|v| {
                 headers.append(HeaderName::from(key), v);
             })
@@ -148,7 +150,7 @@ pub(crate) fn read_headers<R: Read>(
     Ok(headers)
 }
 
-fn read_header_line(buf: &str) -> Option<(&str, Vec<String>)> {
+fn parse_header_line(buf: &str) -> Option<(&str, Vec<String>)> {
     let str = buf.trim();
     let (name, rest) = str.split_once(": ")?;
 
@@ -205,6 +207,8 @@ pub fn write_request<W: std::io::Write>(
 
             writer.write(val.as_str().as_bytes())?;
         }
+
+        writer.write(b"\r\n")?;
     }
 
     // Write body
