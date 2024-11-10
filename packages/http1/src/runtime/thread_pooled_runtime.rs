@@ -37,10 +37,11 @@ impl Runtime for ThreadPooledRuntime {
             match stream {
                 Ok(stream) => {
                     let config = config.clone();
-                    let handler_lock = handler.lock().expect("Failed to acquire handler lock");
-                    let request_handler = handler_lock.clone();
+                    let lock = handler.lock().expect("Failed to acquire handler lock");
+                    let handler = lock.clone();
+
                     thread_pool.execute(move || {
-                        match handle_incoming(&request_handler, &config, stream) {
+                        match handle_incoming(&handler, &config, stream) {
                             Ok(_) => {}
                             Err(err) => log::error!("{err}"),
                         }
