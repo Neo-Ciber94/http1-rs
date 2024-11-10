@@ -2,9 +2,10 @@ use std::cell::RefCell;
 
 mod pick;
 mod random;
+mod shuffle;
 mod xorshift;
 
-pub use {pick::*, random::*};
+pub use {pick::*, random::*, shuffle::*};
 
 /// A random number generator source.
 pub trait Rng {
@@ -48,6 +49,18 @@ pub fn sequence<T: random::Random>() -> RandomSequence<LocalRng, T> {
 pub fn pick<T: Pick>(range: T) -> T::Output {
     let mut rng = local_rng();
     range.pick(&mut rng)
+}
+
+/// Reorder the values of the value in place.
+pub fn shuffle_in_place<T: Shuffle>(value: &mut T) {
+    let mut rng = local_rng();
+    value.shuffle_in_place(&mut rng);
+}
+
+/// Reorder the values of the value.
+pub fn shuffle<T: Shuffle>(value: T) -> T {
+    let mut rng = local_rng();
+    value.shuffle(&mut rng)
 }
 
 #[cfg(test)]
