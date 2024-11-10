@@ -121,8 +121,6 @@ body:has(.image-preview) {
   left: 0;
   width: 100%;
   height: 100%;
-  opacity: 0;
-  animation: fadeIn forwards 300ms linear;
 }
 
 .image-preview-img {
@@ -143,12 +141,6 @@ body:has(.image-preview) {
   color: white;
   font-size: 30px;
   text-decoration: none;
-}
-
-@keyframes fadeIn {
-  100% {
-    opacity: 1;
-  }
 }
 
 /* forms */
