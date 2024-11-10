@@ -107,9 +107,9 @@ pub fn read_response<R: Read>(reader: R) -> std::io::Result<Response<Body>> {
 
 fn read_response_line<R: Read>(
     reader: &mut BufReader<R>,
-    mut buf: &mut String,
+    buf: &mut String,
 ) -> std::io::Result<(Version, StatusCode)> {
-    reader.read_line(&mut buf)?;
+    reader.read_line(buf)?;
 
     if buf.is_empty() {
         return Err(std::io::Error::other("response was empty"));

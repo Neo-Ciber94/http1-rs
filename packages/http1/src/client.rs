@@ -124,6 +124,12 @@ impl Client {
     }
 }
 
+impl Default for Client {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct ClientBuilder(Client);
 
 impl ClientBuilder {
@@ -164,6 +170,12 @@ impl ClientBuilder {
 
     pub fn build(self) -> Client {
         self.0
+    }
+}
+
+impl Default for ClientBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

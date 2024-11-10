@@ -18,7 +18,7 @@ impl StatusCode {
     /// Constructs an status code and return an error if the value is an invalid status code.
     pub fn try_from_status(status: u16) -> Result<Self, u16> {
         // https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes
-        if status < 100 || status > 599 {
+        if !(100..=599).contains(&status) {
             return Err(status);
         }
 
