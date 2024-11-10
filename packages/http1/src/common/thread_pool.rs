@@ -12,7 +12,7 @@ use super::thread_spawner::ThreadSpawner;
 
 type Task = Box<dyn FnOnce() + Send + 'static>;
 
-const DEFAULT_WORKER_NAME: &'static str = "thread_pool_worker";
+const DEFAULT_WORKER_NAME: &str = "thread_pool_worker";
 
 #[derive(Default)]
 struct AtomicCounter(AtomicUsize);
@@ -282,7 +282,7 @@ fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std
 
                     if let Some(on_panic) = state.on_worker_panic {
                         // We sure ensure this do not panic because it will prevent other worker from spawning
-                        let _ = std::panic::catch_unwind(|| on_panic());
+                        let _ = std::panic::catch_unwind(on_panic);
                     }
 
                     // Spawn a new worker if this thread is poisoned
