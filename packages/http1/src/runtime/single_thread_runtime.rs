@@ -1,5 +1,3 @@
-use std::io::ErrorKind;
-
 use crate::protocol::h1::handle_incoming;
 
 use super::runtime::{Runtime, StartRuntime};
@@ -21,7 +19,6 @@ impl Runtime for SingleThreadRuntime {
         } = args;
 
         let signal = handle.shutdown_signal;
-        listener.set_nonblocking(true)?;
 
         loop {
             if signal.is_stopped() {
@@ -33,9 +30,6 @@ impl Runtime for SingleThreadRuntime {
                     Ok(_) => {}
                     Err(err) => log::error!("{err}"),
                 },
-                Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                    std::thread::yield_now();
-                }
                 Err(err) => {
                     return Err(err);
                 }

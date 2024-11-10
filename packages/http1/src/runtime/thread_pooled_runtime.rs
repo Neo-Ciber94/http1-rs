@@ -1,7 +1,4 @@
-use std::{
-    io::ErrorKind,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::{common::thread_pool::ThreadPool, protocol::h1::handle_incoming};
 
@@ -38,10 +35,8 @@ impl Runtime for ThreadPooledRuntime {
             handle,
         } = args;
 
-        listener.set_nonblocking(true)?;
-
         let signal = handle.shutdown_signal;
-        let thread_pool = &self.0;
+        let pool = &self.0;
         let handler = Mutex::new(Arc::new(handler));
 
         loop {
@@ -55,19 +50,12 @@ impl Runtime for ThreadPooledRuntime {
                     let config = config.clone();
                     let handler = lock.clone();
 
-                    thread_pool.execute(move || {
-                        match handle_incoming(&handler, &config, stream) {
-                            Ok(_) => {}
-                            Err(err) => log::error!("{err}"),
-                        }
+                    pool.execute(move || match handle_incoming(&handler, &config, stream) {
+                        Ok(_) => {}
+                        Err(err) => log::error!("{err}"),
                     })?;
                 }
-                Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                    std::thread::yield_now();
-                }
-                Err(err) => {
-                    return Err(err);
-                }
+                Err(err) => return Err(err),
             }
         }
 
