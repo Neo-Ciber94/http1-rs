@@ -1,4 +1,4 @@
-use std::{fmt::Display, net::TcpStream};
+use std::{fmt::Display, net::TcpStream, time::Duration};
 
 use serde::ser::Serialize;
 
@@ -258,8 +258,17 @@ impl<'a> RequestBuilder<'a> {
 
         request.headers_mut().extend(client.default_headers.clone());
 
-        let url = request.uri().to_string();
-        let mut stream = TcpStream::connect(url)?;
+        let uri = request.uri().to_string();
+        let addr = if uri.ends_with("/") {
+            &uri[..(uri.len() - 1)]
+        } else {
+            uri.as_str()
+        };
+
+        let mut stream = TcpStream::connect(addr)?;
+
+        stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+        stream.set_read_timeout(Some(Duration::from_secs(1)))?;
 
         crate::protocol::h1::request::write_request(&mut stream, request)?;
 
@@ -272,22 +281,42 @@ impl<'a> RequestBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        common::find_open_port::find_open_port, response::Response, server::Server,
+        body::{http_body::HttpBody, Body},
+        common::find_open_port::find_open_port,
+        response::Response,
+        server::Server,
         status::StatusCode,
     };
+
+    use super::Client;
 
     #[test]
     fn should_send_request_to_server_and_get_response() {
         let port = find_open_port().unwrap();
-        let addr: (&str, u16) = ("127.0.0.1", port);
+        let addr = format!("127.0.0.1:{port}");
 
-        let server = Server::new(addr);
+        //dbg!(port);
+        let server = Server::new(addr.clone());
         let handle = server.handle();
 
         std::thread::spawn(move || {
             server
-                .start(|_| Response::new(StatusCode::OK, "Hello World!".into()))
+                .on_ready(|addr| println!("server running on: {addr}"))
+                .start(|req| {
+                    println!("Request: {req:?}");
+                    Response::new(StatusCode::OK, "Hello World!".into())
+                })
                 .unwrap();
         });
+
+        let client = Client::new();
+        let res = client.get(addr).send(Body::empty()).unwrap();
+
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let body_bytes = res.into_body().read_all_bytes().unwrap();
+        assert_eq!(body_bytes, b"Hello World!");
+
+        handle.shutdown_signal.shutdown();
     }
 }

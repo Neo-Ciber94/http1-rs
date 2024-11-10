@@ -1,7 +1,7 @@
 pub mod body_reader;
+pub mod body_writer;
 pub mod chunked_body;
 pub mod http_body;
-pub mod body_writer;
 
 use std::{borrow::Cow, fmt::Debug};
 

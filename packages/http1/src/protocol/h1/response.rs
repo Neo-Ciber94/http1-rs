@@ -95,19 +95,11 @@ pub fn read_response<R: Read>(reader: R) -> std::io::Result<Response<Body>> {
     *response.version_mut() = version;
     *response.status_mut() = status;
 
-    // Read headers
+    // Read headers, it will read all the headers until a empty line is found
     let headers = crate::protocol::h1::request::read_headers(&mut buf_reader, &mut buf)?;
     response.headers_mut().extend(headers);
 
     // Read body
-    buf_reader.read_line(&mut buf)?; // Empty line
-
-    if !buf.trim().is_empty() {
-        return Err(std::io::Error::other(format!(
-            "Expected empty line before body but was: {buf}"
-        )));
-    }
-
     let body = read_response_body(&mut buf_reader)?;
 
     Ok(response.body(body))

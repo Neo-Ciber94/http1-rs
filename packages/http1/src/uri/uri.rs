@@ -39,11 +39,11 @@ impl Uri {
 impl std::fmt::Display for Uri {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(scheme) = &self.scheme {
-            write!(f, "{}", scheme)?;
+            write!(f, "{}//", scheme)?;
         }
 
         if let Some(authority) = &self.authority {
-            write!(f, "//{authority}")?;
+            write!(f, "{authority}")?;
         }
 
         write!(f, "{}", self.path_query)?;
