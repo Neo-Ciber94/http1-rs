@@ -8,7 +8,17 @@ pub struct ThreadPooledRuntime(ThreadPool);
 
 impl ThreadPooledRuntime {
     pub fn new() -> std::io::Result<Self> {
-        let pool = ThreadPool::new()?;
+        let parallelism = std::thread::available_parallelism()?;
+        let pool = ThreadPool::builder()
+            .num_workers(parallelism.get())
+            .on_worker_panic(|| {
+                log::error!(
+                    "Worker thread panicked: {:?}",
+                    std::thread::current().name()
+                );
+            })
+            .build()?;
+
         Ok(Self::with_pool(pool))
     }
 
