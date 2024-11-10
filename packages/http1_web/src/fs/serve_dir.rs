@@ -89,7 +89,7 @@ impl<F> ServeDir<F> {
         self
     }
 
-    /// Whether if append cache-control headers for the files.
+    /// Whether if append `Cache-Control` headers for the serve files.
     pub fn use_cache_headers(mut self, use_cache_headers: bool) -> Self {
         self.use_cache_headers = use_cache_headers;
         self
