@@ -170,7 +170,7 @@ where
                 if self.use_cache_headers {
                     res.headers_mut().insert(
                         headers::CACHE_CONTROL,
-                        format!("public, max-age=604800, immutable"),
+                        String::from("public, max-age=604800, immutable"),
                     );
                 }
 
