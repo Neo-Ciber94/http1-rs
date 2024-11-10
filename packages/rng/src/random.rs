@@ -78,8 +78,7 @@ impl Random for Alphabetic {
 
         let len = ALPHABET.len();
         let idx = crate::range_with(0..len, rng);
-        let n = ALPHABET.as_bytes()[idx] as u32;
-        char::from_u32(n).expect("failed to get char")
+        ALPHABET.chars().nth(idx).expect("failed to get char")
     }
 }
 
@@ -91,8 +90,7 @@ impl Random for Alphanumeric {
 
         let len = ALPHABET.len();
         let idx = crate::range_with(0..len, rng);
-        let n = ALPHABET.as_bytes()[idx] as u32;
-        char::from_u32(n).expect("failed to get char")
+        ALPHABET.chars().nth(idx).expect("failed to get char")
     }
 }
 
