@@ -32,7 +32,7 @@ impl ShutdownSignal {
 
 #[derive(Clone)]
 pub struct ServerHandle {
-    pub shutdown_signal: ShutdownSignal,
+    pub signal: ShutdownSignal,
 }
 
 /// Server configuration.
@@ -77,7 +77,7 @@ impl Server<()> {
     pub fn new<A: ToSocketAddrs>(addr: A) -> Server<A> {
         let config = Config::default();
         let handle = ServerHandle {
-            shutdown_signal: ShutdownSignal::new(),
+            signal: ShutdownSignal::new(),
         };
 
         Server {
