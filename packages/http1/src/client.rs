@@ -350,25 +350,19 @@ mod tests {
         let server = Server::new(addr.clone());
         let handle = server.handle();
 
-        let server_req: Arc<Mutex<Option<Request<Body>>>> = Arc::default();
+        let req: Arc<Mutex<Option<Request<Body>>>> = Arc::default();
 
         {
-            let server_req = Arc::clone(&server_req);
+            let req = Arc::clone(&req);
 
             std::thread::spawn(move || {
                 server
                     .on_ready(|addr| println!("server running on: {addr}"))
-                    .start(move |req| {
-                        // let mut lock = server_req.lock().unwrap();
-                        // *lock = Some(req);
-                        // drop(lock);
-                        println!("{req:?}");
-
+                    .start(move |request| {
+                        // *req.lock().unwrap() = Some(request);
                         Response::new(StatusCode::OK, "Bloom Into You".into())
                     })
                     .unwrap();
-
-                println!("drop");
             });
         }
 
@@ -379,8 +373,10 @@ mod tests {
             .request(Method::POST, addr)
             .send(Body::from("Yagate Kimi ni Naru"))
             .unwrap();
+
         // Assert server
-        // let mut req = server_req.lock().unwrap().take().expect("request");
+        // let mut req = req.lock().unwrap().take().expect("request");
+
         // assert_eq!(req.method(), Method::POST);
         // assert_eq!(
         //     req.body_mut().read_all_bytes().unwrap(),

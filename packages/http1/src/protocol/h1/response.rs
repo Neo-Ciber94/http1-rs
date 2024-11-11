@@ -103,7 +103,7 @@ where
     response.headers_mut().extend(headers);
 
     // Read body
-    let buf_body = BufBodyReader::new(buf_reader.into_inner());
+    let buf_body = BufBodyReader::from(buf_reader);
     let body = Body::new(buf_body);
 
     Ok(response.body(body))
