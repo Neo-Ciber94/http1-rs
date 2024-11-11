@@ -18,7 +18,7 @@ impl Runtime for SingleThreadRuntime {
             listener,
         } = args;
 
-        let signal = handle.shutdown_signal;
+        let signal = handle.signal;
 
         loop {
             if signal.is_stopped() {

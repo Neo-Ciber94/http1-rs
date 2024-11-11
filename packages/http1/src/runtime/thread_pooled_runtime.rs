@@ -45,7 +45,7 @@ impl Runtime for ThreadPooledRuntime {
             handle,
         } = args;
 
-        let signal = handle.shutdown_signal;
+        let signal = handle.signal;
         let pool = &self.0;
         let handler = Mutex::new(Arc::new(handler));
 
