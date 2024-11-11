@@ -45,20 +45,36 @@ impl From<std::io::Error> for RequestError {
     }
 }
 
+/// A http client.
 pub struct Client {
     user_agent: Option<String>,
     default_headers: Headers,
+    read_timeout: Option<Duration>,
+    write_timeout: Option<Duration>,
 }
 
 impl Client {
+    /// Constructs a [`Client`].
     pub fn new() -> Self {
         Self::builder().build()
     }
 
+    /// Returns a [`Client`] builder.
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
     }
 
+    /// Returns the `User-Agent` for this client.
+    pub fn user_agent(&self) -> Option<&str> {
+        self.user_agent.as_deref()
+    }
+
+    /// Returns the default headers for this client.
+    pub fn default_headers(&self) -> &Headers {
+        &self.default_headers
+    }
+
+    /// Returns a request builder.
     pub fn request<T>(&self, method: Method, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -67,6 +83,7 @@ impl Client {
         RequestBuilder::new(self, method, url)
     }
 
+    /// Returns a `GET` request builder.
     pub fn get<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -75,6 +92,7 @@ impl Client {
         self.request(Method::GET, url)
     }
 
+    /// Returns a `POST` request builder.
     pub fn post<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -83,6 +101,7 @@ impl Client {
         self.request(Method::POST, url)
     }
 
+    /// Returns a `PUT` request builder.
     pub fn put<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -91,6 +110,7 @@ impl Client {
         self.request(Method::PUT, url)
     }
 
+    /// Returns a `PATCH` request builder.
     pub fn patch<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -99,6 +119,7 @@ impl Client {
         self.request(Method::PATCH, url)
     }
 
+    /// Returns a `DELETE` request builder.
     pub fn delete<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -107,6 +128,7 @@ impl Client {
         self.request(Method::DELETE, url)
     }
 
+    /// Returns a `OPTION` request builder.
     pub fn option<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -115,6 +137,7 @@ impl Client {
         self.request(Method::OPTIONS, url)
     }
 
+    /// Returns a `HEAD` request builder.
     pub fn head<T>(&self, url: T) -> RequestBuilder
     where
         T: TryInto<Uri>,
@@ -133,18 +156,23 @@ impl Default for Client {
 pub struct ClientBuilder(Client);
 
 impl ClientBuilder {
+    /// Constructs a new [`ClientBuilder`].
     pub fn new() -> Self {
         ClientBuilder(Client {
             user_agent: None,
             default_headers: Headers::new(),
+            read_timeout: None,
+            write_timeout: None,
         })
     }
 
+    /// Sets the user agent.
     pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
         self.0.user_agent = Some(user_agent.into());
         self
     }
 
+    /// Append a default header.
     pub fn append_default_header(
         mut self,
         name: HeaderName,
@@ -154,6 +182,7 @@ impl ClientBuilder {
         self
     }
 
+    /// Insert a default header.
     pub fn insert_default_header(
         mut self,
         name: HeaderName,
@@ -163,11 +192,25 @@ impl ClientBuilder {
         self
     }
 
+    /// Add a list of headers.
     pub fn default_headers(mut self, headers: Headers) -> Self {
         self.0.default_headers.extend(headers);
         self
     }
 
+    /// Sets the read timeout.
+    pub fn read_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.0.read_timeout = timeout;
+        self
+    }
+
+    /// Sets the write timeout.
+    pub fn write_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.0.write_timeout = timeout;
+        self
+    }
+
+    /// Builds the [`Client`].
     pub fn build(self) -> Client {
         self.0
     }
@@ -185,6 +228,7 @@ pub struct RequestBuilder<'a> {
 }
 
 impl<'a> RequestBuilder<'a> {
+    /// Constructs a new [`RequestBuilder`].
     pub fn new<T>(client: &'a Client, method: Method, url: T) -> Self
     where
         T: TryInto<Uri>,
@@ -204,18 +248,7 @@ impl<'a> RequestBuilder<'a> {
         }
     }
 
-    pub fn uri<T>(self, uri: T) -> Self
-    where
-        T: TryInto<Uri>,
-        T::Error: Into<InvalidUri>,
-    {
-        self.tap(|request| request.uri(uri))
-    }
-
-    pub fn method(self, method: Method) -> Self {
-        self.tap(|request| request.method(method))
-    }
-
+    /// Sets the request headers.
     pub fn headers(self, headers: Headers) -> Self {
         self.tap(|mut request| {
             if let Some(h) = request.headers_mut() {
@@ -226,6 +259,7 @@ impl<'a> RequestBuilder<'a> {
         })
     }
 
+    /// Append a header.
     pub fn append_header(self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
         self.tap(|mut request| {
             if let Some(h) = request.headers_mut() {
@@ -236,6 +270,7 @@ impl<'a> RequestBuilder<'a> {
         })
     }
 
+    /// Insert a header.
     pub fn insert_header(self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
         self.tap(|mut request| {
             if let Some(h) = request.headers_mut() {
@@ -246,6 +281,7 @@ impl<'a> RequestBuilder<'a> {
         })
     }
 
+    /// Sends the request using the given `JSON` as body.
     pub fn json<T: Serialize>(self, json: &T) -> Result<Response<Body>, RequestError> {
         let json_bytes =
             serde::json::to_bytes(json).map_err(|err| RequestError::Other(err.into()))?;
@@ -254,6 +290,7 @@ impl<'a> RequestBuilder<'a> {
             .send(json_bytes)
     }
 
+    /// Sends a request with the given body.
     pub fn send(self, body: impl Into<Body>) -> Result<Response<Body>, RequestError> {
         let Self { request, client } = self;
         let mut request = request.body(body.into())?;
@@ -278,13 +315,12 @@ impl<'a> RequestBuilder<'a> {
         };
 
         let mut stream = TcpStream::connect(addr)?;
-
-        stream.set_write_timeout(Some(Duration::from_secs(1)))?;
-        stream.set_read_timeout(Some(Duration::from_secs(1)))?;
+        stream.set_write_timeout(client.write_timeout)?;
+        stream.set_read_timeout(client.read_timeout)?;
 
         crate::protocol::h1::request::write_request(&mut stream, request)?;
 
-        let response = crate::protocol::h1::response::read_response(&mut stream)?;
+        let response = crate::protocol::h1::response::read_response(stream)?;
 
         Ok(response)
     }
@@ -307,7 +343,6 @@ mod tests {
         let port = find_open_port().unwrap();
         let addr = format!("127.0.0.1:{port}");
 
-        //dbg!(port);
         let server = Server::new(addr.clone());
         let handle = server.handle();
 

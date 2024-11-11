@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    body::{body_writer::BodyWriter, http_body::HttpBody, Body},
+    body::{buf_body_reader::BufBodyReader, http_body::HttpBody, Body},
     headers::{self, Headers},
     response::Response,
     server::Config,
@@ -84,7 +84,10 @@ fn write_headers<W: Write>(
     Ok(())
 }
 
-pub fn read_response<R: Read>(reader: R) -> std::io::Result<Response<Body>> {
+pub fn read_response<R>(reader: R) -> std::io::Result<Response<Body>>
+where
+    R: Read + Send + 'static,
+{
     let mut buf = String::new();
     let mut buf_reader = BufReader::new(reader);
 
@@ -100,7 +103,8 @@ pub fn read_response<R: Read>(reader: R) -> std::io::Result<Response<Body>> {
     response.headers_mut().extend(headers);
 
     // Read body
-    let body = read_response_body(&mut buf_reader)?;
+    let buf_body = BufBodyReader::new(buf_reader.into_inner());
+    let body = Body::new(buf_body);
 
     Ok(response.body(body))
 }
@@ -134,24 +138,4 @@ fn read_response_line<R: Read>(
         })?;
 
     Ok((version, status_code))
-}
-
-const BODY_READER_BUFFER_SIZE: usize = 4 * 1024; // 4kb
-
-fn read_response_body<R: Read>(reader: &mut BufReader<R>) -> std::io::Result<Body> {
-    let (body, sender) = BodyWriter::<Vec<u8>>::new();
-
-    let mut buf = vec![0; BODY_READER_BUFFER_SIZE].into_boxed_slice();
-
-    loop {
-        match reader.read(&mut buf)? {
-            0 => break,
-            n => {
-                let chunk = buf[..n].to_vec();
-                sender.send(chunk).map_err(std::io::Error::other)?;
-            }
-        }
-    }
-
-    Ok(Body::new(body))
 }

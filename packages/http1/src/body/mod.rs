@@ -1,5 +1,6 @@
 pub mod body_reader;
 pub mod body_writer;
+pub mod buf_body_reader;
 pub mod chunked_body;
 pub mod http_body;
 
