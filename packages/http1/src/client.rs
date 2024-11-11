@@ -315,8 +315,8 @@ impl<'a> RequestBuilder<'a> {
         };
 
         let mut stream = TcpStream::connect(addr)?;
-        stream.set_write_timeout(client.write_timeout)?;
-        stream.set_read_timeout(client.read_timeout)?;
+        // stream.set_write_timeout(client.write_timeout)?;
+        // stream.set_read_timeout(client.read_timeout)?;
 
         crate::protocol::h1::request::write_request(&mut stream, request)?;
 
@@ -328,9 +328,13 @@ impl<'a> RequestBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use crate::{
         body::{http_body::HttpBody, Body},
         common::find_open_port::find_open_port,
+        method::Method,
+        request::Request,
         response::Response,
         server::Server,
         status::StatusCode,
@@ -346,24 +350,48 @@ mod tests {
         let server = Server::new(addr.clone());
         let handle = server.handle();
 
-        std::thread::spawn(move || {
-            server
-                .on_ready(|addr| println!("server running on: {addr}"))
-                .start(|req| {
-                    println!("Request: {req:?}");
-                    Response::new(StatusCode::OK, "Hello World!".into())
-                })
-                .unwrap();
-        });
+        let server_req: Arc<Mutex<Option<Request<Body>>>> = Arc::default();
+
+        {
+            let server_req = Arc::clone(&server_req);
+
+            std::thread::spawn(move || {
+                server
+                    .on_ready(|addr| println!("server running on: {addr}"))
+                    .start(move |req| {
+                        // let mut lock = server_req.lock().unwrap();
+                        // *lock = Some(req);
+                        // drop(lock);
+                        println!("{req:?}");
+
+                        Response::new(StatusCode::OK, "Bloom Into You".into())
+                    })
+                    .unwrap();
+
+                println!("drop");
+            });
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
 
         let client = Client::new();
-        let res = client.get(addr).send(Body::empty()).unwrap();
+        let res = client
+            .request(Method::POST, addr)
+            .send(Body::from("Yagate Kimi ni Naru"))
+            .unwrap();
+        // Assert server
+        // let mut req = server_req.lock().unwrap().take().expect("request");
+        // assert_eq!(req.method(), Method::POST);
+        // assert_eq!(
+        //     req.body_mut().read_all_bytes().unwrap(),
+        //     b"Yagate Kimi ni Naru"
+        // );
 
+        // Assert client
         assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.into_body().read_all_bytes().unwrap(), b"Bloom Into You");
 
-        let body_bytes = res.into_body().read_all_bytes().unwrap();
-        assert_eq!(body_bytes, b"Hello World!");
-
-        handle.shutdown_signal.shutdown();
+        // Shutdown server
+        handle.signal.shutdown();
     }
 }

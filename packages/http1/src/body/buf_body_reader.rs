@@ -47,10 +47,12 @@ where
 
         match self.reader.read(buf)? {
             0 => {
+                println!("nothing was read");
                 self.eof = true;
                 Ok(None)
             }
             n => {
+                println!("read: {n}");
                 let chunk = buf[..n].to_vec();
                 Ok(Some(chunk))
             }
