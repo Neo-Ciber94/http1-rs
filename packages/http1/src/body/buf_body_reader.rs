@@ -61,7 +61,12 @@ where
             return Ok(None);
         }
 
-        let buf = &mut self.buf;
+        let len = self
+            .content_length
+            .unwrap_or(self.buf.len())
+            .min(self.buf.len());
+
+        let buf = &mut self.buf[..len];
 
         match self.reader.read(buf)? {
             0 => {
@@ -72,8 +77,7 @@ where
                 let chunk = buf[..n].to_vec();
                 self.read += chunk.len();
 
-                // If we have reach the content length, we don't read more data
-                // FIXME: Truncate up to content length?
+                // If we reach the end we don't need to read more data
                 if let Some(content_length) = self.content_length {
                     if self.read >= content_length {
                         self.eof = true;

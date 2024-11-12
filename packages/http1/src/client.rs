@@ -334,7 +334,6 @@ mod tests {
         body::{http_body::HttpBody, Body},
         common::find_open_port::find_open_port,
         method::Method,
-        request::Request,
         response::Response,
         server::Server,
         status::StatusCode,
@@ -350,23 +349,21 @@ mod tests {
         let server = Server::new(addr.clone());
         let handle = server.handle();
 
-        let req: Arc<Mutex<Option<Request<Body>>>> = Arc::default();
+        let req_mutex = Arc::new(Mutex::new(None));
 
         {
-            let req = Arc::clone(&req);
+            let req = Arc::clone(&req_mutex);
 
             std::thread::spawn(move || {
                 server
                     .on_ready(|addr| println!("server running on: {addr}"))
                     .start(move |request| {
-                        // *req.lock().unwrap() = Some(request);
+                        *req.lock().unwrap() = Some(request);
                         Response::new(StatusCode::OK, "Bloom Into You".into())
                     })
                     .unwrap();
             });
         }
-
-        std::thread::sleep(std::time::Duration::from_millis(100));
 
         let client = Client::new();
         let res = client
@@ -375,13 +372,13 @@ mod tests {
             .unwrap();
 
         // Assert server
-        // let mut req = req.lock().unwrap().take().expect("request");
+        let mut req = req_mutex.lock().unwrap().take().expect("request");
 
-        // assert_eq!(req.method(), Method::POST);
-        // assert_eq!(
-        //     req.body_mut().read_all_bytes().unwrap(),
-        //     b"Yagate Kimi ni Naru"
-        // );
+        assert_eq!(req.method(), Method::POST);
+        assert_eq!(
+            req.body_mut().read_all_bytes().unwrap(),
+            b"Yagate Kimi ni Naru"
+        );
 
         // Assert client
         assert_eq!(res.status(), StatusCode::OK);

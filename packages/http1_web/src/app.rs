@@ -820,8 +820,6 @@ mod tests {
             .map(|(r, _)| r.to_string())
             .collect::<Vec<_>>();
 
-        dbg!(&entries);
-
         // Assert existing routes
         assert!(entries.iter().any(|x| x == "/hello"));
         assert!(entries.iter().any(|x| x == "/health"));

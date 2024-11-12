@@ -100,9 +100,16 @@ where
 
     // Read headers, it will read all the headers until a empty line is found
     let headers = crate::protocol::h1::request::read_headers(&mut buf_reader, &mut buf)?;
-    let content_length = headers
-        .get(headers::CONTENT_TYPE)
-        .and_then(|x| usize::from_str(x.as_str()).ok());
+    let content_length =
+        headers
+            .get(headers::CONTENT_LENGTH)
+            .and_then(|x| match usize::from_str(x.as_str()) {
+                Ok(size) => Some(size),
+                Err(err) => {
+                    log::warn!("Failed to parse content length: {err}");
+                    None
+                }
+            });
 
     response.headers_mut().extend(headers);
 

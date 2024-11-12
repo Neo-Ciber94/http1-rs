@@ -20,10 +20,12 @@ pub trait HttpBody {
 
     /// Read all the chunks and returns a `Vec` containing all the bytes.
     fn read_all_bytes(&mut self) -> Result<Vec<u8>, Self::Err> {
-        let mut bytes = Vec::new();
+        let capacity = self.size_hint().unwrap_or(4);
+        let mut bytes = Vec::with_capacity(capacity);
 
         while let Some(chunk) = self.read_next()? {
-            bytes.extend(chunk.into());
+            let chunk = chunk.into();
+            bytes.extend(chunk);
         }
 
         Ok(bytes)
