@@ -8,21 +8,31 @@ pub struct BufBodyReader<R> {
     reader: BufReader<R>,
     buf: Box<[u8]>,
     eof: bool,
+    read: usize,
+    content_length: Option<usize>,
 }
 
 impl<R> BufBodyReader<R>
 where
     R: Read + Send + 'static,
 {
-    pub fn new(reader: R) -> Self {
-        Self::with_buffer_size(reader, DEFAULT_BUFFER_SIZE)
+    pub fn new(reader: R, content_length: Option<usize>) -> Self {
+        Self::with_buffer_size(reader, DEFAULT_BUFFER_SIZE, content_length)
     }
 
-    pub fn with_buffer_size(reader: R, buffer_size: usize) -> Self {
-        Self::with_buf_reader_and_buffer_size(BufReader::new(reader), Some(buffer_size))
+    pub fn with_buffer_size(reader: R, buffer_size: usize, content_length: Option<usize>) -> Self {
+        Self::with_buf_reader_and_buffer_size(
+            BufReader::new(reader),
+            Some(buffer_size),
+            content_length,
+        )
     }
 
-    fn with_buf_reader_and_buffer_size(reader: BufReader<R>, buffer_size: Option<usize>) -> Self {
+    pub fn with_buf_reader_and_buffer_size(
+        reader: BufReader<R>,
+        buffer_size: Option<usize>,
+        content_length: Option<usize>,
+    ) -> Self {
         let buffer_size = buffer_size.unwrap_or(DEFAULT_BUFFER_SIZE);
 
         assert!(buffer_size > 0);
@@ -33,16 +43,9 @@ where
             reader,
             buf,
             eof: false,
+            read: 0,
+            content_length,
         }
-    }
-}
-
-impl<R> From<BufReader<R>> for BufBodyReader<R>
-where
-    R: Read + Send + 'static,
-{
-    fn from(value: BufReader<R>) -> Self {
-        Self::with_buf_reader_and_buffer_size(value, None)
     }
 }
 
@@ -67,6 +70,16 @@ where
             }
             n => {
                 let chunk = buf[..n].to_vec();
+                self.read += chunk.len();
+
+                // If we have reach the content length, we don't read more data
+                // FIXME: Truncate up to content length?
+                if let Some(content_length) = self.content_length {
+                    if self.read >= content_length {
+                        self.eof = true;
+                    }
+                }
+
                 Ok(Some(chunk))
             }
         }

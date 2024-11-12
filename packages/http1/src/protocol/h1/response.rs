@@ -100,10 +100,14 @@ where
 
     // Read headers, it will read all the headers until a empty line is found
     let headers = crate::protocol::h1::request::read_headers(&mut buf_reader, &mut buf)?;
+    let content_length = headers
+        .get(headers::CONTENT_TYPE)
+        .and_then(|x| usize::from_str(x.as_str()).ok());
+
     response.headers_mut().extend(headers);
 
     // Read body
-    let buf_body = BufBodyReader::from(buf_reader);
+    let buf_body = BufBodyReader::with_buf_reader_and_buffer_size(buf_reader, None, content_length);
     let body = Body::new(buf_body);
 
     Ok(response.body(body))
