@@ -307,16 +307,11 @@ impl<'a> RequestBuilder<'a> {
 
         request.headers_mut().extend(client.default_headers.clone());
 
-        let uri = request.uri().to_string();
-        let addr = if uri.ends_with("/") {
-            &uri[..(uri.len() - 1)]
-        } else {
-            uri.as_str()
-        };
-
+        let addr = get_addr(request.uri())?;
         let mut stream = TcpStream::connect(addr)?;
-        // stream.set_write_timeout(client.write_timeout)?;
-        // stream.set_read_timeout(client.read_timeout)?;
+
+        stream.set_write_timeout(client.write_timeout)?;
+        stream.set_read_timeout(client.read_timeout)?;
 
         crate::protocol::h1::request::write_request(&mut stream, request)?;
 
@@ -326,12 +321,32 @@ impl<'a> RequestBuilder<'a> {
     }
 }
 
+fn get_addr(uri: &Uri) -> std::io::Result<String> {
+    let authority = uri
+        .authority()
+        .ok_or_else(|| std::io::Error::other("missing hostname in url"))?;
+
+    Ok(match uri.scheme() {
+        Some(scheme) => match authority.port() {
+            Some(port) => format!("{scheme}://{}:{port}", authority.host()),
+            None => format!("{scheme}://{}", authority.host()),
+        },
+        None => match authority.port() {
+            Some(port) => format!("{}:{port}", authority.host()),
+            None => authority.host().to_owned(),
+        },
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     use crate::{
-        body::{http_body::HttpBody, Body},
+        body::{chunked_body::ChunkedBody, http_body::HttpBody, Body},
         common::find_open_port::find_open_port,
         method::Method,
         response::Response,
@@ -383,6 +398,62 @@ mod tests {
         // Assert client
         assert_eq!(res.status(), StatusCode::OK);
         assert_eq!(res.into_body().read_all_bytes().unwrap(), b"Bloom Into You");
+
+        // Shutdown server
+        handle.signal.shutdown();
+    }
+
+    #[test]
+    fn should_send_request_to_server_and_get_chunked_encoded_response() {
+        let port = find_open_port().unwrap();
+        let addr = format!("127.0.0.1:{port}");
+
+        let server = Server::new(addr.clone());
+        let handle = server.handle();
+
+        let req_mutex = Arc::new(Mutex::new(None));
+
+        {
+            let req = Arc::clone(&req_mutex);
+
+            std::thread::spawn(move || {
+                server
+                    .on_ready(|addr| println!("server running on: {addr}"))
+                    .start(move |request| {
+                        *req.lock().unwrap() = Some(request);
+                        let (body, sender) = ChunkedBody::new();
+
+                        std::thread::spawn(move || {
+                            for i in 1..=3 {
+                                std::thread::sleep(Duration::from_millis(10));
+                                sender.send(format!("Chunk {i}\n")).unwrap();
+                            }
+                        });
+
+                        Response::new(StatusCode::CREATED, body.into())
+                    })
+                    .unwrap();
+            });
+        }
+
+        let client = Client::new();
+        let res = client
+            .request(Method::GET, format!("{addr}/message?text=hello"))
+            .send(())
+            .unwrap();
+
+        // Assert server
+        let mut req = req_mutex.lock().unwrap().take().expect("request");
+
+        assert_eq!(req.method(), Method::GET);
+        assert_eq!(req.body_mut().read_all_bytes().unwrap(), b"");
+
+        // Assert client
+        assert_eq!(res.status(), StatusCode::CREATED);
+        assert_eq!(
+            res.into_body().read_all_bytes().unwrap(),
+            b"Chunk 1\nChunk 2\nChunk 3\n"
+        );
 
         // Shutdown server
         handle.signal.shutdown();
