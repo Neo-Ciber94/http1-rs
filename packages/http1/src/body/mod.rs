@@ -111,3 +111,9 @@ impl<'a> From<Cow<'a, str>> for Body {
         value.as_bytes().to_vec().into()
     }
 }
+
+impl From<()> for Body {
+    fn from(_: ()) -> Self {
+        Body::empty()
+    }
+}
