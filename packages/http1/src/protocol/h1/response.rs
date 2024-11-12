@@ -4,7 +4,9 @@ use std::{
 };
 
 use crate::{
-    body::{buf_body_reader::BufBodyReader, http_body::HttpBody, Body},
+    body::{
+        buf_body_reader::BufBodyReader, chunked_body::ReadChunkedBody, http_body::HttpBody, Body,
+    },
     headers::{self, Headers},
     response::Response,
     server::Config,
@@ -100,6 +102,7 @@ where
 
     // Read headers, it will read all the headers until a empty line is found
     let headers = crate::protocol::h1::request::read_headers(&mut buf_reader, &mut buf)?;
+    let transfer_encoding = headers.get(headers::TRANSFER_ENCODING).cloned();
     let content_length =
         headers
             .get(headers::CONTENT_LENGTH)
@@ -114,8 +117,23 @@ where
     response.headers_mut().extend(headers);
 
     // Read body
-    let buf_body = BufBodyReader::with_buf_reader_and_buffer_size(buf_reader, None, content_length);
-    let body = Body::new(buf_body);
+    let body = match transfer_encoding {
+        Some(encoding) => {
+            if encoding.as_str() == "chunked" {
+                let chunked_body = ReadChunkedBody::new(buf_reader);
+                Body::new(chunked_body)
+            } else {
+                return Err(std::io::Error::other(format!(
+                    "Unknown response transfer encoding: {encoding}"
+                )));
+            }
+        }
+        None => {
+            let buf_body =
+                BufBodyReader::with_buf_reader_and_buffer_size(buf_reader, None, content_length);
+            Body::new(buf_body)
+        }
+    };
 
     Ok(response.body(body))
 }

@@ -1,5 +1,5 @@
 use std::{
-    io::Write,
+    io::{BufRead, BufReader, Read, Write},
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
 };
 
@@ -65,5 +65,114 @@ where
 impl<T: AsRef<[u8]> + Send + 'static> From<ChunkedBody<T>> for Body {
     fn from(value: ChunkedBody<T>) -> Self {
         Body::new(value)
+    }
+}
+
+pub struct ReadChunkedBody<R> {
+    reader: BufReader<R>,
+    buf: Vec<u8>,
+    eof: bool,
+}
+
+impl<R> ReadChunkedBody<R> {
+    pub fn new(reader: BufReader<R>) -> Self {
+        ReadChunkedBody {
+            reader,
+            buf: Vec::new(),
+            eof: false,
+        }
+    }
+}
+
+impl<R> ReadChunkedBody<R>
+where
+    R: Read,
+{
+    fn read_line(&mut self, expected_len: usize) -> std::io::Result<Option<Vec<u8>>> {
+        self.buf.reserve(expected_len + 2);
+
+        // clear buffer
+        self.buf.clear();
+
+        let bytes_read = self.reader.read_until(b'\n', &mut self.buf)?;
+
+        match bytes_read {
+            0 => {
+                self.eof = true;
+                Ok(None)
+            }
+            _ => {
+                if !self.buf.ends_with(b"\r\n") {
+                    return Err(std::io::Error::other(
+                        "Invalid chunk ending, expected `\\r\\n`",
+                    ));
+                }
+
+                self.buf.pop();
+                self.buf.pop();
+
+                let data = std::mem::take(&mut self.buf);
+                Ok(Some(data))
+            }
+        }
+    }
+
+    fn read_chunk_size(&mut self) -> std::io::Result<usize> {
+        match self.read_line(1)? {
+            Some(bytes) => {
+                let hex = String::from_utf8_lossy(&bytes);
+                let chunk_len = usize::from_str_radix(&hex, 16).map_err(std::io::Error::other)?;
+                Ok(chunk_len)
+            }
+            None => Err(std::io::Error::other("chunk length not found")),
+        }
+    }
+
+    fn read_chunk(&mut self, size: usize) -> std::io::Result<Vec<u8>> {
+        match self.read_line(size)? {
+            Some(chunk) => Ok(chunk),
+            None => Err(std::io::Error::other(format!(
+                "Expected `{size}` bytes chunk but was empty"
+            ))),
+        }
+    }
+}
+
+impl<R: Read> HttpBody for ReadChunkedBody<R> {
+    type Err = std::io::Error;
+    type Data = Vec<u8>;
+
+    fn read_next(&mut self) -> Result<Option<Self::Data>, Self::Err> {
+        if self.eof {
+            return Ok(None);
+        }
+
+        let chunk_len = self.read_chunk_size()?;
+
+        if chunk_len > 0 {
+            let chunk = self.read_chunk(chunk_len)?;
+            Ok(Some(chunk))
+        } else {
+            self.eof = true;
+
+            // Ensure this is the chunk end
+            match self.read_line(0)? {
+                Some(chunk) => {
+                    if chunk != b"\r\n" {
+                        return Err(std::io::Error::other(format!(
+                            "expected chunk ending `\r\n` but was `{:?}`",
+                            String::from_utf8_lossy(&chunk)
+                        )));
+                    }
+                }
+                None => {
+                    return Err(std::io::Error::other(
+                        "expected chunk ending `\r\n` but was empty",
+                    ))
+                }
+            }
+
+            Ok(None)
+        }
     }
 }
