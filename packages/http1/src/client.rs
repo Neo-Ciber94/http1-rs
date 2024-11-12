@@ -348,6 +348,7 @@ mod tests {
     use crate::{
         body::{chunked_body::ChunkedBody, http_body::HttpBody, Body},
         common::find_open_port::find_open_port,
+        headers,
         method::Method,
         response::Response,
         server::Server,
@@ -430,7 +431,10 @@ mod tests {
                             }
                         });
 
-                        Response::new(StatusCode::CREATED, body.into())
+                        Response::builder()
+                            .status(StatusCode::CREATED)
+                            .append_header(headers::TRANSFER_ENCODING, "chunked")
+                            .body(body.into())
                     })
                     .unwrap();
             });
