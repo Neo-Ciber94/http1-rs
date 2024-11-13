@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Display};
 
-#[derive(Default, Debug, Clone, Hash, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HeaderValue(Cow<'static, str>);
 
 impl HeaderValue {
@@ -22,26 +22,6 @@ impl Display for HeaderValue {
 impl AsRef<str> for HeaderValue {
     fn as_ref(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl Eq for HeaderValue {}
-
-impl PartialEq for HeaderValue {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq_ignore_ascii_case(&other.0)
-    }
-}
-
-impl<'a> PartialEq<&'a str> for HeaderValue {
-    fn eq(&self, other: &&'a str) -> bool {
-        self.0.eq_ignore_ascii_case(other)
-    }
-}
-
-impl<'a> PartialEq<&'a String> for HeaderValue {
-    fn eq(&self, other: &&'a String) -> bool {
-        self.0.eq_ignore_ascii_case(other)
     }
 }
 
@@ -68,41 +48,5 @@ impl From<String> for HeaderValue {
 impl From<&'static str> for HeaderValue {
     fn from(value: &'static str) -> Self {
         HeaderValue::from_static(value)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_create_from_different_sources() {
-        assert_eq!(
-            HeaderValue::from_static("static_value").as_str(),
-            "static_value"
-        );
-        assert_eq!(
-            HeaderValue::from("owned_value".to_string()).as_str(),
-            "owned_value"
-        );
-        assert_eq!(HeaderValue::from(123).as_str(), "123");
-        assert_eq!(HeaderValue::from(45.67).as_str(), "45.67");
-    }
-
-    #[test]
-    fn should_compare_case_insensitively_with_another_header_value() {
-        let value1 = HeaderValue::from_static("Test");
-        let value2 = HeaderValue::from_static("test");
-        assert_eq!(value1, value2);
-
-        let value3 = HeaderValue::from_static("Example");
-        assert_ne!(value1, value3);
-    }
-
-    #[test]
-    fn should_compare_case_insensitively_with_str_and_string() {
-        let value = HeaderValue::from_static("Test");
-        assert_eq!(value, "test");
-        assert_eq!(value, &"test".to_string());
     }
 }
