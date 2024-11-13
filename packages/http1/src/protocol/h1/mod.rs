@@ -4,10 +4,13 @@ pub mod response;
 use std::io::ErrorKind;
 
 use crate::{
-    body::Body, handler::RequestHandler, method::Method, request::Request, server::Config,
+    body::Body, handler::RequestHandler, headers, method::Method, request::Request, server::Config,
 };
 
-use super::connection::{Connected, Connection};
+use super::{
+    connection::{Connected, Connection},
+    upgrade::Upgrade,
+};
 
 /**
  * Handles and send a response to a HTTP1 request.
@@ -15,7 +18,7 @@ use super::connection::{Connected, Connection};
 pub fn handle_incoming<H, C>(handler: &H, config: &Config, conn: C) -> std::io::Result<()>
 where
     H: RequestHandler + Send + Sync + 'static,
-    C: Connection + Send + 'static,
+    C: Connection + Send + Sync + 'static,
 {
     let mut write_conn = match conn.try_clone() {
         Ok(conn) => conn,
@@ -47,7 +50,7 @@ where
 
 fn pre_process_request<C>(request: &mut Request<Body>, conn: &C, config: &Config)
 where
-    C: Connection + Send + 'static,
+    C: Connection + Sync + Send + 'static,
 {
     if config.include_conn_info {
         request
@@ -58,6 +61,18 @@ where
     if config.include_server_info {
         request.extensions_mut().insert(config.clone());
     }
+
+    if is_upgrade_request(request) {
+        let stream = conn.try_clone().expect("failed to clone connection stream");
+        let upgrade = Upgrade::new(stream);
+        request.extensions_mut().insert(upgrade);
+    }
+}
+
+fn is_upgrade_request(req: &Request<Body>) -> bool {
+    req.headers()
+        .get(headers::CONNECTION)
+        .is_some_and(|conn| conn.as_str() == "Upgrade")
 }
 
 #[cfg(test)]
