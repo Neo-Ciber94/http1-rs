@@ -73,6 +73,11 @@ macro_rules! status_codes {
 }
 
 status_codes! {
+    // Informational 1xx
+    100, "Continue", CONTINUE,
+    101, "Switching Protocols", SWITCHING_PROTOCOLS,
+    103, "Early Hints", EARLY_HINTS,
+
     // Successful 2xx
     200, "OK", OK,
     201, "Created", CREATED,
