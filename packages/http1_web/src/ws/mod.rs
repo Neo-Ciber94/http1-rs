@@ -4,7 +4,7 @@ use http1::{headers, method::Method, status::StatusCode};
 
 use crate::{from_request::FromRequestRef, IntoResponse};
 
-const WEB_SOCKET_VERSION: u8 = 13;
+const WEB_SOCKET_VERSION: &str = "13";
 
 pub struct WebSocketUpgrade;
 
@@ -16,9 +16,8 @@ pub enum WebSocketUpgradeError {
     MissingConnectionUpgrade,
     MissingKey,
     MissingVersion,
-    MissingProtocol,
     MissingExtensions,
-    InvalidVersion,
+    InvalidVersion(String),
 }
 
 impl Display for WebSocketUpgradeError {
@@ -40,15 +39,12 @@ impl Display for WebSocketUpgradeError {
             WebSocketUpgradeError::MissingVersion => {
                 write!(f, "Missing `Sec-WebSocket-Version` header")
             }
-            WebSocketUpgradeError::MissingProtocol => {
-                write!(f, "Missing `Sec-WebSocket-Protocol` header")
-            }
             WebSocketUpgradeError::MissingExtensions => {
                 write!(f, "Missing `Sec-WebSocket-Extensions` header")
             }
-            WebSocketUpgradeError::InvalidVersion => write!(
+            WebSocketUpgradeError::InvalidVersion(version) => write!(
                 f,
-                "Invalid websocket version, expected: {WEB_SOCKET_VERSION}"
+                "Invalid version expected `{WEB_SOCKET_VERSION}` but was `{version}`"
             ),
         }
     }
@@ -93,15 +89,22 @@ impl FromRequestRef for WebSocketUpgrade {
         let web_socket_key = headers
             .get(headers::SEC_WEBSOCKET_KEY)
             .ok_or(WebSocketUpgradeError::MissingKey)?;
+
         let web_socket_version = headers
             .get(headers::SEC_WEBSOCKET_VERSION)
             .ok_or(WebSocketUpgradeError::MissingVersion)?;
-        let web_socket_protocol = headers
-            .get(headers::SEC_WEBSOCKET_PROTOCOL)
-            .ok_or(WebSocketUpgradeError::MissingVersion)?;
+
         let web_socket_exts = headers
             .get(headers::SEC_WEBSOCKET_EXTENSIONS)
             .ok_or(WebSocketUpgradeError::MissingExtensions)?;
+
+        if web_socket_version != WEB_SOCKET_VERSION {
+            return Err(WebSocketUpgradeError::InvalidVersion(
+                web_socket_version.as_str().to_string(),
+            ));
+        }
+
+        let web_socket_protocols = headers.get(headers::SEC_WEBSOCKET_PROTOCOL);
 
         todo!()
     }

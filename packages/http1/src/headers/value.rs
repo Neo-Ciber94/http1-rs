@@ -25,6 +25,18 @@ impl AsRef<str> for HeaderValue {
     }
 }
 
+impl<'a> PartialEq<&'a str> for HeaderValue {
+    fn eq(&self, other: &&'a str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl<'a> PartialEq<&'a str> for &'a HeaderValue {
+    fn eq(&self, other: &&'a str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 macro_rules! impl_from_value {
     ($($type:ty),+ $(,)?) => {
         $(
