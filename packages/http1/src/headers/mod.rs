@@ -80,6 +80,7 @@ define_header_names! {
     PERMISSIONS_POLICY => "Permissions-Policy",
 
     // Web sockets
+    SEC_WEBSOCKET_ACCEPT => "Sec-WebSocket-Accept",
     SEC_WEBSOCKET_KEY => "Sec-WebSocket-Key",
     SEC_WEBSOCKET_VERSION => "Sec-WebSocket-Version",
     SEC_WEBSOCKET_PROTOCOL => "Sec-WebSocket-Protocol",
