@@ -16,7 +16,6 @@ const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 #[derive(Debug)]
 pub struct WebSocketUpgrade {
     key: String,
-    version: u16,
 }
 
 impl WebSocketUpgrade {
@@ -157,12 +156,6 @@ impl FromRequestRef for WebSocketUpgrade {
             return Err(WebSocketUpgradeError::InvalidKey(key));
         }
 
-        let version = u16::from_str(web_socket_version.as_str()).map_err(|err| {
-            WebSocketUpgradeError::Other(
-                format!("Failed to parse websocket version `{web_socket_version}`: {err}").into(),
-            )
-        })?;
-
         if let Some(protocols) = headers.get(headers::SEC_WEBSOCKET_PROTOCOL) {
             return Err(WebSocketUpgradeError::NoProtocolsSupported(
                 protocols.to_string(),
@@ -175,6 +168,6 @@ impl FromRequestRef for WebSocketUpgrade {
             ));
         }
 
-        Ok(WebSocketUpgrade { key, version })
+        Ok(WebSocketUpgrade { key })
     }
 }
