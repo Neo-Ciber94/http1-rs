@@ -77,5 +77,11 @@ define_header_names! {
     CONTENT_SECURITY_POLICY => "Content-Security-Policy",
     CONTENT_SECURITY_POLICY_REPORT_ONLY => "Content-Security-Policy-Report-Only",
     FEATURE_POLICY => "Feature-Policy",
-    PERMISSIONS_POLICY => "Permissions-Policy"
+    PERMISSIONS_POLICY => "Permissions-Policy",
+
+    // Web sockets
+    SEC_WEBSOCKET_KEY => "Sec-WebSocket-Key",
+    SEC_WEBSOCKET_VERSION => "Sec-WebSocket-Version",
+    SEC_WEBSOCKET_PROTOCOL => "Sec-WebSocket-Protocol",
+    SEC_WEBSOCKET_EXTENSIONS => "Sec-WebSocket-Extensions",
 }
