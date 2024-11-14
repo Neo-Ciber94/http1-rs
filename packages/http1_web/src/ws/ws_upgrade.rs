@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::str::FromStr;
 
 use http1::{
     body::Body, common::base64::encode, error::BoxError, headers, method::Method,
@@ -30,8 +29,7 @@ impl WebSocketUpgrade {
             .ok_or_else(|| format!("Failed to get connection upgrade stream"))?;
 
         let web_socket = WebSocket::new(upgrade);
-
-        let accept_key = encode(hash_str).expect("failed to base64 encode accept sha1 hash");
+        let accept_key = encode(hash_str);
 
         let response = Response::builder()
             .status(StatusCode::SWITCHING_PROTOCOLS)
