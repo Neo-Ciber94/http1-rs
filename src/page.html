@@ -23,6 +23,8 @@
 
       ws.onopen = (ev) => {
         console.log("WebSocket connection open", ev);
+
+        ws.send("Hello World!");
       };
     </script>
   </body>

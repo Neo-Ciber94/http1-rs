@@ -1,22 +1,67 @@
-use std::io::Read;
+use std::{fmt::Display, io::Read};
 
 use http1::{error::BoxError, protocol::upgrade::Upgrade};
 
 const BUFFER_SIZE: usize = 4 * 1024;
+const MAX_PAYLOAD_LENGTH: usize = 64 * 1024; // 64 kb
+
+#[derive(Debug)]
+pub enum WebSocketError {
+    PayloadTooBig { min: usize, actual: usize },
+    InvalidPayloadLen(u64),
+    InvalidOpCode(u8),
+    UnmaskedClientPayload,
+    IO(std::io::Error),
+    Other(BoxError),
+}
+
+impl std::error::Error for WebSocketError {}
+
+impl Display for WebSocketError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebSocketError::PayloadTooBig { min, actual } => {
+                write!(f, "websocket payload is too big: {actual} > {min}")
+            }
+            WebSocketError::IO(error) => write!(f, "websocket io error: {error}"),
+            WebSocketError::InvalidPayloadLen(len) => write!(f, "Invalid payload len: {len}"),
+            WebSocketError::InvalidOpCode(code) => write!(f, "invalid op_code: {code:X}"),
+            WebSocketError::UnmaskedClientPayload => {
+                write!(f, "client payload should always be encoded")
+            }
+            WebSocketError::Other(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl From<std::io::Error> for WebSocketError {
+    fn from(value: std::io::Error) -> Self {
+        WebSocketError::IO(value)
+    }
+}
 
 #[derive(Clone)]
 pub struct WebSocket {
     upgrade: Upgrade,
+    max_payload_len: Option<usize>,
     buf: Box<[u8]>,
 }
 
 impl WebSocket {
     pub fn new(upgrade: Upgrade) -> Self {
-        let buf = vec![0; BUFFER_SIZE].into_boxed_slice();
-        WebSocket { upgrade, buf }
+        Self::with_max_payload_length(upgrade, Some(MAX_PAYLOAD_LENGTH))
     }
 
-    fn read_exact(&mut self, bytes_len: usize) -> Result<Vec<u8>, BoxError> {
+    pub fn with_max_payload_length(upgrade: Upgrade, max_payload_len: Option<usize>) -> Self {
+        let buf = vec![0; BUFFER_SIZE].into_boxed_slice();
+        WebSocket {
+            upgrade,
+            buf,
+            max_payload_len,
+        }
+    }
+
+    fn read_exact(&mut self, bytes_len: usize) -> Result<Vec<u8>, WebSocketError> {
         let mut result = Vec::new();
 
         loop {
@@ -34,42 +79,50 @@ impl WebSocket {
         Ok(result)
     }
 
-    fn read_next_byte(&mut self) -> Result<u8, BoxError> {
+    fn read_next_byte(&mut self) -> Result<u8, WebSocketError> {
         let mut buf = [0; 1];
         self.upgrade.read_exact(&mut buf)?;
         Ok(buf[0])
     }
 
-    fn read_frame_len(&mut self) -> Result<(bool, u64), BoxError> {
+    fn read_frame_len(&mut self) -> Result<(bool, u64), WebSocketError> {
         let b1 = self.read_next_byte()?;
         let mask = (b1 & 0b1000_0000) != 0;
         let len_indicator = (b1 & 0b0111_1111) as u64;
 
-        if len_indicator < 125 {
-            Ok((mask, len_indicator))
+        let len = if len_indicator < 125 {
+            len_indicator
         } else if len_indicator == 126 {
             let b2 = self.read_next_byte()?;
             let b3 = self.read_next_byte()?;
-            let len = ((b2 as u64) << 8) | (b3 as u64);
-            Ok((mask, len))
+            ((b2 as u64) << 8) | (b3 as u64)
         } else if len_indicator == 127 {
             let bytes = self.read_exact(8)?;
-            let len = (bytes[0] as u64) << 56
+            (bytes[0] as u64) << 56
                 | (bytes[1] as u64) << 48
                 | (bytes[2] as u64) << 40
                 | (bytes[3] as u64) << 32
                 | (bytes[4] as u64) << 24
                 | (bytes[5] as u64) << 16
                 | (bytes[6] as u64) << 8
-                | (bytes[7] as u64);
-
-            Ok((mask, len))
+                | (bytes[7] as u64)
         } else {
-            Err(format!("Invalid payload len: `{len_indicator}`").into())
+            return Err(WebSocketError::InvalidPayloadLen(len_indicator));
+        };
+
+        if let Some(min) = self.max_payload_len {
+            if (len as usize) > min {
+                return Err(WebSocketError::PayloadTooBig {
+                    min,
+                    actual: len as usize,
+                });
+            }
         }
+
+        Ok((mask, len))
     }
 
-    fn read_masking_key(&mut self) -> Result<u32, BoxError> {
+    fn read_masking_key(&mut self) -> Result<u32, WebSocketError> {
         let bytes = self.read_exact(4)?;
         let b0 = bytes[0] as u32;
         let b1 = bytes[1] as u32;
@@ -79,7 +132,7 @@ impl WebSocket {
         Ok(b0 << 24 | b1 << 16 | b2 << 8 | b3)
     }
 
-    fn read_payload(&mut self, mut len: u64, masking_key: u32) -> Result<Vec<u8>, BoxError> {
+    fn read_payload(&mut self, mut len: u64, masking_key: u32) -> Result<Vec<u8>, WebSocketError> {
         let mut data = Vec::new();
         let masking_key_bytes = masking_key.to_be_bytes();
 
@@ -106,21 +159,21 @@ impl WebSocket {
         Ok(data)
     }
 
-    fn read_frame(&mut self) -> Result<Frame, BoxError> {
+    fn read_frame(&mut self) -> Result<Frame, WebSocketError> {
         // fin, rsv1, rsv2, rsv3, op_code
         let first_byte = self.read_next_byte()?;
-        let fin = first_byte & 0b0111_1111 == 1;
-        let rsv1 = first_byte & 0b1011_1111;
-        let rsv2 = first_byte & 0b1101_1111;
-        let rsv3 = first_byte & 0b1110_1111;
-        let op_code_seq = first_byte << 4 & 0b1111_0000;
+        let fin = (first_byte & 0b1000_0000) != 0;
+        let rsv1 = (first_byte & 0b0100_0000) != 0;
+        let rsv2 = (first_byte & 0b0010_0000) != 0;
+        let rsv3 = (first_byte & 0b0001_0000) != 0;
+        let op_code_seq = first_byte & 0b0000_1111;
         let op_code = OpCode::from_byte(op_code_seq)
-            .ok_or_else(|| format!("Invalid op_code `{op_code_seq}`"))?;
+            .ok_or_else(|| WebSocketError::InvalidOpCode(op_code_seq))?;
 
         let (mask, payload_len) = self.read_frame_len()?;
 
         if !mask {
-            return Err(String::from("client to server payload should always be encoded").into());
+            return Err(WebSocketError::UnmaskedClientPayload);
         }
 
         let masking_key = if mask { self.read_masking_key()? } else { 0 };
@@ -139,17 +192,21 @@ impl WebSocket {
         })
     }
 
-    pub fn read(&mut self) -> Result<Message, BoxError> {
+    pub fn read(&mut self) -> Result<Message, WebSocketError> {
         let mut msg_data = Vec::new();
         let mut msg_op_code: Option<OpCode> = None;
 
         loop {
+            let frame = self.read_frame()?;
+
+            dbg!(&frame);
+
             let Frame {
                 fin,
                 op_code,
                 payload,
                 ..
-            } = self.read_frame()?;
+            } = frame;
 
             msg_data.extend(payload);
             msg_op_code.get_or_insert(op_code);
@@ -163,7 +220,8 @@ impl WebSocket {
         match op_code {
             OpCode::Binary => Ok(Message::Binary(msg_data)),
             OpCode::Text => {
-                let text = String::from_utf8(msg_data)?;
+                let text =
+                    String::from_utf8(msg_data).map_err(|err| WebSocketError::Other(err.into()))?;
                 Ok(Message::Text(text))
             }
             OpCode::Ping => Ok(Message::Ping(msg_data)),
@@ -175,7 +233,7 @@ impl WebSocket {
         }
     }
 
-    pub fn send(&mut self, message: Message) -> Result<(), BoxError> {
+    pub fn send(&mut self, message: Message) -> Result<(), WebSocketError> {
         todo!()
     }
 }
@@ -220,9 +278,9 @@ pub enum Message {
 #[derive(Debug)]
 struct Frame {
     fin: bool,
-    rsv1: u8,
-    rsv2: u8,
-    rsv3: u8,
+    rsv1: bool,
+    rsv2: bool,
+    rsv3: bool,
     op_code: OpCode,
     mask: bool,
     payload_len: u64,
@@ -247,9 +305,9 @@ impl FrameBuilder {
     pub fn new(op_code: OpCode) -> Self {
         FrameBuilder(Frame {
             fin: true,
-            rsv1: 0,
-            rsv2: 0,
-            rsv3: 0,
+            rsv1: false,
+            rsv2: false,
+            rsv3: false,
             op_code,
             mask: false,
             payload_len: 0,
@@ -263,7 +321,7 @@ impl FrameBuilder {
         self
     }
 
-    pub fn rsv(mut self, rsv1: u8, rsv2: u8, rsv3: u8) -> Self {
+    pub fn rsv(mut self, rsv1: bool, rsv2: bool, rsv3: bool) -> Self {
         self.0.rsv1 = rsv1;
         self.0.rsv2 = rsv2;
         self.0.rsv3 = rsv3;
