@@ -26,12 +26,18 @@ impl fmt::Display for Base64Error {
 impl Error for Base64Error {}
 
 pub fn encode(s: impl AsRef<str>) -> String {
-    let bytes = s.as_ref().as_bytes();
-    String::from_utf8(encode_to_bytes(bytes)).unwrap_or_default()
+    encode_to_string(s.as_ref().as_bytes())
 }
 
 pub fn decode(s: impl AsRef<str>) -> Result<String, Base64Error> {
-    let bytes = s.as_ref().as_bytes();
+    decode_to_string(s.as_ref().as_bytes())
+}
+
+pub fn encode_to_string(bytes: &[u8]) -> String {
+    String::from_utf8(encode_to_bytes(bytes)).unwrap_or_default()
+}
+
+pub fn decode_to_string(bytes: &[u8]) -> Result<String, Base64Error> {
     let decoded_bytes = decode_from_bytes(bytes)?;
     String::from_utf8(decoded_bytes).map_err(|_| Base64Error::InvalidUtf8)
 }

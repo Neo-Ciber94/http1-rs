@@ -189,6 +189,7 @@ impl IntoResponse for ErrorResponse {
             }
             Inner::Error(error) => {
                 let msg = error.to_string();
+                log::error!("{}", msg);
                 Response::new(status_code, msg.into())
             }
         }

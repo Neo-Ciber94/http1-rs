@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use http1::{
-    body::Body, common::base64::encode, error::BoxError, headers, method::Method,
-    protocol::upgrade::Upgrade, response::Response, status::StatusCode,
+    body::Body, error::BoxError, headers, method::Method, protocol::upgrade::Upgrade,
+    response::Response, status::StatusCode,
 };
 
 use crate::{from_request::FromRequest, IntoResponse};
@@ -22,10 +22,7 @@ impl WebSocketUpgrade {
     pub fn upgrade(self) -> Result<(WebSocket, Response<Body>), BoxError> {
         let WebSocketUpgrade { key, upgrade } = self;
         let hash_bytes = http1::common::sha1::hash(format!("{key}{WEB_SOCKET_UUID_STR}"));
-        let hash_str = String::from_utf8(hash_bytes)?;
-
-        let web_socket = WebSocket::new(upgrade);
-        let accept_key = encode(hash_str);
+        let accept_key = http1::common::base64::encode_to_string(&hash_bytes);
 
         let response = Response::builder()
             .status(StatusCode::SWITCHING_PROTOCOLS)
@@ -33,6 +30,8 @@ impl WebSocketUpgrade {
             .insert_header(headers::CONNECTION, "upgrade")
             .insert_header(headers::SEC_WEBSOCKET_ACCEPT, accept_key)
             .body(Body::empty());
+
+        let web_socket = WebSocket::new(upgrade);
 
         Ok((web_socket, response))
     }
