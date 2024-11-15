@@ -2,13 +2,10 @@ use std::fmt::Display;
 
 use http1::{
     body::Body, common::base64::encode, error::BoxError, headers, method::Method,
-    protocol::upgrade::Upgrade, request::Request, response::Response, status::StatusCode,
+    protocol::upgrade::Upgrade, response::Response, status::StatusCode,
 };
 
-use crate::{
-    from_request::{FromRequest, FromRequestRef},
-    IntoResponse,
-};
+use crate::{from_request::FromRequest, IntoResponse};
 
 use super::WebSocket;
 
@@ -50,7 +47,6 @@ pub enum WebSocketUpgradeError {
     MissingKey,
     MissingVersion,
     NoProtocolsSupported(String),
-    NoExtensionsSupported(String),
     InvalidVersion(String),
     InvalidKey(String),
     Other(BoxError),
@@ -81,18 +77,11 @@ impl Display for WebSocketUpgradeError {
                 f,
                 "Invalid version expected `{WEB_SOCKET_VERSION}` but was `{version}`"
             ),
-            WebSocketUpgradeError::InvalidKey(key) => write!(
-                f,
-                "Invalid key: `{key}`"
-            ),
+            WebSocketUpgradeError::InvalidKey(key) => write!(f, "Invalid key: `{key}`"),
             WebSocketUpgradeError::Other(error) => write!(f, "{error}"),
             WebSocketUpgradeError::NoProtocolsSupported(protocols) => write!(
                 f,
                 "`Sec-WebSocket-Protocol` was found but not protocol are supported: {protocols}"
-            ),
-            WebSocketUpgradeError::NoExtensionsSupported(extensions) => write!(
-                f,
-                "`Sec-WebSocket-Extensions` was found but not extensions are supported: {extensions}"
             ),
         }
     }
@@ -120,13 +109,13 @@ impl FromRequest for WebSocketUpgrade {
         let headers = req.headers();
 
         if let Some(upgrade) = headers.get(headers::UPGRADE) {
-            if upgrade.as_str().eq_ignore_ascii_case("websocket") {
+            if !upgrade.as_str().eq_ignore_ascii_case("websocket") {
                 return Err(WebSocketUpgradeError::MissingUpgrade);
             }
         }
 
         if let Some(conn) = headers.get(headers::CONNECTION) {
-            if conn.as_str().eq_ignore_ascii_case("Upgrade") {
+            if !conn.as_str().eq_ignore_ascii_case("Upgrade") {
                 return Err(WebSocketUpgradeError::MissingConnectionUpgrade);
             }
         }
@@ -145,11 +134,14 @@ impl FromRequest for WebSocketUpgrade {
             ));
         }
 
-        let key = http1::common::base64::decode(web_socket_key).map_err(|err| {
-            WebSocketUpgradeError::Other(format!("Failed to parse websocket key: {err}").into())
-        })?;
+        let key = web_socket_key.as_str().to_string();
 
-        if key.as_bytes().len() != 13 {
+        let key_bytes =
+            http1::common::base64::decode_from_bytes(key.as_bytes()).map_err(|err| {
+                WebSocketUpgradeError::Other(format!("Failed to parse websocket key: {err}").into())
+            })?;
+
+        if key_bytes.len() != 16 {
             return Err(WebSocketUpgradeError::InvalidKey(key));
         }
 
@@ -160,9 +152,10 @@ impl FromRequest for WebSocketUpgrade {
         }
 
         if let Some(exts) = headers.get(headers::SEC_WEBSOCKET_EXTENSIONS) {
-            return Err(WebSocketUpgradeError::NoExtensionsSupported(
-                exts.to_string(),
-            ));
+            log::warn!(
+                "Websocket extensions were found, but no extensions are supported: {}",
+                exts.as_str(),
+            );
         }
 
         let upgrade = req.extensions_mut().remove::<Upgrade>().ok_or_else(|| {
