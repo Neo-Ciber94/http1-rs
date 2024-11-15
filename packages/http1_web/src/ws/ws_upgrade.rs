@@ -5,7 +5,10 @@ use http1::{
     protocol::upgrade::Upgrade, request::Request, response::Response, status::StatusCode,
 };
 
-use crate::{from_request::FromRequestRef, IntoResponse};
+use crate::{
+    from_request::{FromRequest, FromRequestRef},
+    IntoResponse,
+};
 
 use super::WebSocket;
 
@@ -15,18 +18,14 @@ const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 #[derive(Debug)]
 pub struct WebSocketUpgrade {
     key: String,
+    upgrade: Upgrade,
 }
 
 impl WebSocketUpgrade {
-    pub fn upgrade(self, mut req: Request<Body>) -> Result<(WebSocket, Response<Body>), BoxError> {
-        let WebSocketUpgrade { key, .. } = self;
+    pub fn upgrade(self) -> Result<(WebSocket, Response<Body>), BoxError> {
+        let WebSocketUpgrade { key, upgrade } = self;
         let hash_bytes = http1::common::sha1::hash(format!("{key}{WEB_SOCKET_UUID_STR}"));
         let hash_str = String::from_utf8(hash_bytes)?;
-
-        let upgrade = req
-            .extensions_mut()
-            .remove::<Upgrade>()
-            .ok_or_else(|| format!("Failed to get connection upgrade stream"))?;
 
         let web_socket = WebSocket::new(upgrade);
         let accept_key = encode(hash_str);
@@ -106,11 +105,11 @@ impl IntoResponse for WebSocketUpgradeError {
     }
 }
 
-impl FromRequestRef for WebSocketUpgrade {
+impl FromRequest for WebSocketUpgrade {
     type Rejection = WebSocketUpgradeError;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        mut req: http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
         // Parsing the websocket according to:
         // https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
@@ -166,6 +165,12 @@ impl FromRequestRef for WebSocketUpgrade {
             ));
         }
 
-        Ok(WebSocketUpgrade { key })
+        let upgrade = req.extensions_mut().remove::<Upgrade>().ok_or_else(|| {
+            WebSocketUpgradeError::Other(
+                String::from("Failed to get connection upgrade stream").into(),
+            )
+        })?;
+
+        Ok(WebSocketUpgrade { key, upgrade })
     }
 }
