@@ -40,47 +40,46 @@ impl WebSocket {
         Ok(buf[0])
     }
 
-    fn read_frame_len(&mut self) -> Result<(bool, u128), BoxError> {
-        let mut len = 0;
-
+    fn read_frame_len(&mut self) -> Result<(bool, u64), BoxError> {
         let b1 = self.read_next_byte()?;
-        let mask = b1 & 0b1000_0000 == 1;
-        len = ((b1 as u128) << 1) & 0x1111_1110;
+        let mask = (b1 & 0b1000_0000) != 0;
+        let len_indicator = (b1 & 0b0111_1111) as u64;
 
-        if len < 125 {
-            Ok((mask, len))
-        } else if len == 126 {
+        if len_indicator < 125 {
+            Ok((mask, len_indicator))
+        } else if len_indicator == 126 {
             let b2 = self.read_next_byte()?;
             let b3 = self.read_next_byte()?;
-            len = b1 as u128 & (b2 as u128 >> 8) & (b3 as u128 >> 16);
+            let len = ((b2 as u64) << 8) | (b3 as u64);
             Ok((mask, len))
-        } else if len == 127 {
+        } else if len_indicator == 127 {
             let bytes = self.read_exact(8)?;
-            len = (b1 as u128)
-                & (bytes[0] >> 8) as u128
-                & (bytes[1] >> 16) as u128
-                & (bytes[2] >> 24) as u128
-                & (bytes[3] >> 32) as u128
-                & (bytes[4] >> 40) as u128
-                & (bytes[5] >> 48) as u128
-                & (bytes[6] >> 54) as u128
-                & (bytes[7] >> 64) as u128;
+            let len = (bytes[0] as u64) << 56
+                | (bytes[1] as u64) << 48
+                | (bytes[2] as u64) << 40
+                | (bytes[3] as u64) << 32
+                | (bytes[4] as u64) << 24
+                | (bytes[5] as u64) << 16
+                | (bytes[6] as u64) << 8
+                | (bytes[7] as u64);
 
             Ok((mask, len))
         } else {
-            Err(format!("Invalid payload len: `{len}`").into())
+            Err(format!("Invalid payload len: `{len_indicator}`").into())
         }
     }
 
     fn read_masking_key(&mut self) -> Result<u32, BoxError> {
         let bytes = self.read_exact(4)?;
-        Ok(bytes[0] as u32
-            & ((bytes[1] >> 8) as u32)
-            & ((bytes[2] >> 16) as u32)
-            & ((bytes[3] >> 24) as u32))
+        let b0 = bytes[0] as u32;
+        let b1 = bytes[1] as u32;
+        let b2 = bytes[2] as u32;
+        let b3 = bytes[3] as u32;
+
+        Ok(b0 << 24 | b1 << 16 | b2 << 8 | b3)
     }
 
-    fn read_payload(&mut self, mut len: u128, masking_key: u32) -> Result<Vec<u8>, BoxError> {
+    fn read_payload(&mut self, mut len: u64, masking_key: u32) -> Result<Vec<u8>, BoxError> {
         let mut data = Vec::new();
         let masking_key_bytes = masking_key.to_be_bytes();
 
@@ -89,8 +88,8 @@ impl WebSocket {
             match bytes_read {
                 0 => break,
                 n => {
-                    len -= n as u128;
-                    let mut bytes = &mut self.buf[..n];
+                    len -= n as u64;
+                    let bytes = &mut self.buf[..n];
 
                     if masking_key != 0 {
                         bytes.iter_mut().enumerate().for_each(|(idx, b)| {
@@ -226,7 +225,7 @@ struct Frame {
     rsv3: u8,
     op_code: OpCode,
     mask: bool,
-    payload_len: u128,
+    payload_len: u64,
     masking_key: u32,
     payload: Vec<u8>,
 }
@@ -287,13 +286,13 @@ impl FrameBuilder {
     }
 
     pub fn payload(mut self, payload: Vec<u8>) -> Self {
-        self.0.payload_len = payload.len() as u128;
+        self.0.payload_len = payload.len() as u64;
         self.0.payload = payload;
         self
     }
 
     pub fn push_payload(mut self, payload: &[u8]) -> Self {
-        self.0.payload_len += payload.len() as u128;
+        self.0.payload_len += payload.len() as u64;
         self.0.payload.extend_from_slice(payload);
         self
     }
