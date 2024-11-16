@@ -240,7 +240,8 @@ impl WebSocket {
         }
     }
 
-    pub fn send(&mut self, message: Message) -> Result<(), WebSocketError> {
+    pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
+        let message = message.into();
         let op_code = OpCode::from_message(&message);
         let frame = Frame::builder(op_code)
             .fin(true)
@@ -300,6 +301,24 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Message::Binary(vec) => vec.as_slice(),
+            Message::Text(s) => s.as_bytes(),
+            Message::Ping(vec) => vec.as_slice(),
+            Message::Pong(vec) => vec.as_slice(),
+            Message::Close => &[],
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Message::Text(s) => Some(s.as_str()),
+            Message::Close => Some(""),
+            _ => None,
+        }
+    }
+
     pub fn into_bytes(self) -> Vec<u8> {
         match self {
             Message::Binary(vec) => vec,
@@ -311,6 +330,31 @@ impl Message {
     }
 }
 
+impl From<String> for Message {
+    fn from(value: String) -> Self {
+        Message::Text(value)
+    }
+}
+
+impl<'a> From<&'a str> for Message {
+    fn from(value: &'a str) -> Self {
+        value.to_owned().into()
+    }
+}
+
+impl From<Vec<u8>> for Message {
+    fn from(value: Vec<u8>) -> Self {
+        Message::Binary(value)
+    }
+}
+
+impl<'a> From<&'a [u8]> for Message {
+    fn from(value: &'a [u8]) -> Self {
+        value.to_vec().into()
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug)]
 struct Frame {
     fin: bool,
@@ -345,33 +389,33 @@ impl Frame {
         let mut bytes = Vec::new();
 
         // fin, rsv1, rsv2, rsv3, op_code
-        let b_fin = fin as u8;
-        let b_rsv1 = rsv1 as u8;
-        let b_rsv2 = rsv2 as u8;
-        let b_rsv3 = rsv3 as u8;
-        let b0 = b_fin | (b_rsv1 >> 1) | (b_rsv2 >> 2) | (b_rsv3 >> 3) | (op_code.to_bit() >> 4);
+        let b_fin = (fin as u8) << 7;
+        let b_rsv1 = (rsv1 as u8) << 6;
+        let b_rsv2 = (rsv2 as u8) << 5;
+        let b_rsv3 = (rsv3 as u8) << 4;
+        let b0 = b_fin | b_rsv1 | b_rsv2 | b_rsv3 | op_code.to_bit();
 
         bytes.push(b0);
 
         // mask and payload len
-        let b_mask = mask as u8;
+        let b_mask = (mask as u8) << 7;
         match payload_len {
             n if n < 126 => {
-                let b1 = b_mask | (payload_len as u8 >> 1);
+                let b1 = b_mask | payload_len as u8;
                 bytes.push(b1);
             }
             n if n < u16::MAX as u64 => {
-                let b1 = b_mask | (126 >> 1);
+                let b1 = b_mask | 126;
                 let b2 = (n as u16).to_be_bytes();
                 bytes.push(b1);
                 bytes.extend_from_slice(&b2);
             }
             n => {
-                let b1 = b_mask | (127 >> 1);
+                let b1 = b_mask | 127;
                 let b2 = (n as u64).to_be_bytes();
                 bytes.push(b1);
                 bytes.extend_from_slice(&b2);
-            },
+            }
         };
 
         // masking key
@@ -388,6 +432,8 @@ impl Frame {
 
 #[derive(Debug)]
 struct FrameBuilder(Frame);
+
+#[allow(dead_code)]
 impl FrameBuilder {
     pub fn new(op_code: OpCode) -> Self {
         FrameBuilder(Frame {
