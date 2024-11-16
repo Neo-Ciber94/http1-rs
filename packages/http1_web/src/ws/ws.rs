@@ -1,7 +1,7 @@
 use std::{
     fmt::{Debug, Display},
     io::{Read, Write},
-    sync::{atomic::AtomicBool, Arc},
+    time::{Duration, Instant},
 };
 
 use http1::{error::BoxError, protocol::upgrade::Upgrade};
@@ -15,6 +15,7 @@ pub enum WebSocketError {
     InvalidPayloadLen(u64),
     InvalidOpCode(u8),
     UnmaskedClientPayload,
+    Timeout,
     Closed,
     IO(std::io::Error),
     Other(BoxError),
@@ -36,6 +37,7 @@ impl Display for WebSocketError {
             }
             WebSocketError::Closed => write!(f, "websocket connection is closed"),
             WebSocketError::Other(error) => write!(f, "{error}"),
+            WebSocketError::Timeout => write!(f, "websocket timeout"),
         }
     }
 }
@@ -70,10 +72,26 @@ impl WebSocket {
 
     /// Reads a message.
     pub fn recv(&mut self) -> Result<Message, WebSocketError> {
+        self.read(None)
+    }
+
+    /// Reads a message and errors if timeout.
+    pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Message, WebSocketError> {
+        self.read(Some(timeout))
+    }
+
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Message, WebSocketError> {
         let mut msg_data = Vec::new();
         let mut msg_op_code: Option<OpCode> = None;
+        let now = Instant::now();
 
         loop {
+            if let Some(timeout) = timeout {
+                if now.elapsed() > timeout {
+                    return Err(WebSocketError::Timeout);
+                }
+            }
+
             let frame = self.read_frame()?;
 
             let Frame {
@@ -268,6 +286,14 @@ impl WebSocket {
 impl Debug for WebSocket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WebSocket").finish_non_exhaustive()
+    }
+}
+
+impl Iterator for WebSocket {
+    type Item = Result<Message, WebSocketError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.recv())
     }
 }
 
