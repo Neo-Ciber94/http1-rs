@@ -10,9 +10,9 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse, RequestExt};
 
-use super::WebSocket;
+use super::{WebSocket, WebSocketConfig};
 
 //// Based on: https://datatracker.ietf.org/doc/html/rfc6455
 
@@ -20,13 +20,23 @@ const WEB_SOCKET_VERSION: &str = "13";
 const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 /// Waits for the connection to upgrade to websocket.
-pub struct PendingWebSocketUpgrade(PendingUpgrade);
+pub struct PendingWebSocketUpgrade {
+    pending: PendingUpgrade,
+    config: Option<WebSocketConfig>,
+}
 
 impl PendingWebSocketUpgrade {
     /// Waits for the websocket connection to be ready.
     /// This blocks the current thread so must be send after send the response or in another thread.
     pub fn wait(self) -> Result<WebSocket, PendingUpgradeError> {
-        self.0.wait().map(WebSocket::new)
+        let PendingWebSocketUpgrade { pending, config } = self;
+        let config = config.unwrap_or_default();
+
+        log::debug!("Websocket connection ready with config: {config:#?}");
+
+        pending
+            .wait()
+            .map(|upgrade| WebSocket::with_config(upgrade, config))
     }
 }
 
@@ -34,13 +44,18 @@ impl PendingWebSocketUpgrade {
 pub struct WebSocketUpgrade {
     key: String,
     pending: PendingUpgrade,
+    config: Option<WebSocketConfig>,
 }
 
 impl WebSocketUpgrade {
     /// Upgrades this websocket connection, return the response that notifies the client for the upgrade,
     /// and the pending connection.
     pub fn upgrade(self) -> (PendingWebSocketUpgrade, Response<Body>) {
-        let WebSocketUpgrade { key, pending } = self;
+        let WebSocketUpgrade {
+            key,
+            pending,
+            config,
+        } = self;
         let hash_bytes = http1::common::sha1::hash(format!("{key}{WEB_SOCKET_UUID_STR}"));
         let accept_key = http1::common::base64::encode_to_string(&hash_bytes);
 
@@ -51,7 +66,7 @@ impl WebSocketUpgrade {
             .insert_header(headers::SEC_WEBSOCKET_ACCEPT, accept_key)
             .body(Body::empty());
 
-        let pending = PendingWebSocketUpgrade(pending);
+        let pending = PendingWebSocketUpgrade { pending, config };
         (pending, response)
     }
 }
@@ -185,6 +200,12 @@ impl FromRequest for WebSocketUpgrade {
                 )
             })?;
 
-        Ok(WebSocketUpgrade { key, pending })
+        let config = req.state::<WebSocketConfig>();
+
+        Ok(WebSocketUpgrade {
+            key,
+            pending,
+            config,
+        })
     }
 }
