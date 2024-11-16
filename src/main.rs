@@ -18,7 +18,7 @@ fn main() -> std::io::Result<()> {
 }
 
 fn web_socket(upgrade: WebSocketUpgrade) -> Result<Response<Body>, ErrorResponse> {
-    let (pending, res) = upgrade.upgrade()?;
+    let (pending, res) = upgrade.upgrade();
 
     std::thread::spawn(move || {
         let mut ws = pending.wait().unwrap();

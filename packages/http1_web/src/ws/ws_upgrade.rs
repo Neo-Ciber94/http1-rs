@@ -14,6 +14,8 @@ use crate::{from_request::FromRequest, IntoResponse};
 
 use super::WebSocket;
 
+//// Based on: https://datatracker.ietf.org/doc/html/rfc6455
+
 const WEB_SOCKET_VERSION: &str = "13";
 const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -21,6 +23,8 @@ const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 pub struct PendingWebSocketUpgrade(PendingUpgrade);
 
 impl PendingWebSocketUpgrade {
+    /// Waits for the websocket connection to be ready.
+    /// This blocks the current thread so must be send after send the response or in another thread.
     pub fn wait(self) -> Result<WebSocket, PendingUpgradeError> {
         self.0.wait().map(WebSocket::new)
     }
@@ -33,7 +37,9 @@ pub struct WebSocketUpgrade {
 }
 
 impl WebSocketUpgrade {
-    pub fn upgrade(self) -> Result<(PendingWebSocketUpgrade, Response<Body>), BoxError> {
+    /// Upgrades this websocket connection, return the response that notifies the client for the upgrade,
+    /// and the pending connection.
+    pub fn upgrade(self) -> (PendingWebSocketUpgrade, Response<Body>) {
         let WebSocketUpgrade { key, pending } = self;
         let hash_bytes = http1::common::sha1::hash(format!("{key}{WEB_SOCKET_UUID_STR}"));
         let accept_key = http1::common::base64::encode_to_string(&hash_bytes);
@@ -46,7 +52,7 @@ impl WebSocketUpgrade {
             .body(Body::empty());
 
         let pending = PendingWebSocketUpgrade(pending);
-        Ok((pending, response))
+        (pending, response)
     }
 }
 
