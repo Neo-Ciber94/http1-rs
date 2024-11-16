@@ -28,6 +28,9 @@ fn web_socket(upgrade: WebSocketUpgrade) -> Result<Response<Body>, ErrorResponse
         println!("Message: {text:?}");
 
         ws.send("message").unwrap();
+
+        std::thread::sleep(Duration::from_secs(2));
+        ws.close().unwrap();
     });
 
     Ok(res)

@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     io::{Read, Write},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use http1::{error::BoxError, protocol::upgrade::Upgrade};
@@ -14,6 +15,7 @@ pub enum WebSocketError {
     InvalidPayloadLen(u64),
     InvalidOpCode(u8),
     UnmaskedClientPayload,
+    Closed,
     IO(std::io::Error),
     Other(BoxError),
 }
@@ -32,6 +34,7 @@ impl Display for WebSocketError {
             WebSocketError::UnmaskedClientPayload => {
                 write!(f, "client payload should always be encoded")
             }
+            WebSocketError::Closed => write!(f, "websocket connection is closed"),
             WebSocketError::Other(error) => write!(f, "{error}"),
         }
     }
@@ -48,6 +51,7 @@ pub struct WebSocket {
     upgrade: Upgrade,
     max_payload_len: Option<usize>,
     buf: Box<[u8]>,
+    is_closed: Arc<AtomicBool>,
 }
 
 impl WebSocket {
@@ -63,6 +67,7 @@ impl WebSocket {
             upgrade,
             buf,
             max_payload_len,
+            is_closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -73,8 +78,6 @@ impl WebSocket {
 
         loop {
             let frame = self.read_frame()?;
-
-            dbg!(&frame);
 
             let Frame {
                 fin,
@@ -110,6 +113,10 @@ impl WebSocket {
 
     /// Sends a message.
     pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
+        if self.is_server_connection_closed() {
+            return Err(WebSocketError::Closed);
+        }
+
         let message = message.into();
         let op_code = OpCode::from_message(&message);
         let frame = Frame::builder(op_code)
@@ -119,6 +126,24 @@ impl WebSocket {
 
         self.upgrade.write_all(&frame.into_bytes())?;
         Ok(())
+    }
+
+    /// Closes this websocket and notifies the client to close this websocket connection.
+    pub fn close(mut self) -> Result<(), WebSocketError> {
+        if self.is_server_connection_closed() {
+            return Ok(());
+        }
+
+        self.send(Message::Close)?;
+
+        self.is_closed
+            .store(true, std::sync::atomic::Ordering::Release);
+
+        Ok(())
+    }
+
+    fn is_server_connection_closed(&self) -> bool {
+        self.is_closed.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
