@@ -1,7 +1,9 @@
-use std::time::Duration;
-
 use http1::{body::Body, response::Response, server::Server};
-use http1_web::{app::App, ws::WebSocketUpgrade, ErrorResponse};
+use http1_web::{
+    app::App,
+    ws::{Message, WebSocketUpgrade},
+    ErrorResponse,
+};
 
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
@@ -22,15 +24,14 @@ fn web_socket(upgrade: WebSocketUpgrade) -> Result<Response<Body>, ErrorResponse
 
     std::thread::spawn(move || {
         let mut ws = pending.wait().unwrap();
-        std::thread::sleep(Duration::from_millis(5000));
-        let msg = ws.recv().unwrap();
-        let text = msg.as_str();
-        println!("Message: {text:?}");
 
-        ws.send("message").unwrap();
-
-        std::thread::sleep(Duration::from_secs(2));
-        ws.close().unwrap();
+        std::thread::spawn(move || {
+            while let Ok(msg) = ws.recv() {
+                if let Message::Text(text) = msg {
+                    println!("{text}")
+                }
+            }
+        });
     });
 
     Ok(res)

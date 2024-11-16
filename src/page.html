@@ -3,12 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>WebSocket Example</title>
   </head>
   <body>
     <h1>WebSocket</h1>
+
+    <h3 id="server-msg">--empty--</h3>
     <script>
+      const msg_el = document.querySelector("#server-msg");
+
       const ws = new WebSocket("http://localhost:5678/ws");
+
       ws.onerror = (err) => {
         console.error("Error", err);
       };
@@ -19,12 +24,16 @@
 
       ws.onmessage = (msg) => {
         console.log("Message received", msg);
+        msg_el.textContent = msg.data;
       };
 
       ws.onopen = (ev) => {
         console.log("WebSocket connection open", ev);
 
-        ws.send("Hello World!");
+        let n = 0;
+        setInterval(() => {
+          ws.send(`Client: ${n++}`);
+        }, 1000);
       };
     </script>
   </body>
