@@ -1,4 +1,10 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    num::ParseIntError,
+    str::FromStr,
+};
+
+use serde::{de::Deserialize, ser::Serialize};
 
 /// A structure representing a UUID (Universally Unique Identifier).
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -93,6 +99,63 @@ impl Uuid {
     }
 }
 
+#[derive(Debug)]
+pub enum InvalidUuid {
+    ParseError(ParseIntError),
+    InvalidValue(String),
+}
+
+impl std::error::Error for InvalidUuid {}
+
+impl Display for InvalidUuid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InvalidUuid::ParseError(parse_int_error) => {
+                write!(f, "failed to parse uuid: {parse_int_error}")
+            }
+            InvalidUuid::InvalidValue(s) => write!(f, "invalid uuid: {s}"),
+        }
+    }
+}
+
+impl FromStr for Uuid {
+    type Err = InvalidUuid;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        #[track_caller]
+        fn parse_next(str: &str, value: Option<&str>) -> Result<u32, InvalidUuid> {
+            value
+                .ok_or_else(|| InvalidUuid::InvalidValue(str.to_owned()))
+                .and_then(|x| u32::from_str_radix(x, 16).map_err(InvalidUuid::ParseError))
+        }
+
+        let mut parts = s.split('-');
+
+        // Parse each section
+        let a = parse_next(s, parts.next())?;
+        let b = parse_next(s, parts.next())?;
+        let c = parse_next(s, parts.next())?;
+        let d = parse_next(s, parts.next())?;
+
+        let segment = parts
+            .next()
+            .ok_or_else(|| InvalidUuid::InvalidValue(s.to_owned()))?;
+        let e = u64::from_str_radix(segment, 16).map_err(|e| InvalidUuid::ParseError(e))?;
+
+        // Ensure no extra parts
+        if parts.next().is_some() {
+            return Err(InvalidUuid::InvalidValue(s.to_owned()));
+        }
+
+        let part1 = a;
+        let part2 = (b << 16) | c;
+        let part3 = (d << 16) | ((e >> 32) as u32);
+        let part4 = e as u32;
+
+        Ok(Uuid::from_parts([part1, part2, part3, part4]))
+    }
+}
+
 impl Debug for Uuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.as_parentheses(f)
@@ -105,9 +168,32 @@ impl Display for Uuid {
     }
 }
 
+impl Serialize for Uuid {
+    fn serialize<S: serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Err> {
+        serializer.serialize_string(self.to_hyphened_string())
+    }
+}
+
+impl Deserialize for Uuid {
+    fn deserialize<D: serde::de::Deserializer>(deserializer: D) -> Result<Self, serde::de::Error> {
+        let str = String::deserialize(deserializer)?;
+        let uuid = Uuid::from_str(&str).map_err(serde::de::Error::other)?;
+        Ok(uuid)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::Uuid;
+
+    #[test]
+    fn should_create_from_str() {
+        let raw = "df4eb2a0-2631-4912-890b-8cb013acb493";
+        let uuid = Uuid::from_str(raw).unwrap();
+        assert_eq!(uuid.to_string(), raw);
+    }
 
     #[test]
     fn should_display_nil_uuid() {
