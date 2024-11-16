@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use http1::{error::BoxError, protocol::upgrade::Upgrade};
+use http1::{common::uuid::Uuid, error::BoxError, protocol::upgrade::Upgrade};
 
 const BUFFER_SIZE: usize = 4 * 1024;
 const MAX_PAYLOAD_LENGTH: usize = 64 * 1024; // 64 kb
@@ -137,6 +137,36 @@ impl WebSocket {
 
         self.upgrade.write_all(&frame.into_bytes())?;
         Ok(())
+    }
+
+    /// Send a ping to the client to check if still connected.
+    ///
+    /// # Returns
+    /// An error if the client does not respond.
+    pub fn ping(&mut self) -> Result<(), WebSocketError> {
+        self.ping_timeout(None)
+    }
+
+    /// Sends a ping to check if the client still connected within the given timeout.
+    ///
+    /// # Returns
+    /// An error if the client does not respond.
+    pub fn ping_timeout(&mut self, timeout: Option<Duration>) -> Result<(), WebSocketError> {
+        let id = Uuid::new_v4().to_simple_string().into_bytes();
+        self.send(Message::Ping(id.clone()))?;
+
+        match self.read(timeout)? {
+            Message::Pong(bytes) => {
+                if bytes != id {
+                    return Err(WebSocketError::Other(
+                        String::from("invalid pong received").into(),
+                    ));
+                }
+
+                Ok(())
+            }
+            _ => Err(WebSocketError::Other(String::from("expected pong").into())),
+        }
     }
 
     /// Closes this websocket and notifies the client to close this websocket connection.
