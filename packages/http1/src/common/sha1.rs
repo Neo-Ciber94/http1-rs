@@ -19,6 +19,7 @@ impl Sha1 {
         self.len += data.len() as u64;
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn process_block(&mut self, block: &[u8; 64]) {
         let mut w = [0u32; 80];
 
@@ -110,6 +111,12 @@ impl Sha1 {
         }
 
         result
+    }
+}
+
+impl Default for Sha1 {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -22,7 +22,7 @@ pub struct PendingWebSocketUpgrade(PendingUpgrade);
 
 impl PendingWebSocketUpgrade {
     pub fn wait(self) -> Result<WebSocket, PendingUpgradeError> {
-        self.0.wait().map(move |upgrade| WebSocket::new(upgrade))
+        self.0.wait().map(WebSocket::new)
     }
 }
 

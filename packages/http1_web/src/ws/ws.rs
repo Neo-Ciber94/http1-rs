@@ -153,8 +153,8 @@ impl WebSocket {
 
         loop {
             let len = self.buf.len().min(bytes_len);
-            let mut dst = &mut self.buf[..len];
-            self.upgrade.read_exact(&mut dst)?;
+            let dst = &mut self.buf[..len];
+            self.upgrade.read_exact(dst)?;
 
             result.extend_from_slice(dst);
 
@@ -234,7 +234,7 @@ impl WebSocket {
                     if masking_key != 0 {
                         bytes.iter_mut().enumerate().for_each(|(idx, b)| {
                             let mask_byte = masking_key_bytes[idx % 4];
-                            *b = *b ^ mask_byte;
+                            *b ^= mask_byte;
                         });
                     }
 
@@ -317,7 +317,7 @@ impl OpCode {
         }
     }
 
-    pub fn to_bit(&self) -> u8 {
+    pub fn as_bit(&self) -> u8 {
         *self as u8
     }
 }
@@ -424,7 +424,7 @@ impl Frame {
         let b_rsv1 = (rsv1 as u8) << 6;
         let b_rsv2 = (rsv2 as u8) << 5;
         let b_rsv3 = (rsv3 as u8) << 4;
-        let b0 = b_fin | b_rsv1 | b_rsv2 | b_rsv3 | op_code.to_bit();
+        let b0 = b_fin | b_rsv1 | b_rsv2 | b_rsv3 | op_code.as_bit();
 
         bytes.push(b0);
 
@@ -443,7 +443,7 @@ impl Frame {
             }
             n => {
                 let b1 = b_mask | 127;
-                let b2 = (n as u64).to_be_bytes();
+                let b2 = n.to_be_bytes();
                 bytes.push(b1);
                 bytes.extend_from_slice(&b2);
             }
