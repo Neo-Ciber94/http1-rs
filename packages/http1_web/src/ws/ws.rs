@@ -14,6 +14,21 @@ use super::{
 const BUFFER_SIZE: usize = 4 * 1024;
 const MAX_PAYLOAD_LENGTH: usize = 64 * 1024; // 64 kb
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebSocketConfig {
+    pub buffer_size: usize,
+    pub max_payload_length: Option<usize>,
+}
+
+impl Default for WebSocketConfig {
+    fn default() -> Self {
+        Self {
+            buffer_size: BUFFER_SIZE,
+            max_payload_length: Some(MAX_PAYLOAD_LENGTH),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum WebSocketError {
     PayloadTooBig { min: usize, actual: usize },
@@ -55,23 +70,31 @@ impl From<std::io::Error> for WebSocketError {
 
 pub struct WebSocket {
     upgrade: Upgrade,
-    max_payload_len: Option<usize>,
+    max_payload_length: Option<usize>,
     buf: Box<[u8]>,
 }
 
 impl WebSocket {
     /// Constructs a websocket from the given connection.
     pub fn new(upgrade: Upgrade) -> Self {
-        Self::with_max_payload_length(upgrade, Some(MAX_PAYLOAD_LENGTH))
+        Self::with_config(upgrade, Default::default())
     }
 
-    /// Constructs a websocket from the given connection and max payload length.
-    pub fn with_max_payload_length(upgrade: Upgrade, max_payload_len: Option<usize>) -> Self {
-        let buf = vec![0; BUFFER_SIZE].into_boxed_slice();
+    /// Constructs a websocket with the given config.
+    pub fn with_config(upgrade: Upgrade, config: WebSocketConfig) -> Self {
+        let WebSocketConfig {
+            buffer_size,
+            max_payload_length,
+        } = config;
+
+        assert!(buffer_size > 0, "websocket buffer size must be non-zero");
+
+        let buf = vec![0; buffer_size].into_boxed_slice();
+
         WebSocket {
             upgrade,
             buf,
-            max_payload_len,
+            max_payload_length,
         }
     }
 
@@ -231,7 +254,7 @@ impl WebSocket {
             return Err(WebSocketError::InvalidPayloadLen(len_indicator));
         };
 
-        if let Some(min) = self.max_payload_len {
+        if let Some(min) = self.max_payload_length {
             if (len as usize) > min {
                 return Err(WebSocketError::PayloadTooBig {
                     min,
