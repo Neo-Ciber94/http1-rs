@@ -163,8 +163,7 @@ impl WebSocket {
             .payload(message.into_bytes())
             .build();
 
-        self.upgrade.write_all(&frame.into_bytes())?;
-        Ok(())
+        self.send_frame(frame)
     }
 
     /// Send a ping to the client to check if still connected.
@@ -303,7 +302,14 @@ impl WebSocket {
         Ok(data)
     }
 
-    fn read_frame(&mut self) -> Result<Frame, WebSocketError> {
+    /// Send a raw frame.
+    pub fn send_frame(&mut self, frame: Frame) -> Result<(), WebSocketError> {
+        self.upgrade.write_all(&frame.into_bytes())?;
+        Ok(())
+    }
+
+    /// Read a raw websocket frame.
+    pub fn read_frame(&mut self) -> Result<Frame, WebSocketError> {
         // fin, rsv1, rsv2, rsv3, op_code
         let first_byte = self.read_next_byte()?;
         let fin = (first_byte & 0b1000_0000) != 0;

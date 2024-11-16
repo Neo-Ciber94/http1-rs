@@ -39,17 +39,17 @@ impl OpCode {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
-    pub(crate) fin: bool,
-    pub(crate) rsv1: bool,
-    pub(crate) rsv2: bool,
-    pub(crate) rsv3: bool,
-    pub(crate) op_code: OpCode,
-    pub(crate) mask: bool,
-    pub(crate) payload_len: u64,
-    pub(crate) masking_key: u32,
-    pub(crate) payload: Vec<u8>,
+    pub fin: bool,
+    pub rsv1: bool,
+    pub rsv2: bool,
+    pub rsv3: bool,
+    pub op_code: OpCode,
+    pub mask: bool,
+    pub payload_len: u64,
+    pub masking_key: u32,
+    pub payload: Vec<u8>,
 }
 
 impl Frame {
