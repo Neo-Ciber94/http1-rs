@@ -51,10 +51,12 @@ pub struct WebSocket {
 }
 
 impl WebSocket {
+    /// Constructs a websocket from the given connection.
     pub fn new(upgrade: Upgrade) -> Self {
         Self::with_max_payload_length(upgrade, Some(MAX_PAYLOAD_LENGTH))
     }
 
+    /// Constructs a websocket from the given connection and max payload length.
     pub fn with_max_payload_length(upgrade: Upgrade, max_payload_len: Option<usize>) -> Self {
         let buf = vec![0; BUFFER_SIZE].into_boxed_slice();
         WebSocket {
@@ -64,6 +66,63 @@ impl WebSocket {
         }
     }
 
+    /// Reads a message.
+    pub fn recv(&mut self) -> Result<Message, WebSocketError> {
+        let mut msg_data = Vec::new();
+        let mut msg_op_code: Option<OpCode> = None;
+
+        loop {
+            let frame = self.read_frame()?;
+
+            dbg!(&frame);
+
+            let Frame {
+                fin,
+                op_code,
+                payload,
+                ..
+            } = frame;
+
+            msg_data.extend(payload);
+            msg_op_code.get_or_insert(op_code);
+
+            if fin {
+                break;
+            }
+        }
+
+        let op_code = msg_op_code.expect("message op_code was empty");
+        match op_code {
+            OpCode::Binary => Ok(Message::Binary(msg_data)),
+            OpCode::Text => {
+                let text =
+                    String::from_utf8(msg_data).map_err(|err| WebSocketError::Other(err.into()))?;
+                Ok(Message::Text(text))
+            }
+            OpCode::Ping => Ok(Message::Ping(msg_data)),
+            OpCode::Pong => Ok(Message::Pong(msg_data)),
+            OpCode::Close => Ok(Message::Close),
+            OpCode::Continuation => {
+                unreachable!("Continuation must not be possible because all the data is aggregated")
+            }
+        }
+    }
+
+    /// Sends a message.
+    pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
+        let message = message.into();
+        let op_code = OpCode::from_message(&message);
+        let frame = Frame::builder(op_code)
+            .fin(true)
+            .payload(message.into_bytes())
+            .build();
+
+        self.upgrade.write_all(&frame.into_bytes())?;
+        Ok(())
+    }
+}
+
+impl WebSocket {
     fn read_exact(&mut self, bytes_len: usize) -> Result<Vec<u8>, WebSocketError> {
         let mut result = Vec::new();
 
@@ -197,59 +256,6 @@ impl WebSocket {
             masking_key,
             payload,
         })
-    }
-
-    pub fn read(&mut self) -> Result<Message, WebSocketError> {
-        let mut msg_data = Vec::new();
-        let mut msg_op_code: Option<OpCode> = None;
-
-        loop {
-            let frame = self.read_frame()?;
-
-            dbg!(&frame);
-
-            let Frame {
-                fin,
-                op_code,
-                payload,
-                ..
-            } = frame;
-
-            msg_data.extend(payload);
-            msg_op_code.get_or_insert(op_code);
-
-            if fin {
-                break;
-            }
-        }
-
-        let op_code = msg_op_code.expect("message op_code was empty");
-        match op_code {
-            OpCode::Binary => Ok(Message::Binary(msg_data)),
-            OpCode::Text => {
-                let text =
-                    String::from_utf8(msg_data).map_err(|err| WebSocketError::Other(err.into()))?;
-                Ok(Message::Text(text))
-            }
-            OpCode::Ping => Ok(Message::Ping(msg_data)),
-            OpCode::Pong => Ok(Message::Pong(msg_data)),
-            OpCode::Close => Ok(Message::Close),
-            OpCode::Continuation => {
-                unreachable!("Continuation must not be possible because all the data is aggregated")
-            }
-        }
-    }
-
-    pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
-        let message = message.into();
-        let op_code = OpCode::from_message(&message);
-        let frame = Frame::builder(op_code)
-            .fin(true)
-            .payload(message.into_bytes())
-            .build();
-
-        self.upgrade.write_all(&frame.into_bytes())?;
-        Ok(())
     }
 }
 

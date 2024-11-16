@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     connection::{Connected, Connection},
-    upgrade::Upgrade,
+    upgrade::{PendingUpgrade, Upgrade},
 };
 
 /**
@@ -30,6 +30,20 @@ where
     // Create the request object
     let mut request = request::read_request(conn, config)?;
 
+    // If the connection can be upgraded, we create a pending upgrade
+    let can_be_upgraded = is_upgrade_request(&request);
+    let pending_upgrade = if can_be_upgraded {
+        let (sender, pending) = PendingUpgrade::new();
+        let conn = write_conn
+            .try_clone()
+            .expect("failed to clone connection stream for upgrade connection");
+
+        request.extensions_mut().insert(pending);
+        Some((sender, conn))
+    } else {
+        None
+    };
+
     // Append any extra information to the request
     pre_process_request(&mut request, &write_conn, config);
 
@@ -39,7 +53,15 @@ where
 
     // Write the response to the stream
     match response::write_response(response, &mut write_conn, discard_body, config) {
-        Ok(_) => Ok(()),
+        Ok(_) => {
+            // If the connection can be upgrade, notify after write the response
+            if let Some((notifier, conn)) = pending_upgrade {
+                let upgrade = Upgrade::new(conn);
+                notifier.notify(upgrade);
+            }
+
+            Ok(())
+        }
         Err(err) if err.kind() == ErrorKind::ConnectionAborted => {
             log::debug!("Connection was aborted");
             Ok(())
@@ -60,12 +82,6 @@ where
 
     if config.include_server_info {
         request.extensions_mut().insert(config.clone());
-    }
-
-    if is_upgrade_request(request) {
-        let stream = conn.try_clone().expect("failed to clone connection stream");
-        let upgrade = Upgrade::new(stream);
-        request.extensions_mut().insert(upgrade);
     }
 }
 

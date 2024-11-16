@@ -1,8 +1,13 @@
 use std::fmt::Display;
 
 use http1::{
-    body::Body, error::BoxError, headers, method::Method, protocol::upgrade::Upgrade,
-    response::Response, status::StatusCode,
+    body::Body,
+    error::BoxError,
+    headers,
+    method::Method,
+    protocol::upgrade::{PendingUpgrade, PendingUpgradeError},
+    response::Response,
+    status::StatusCode,
 };
 
 use crate::{from_request::FromRequest, IntoResponse};
@@ -12,15 +17,24 @@ use super::WebSocket;
 const WEB_SOCKET_VERSION: &str = "13";
 const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+/// Waits for the connection to upgrade to websocket.
+pub struct PendingWebSocketUpgrade(PendingUpgrade);
+
+impl PendingWebSocketUpgrade {
+    pub fn wait(self) -> Result<WebSocket, PendingUpgradeError> {
+        self.0.wait().map(move |upgrade| WebSocket::new(upgrade))
+    }
+}
+
 #[derive(Debug)]
 pub struct WebSocketUpgrade {
     key: String,
-    upgrade: Upgrade,
+    pending: PendingUpgrade,
 }
 
 impl WebSocketUpgrade {
-    pub fn upgrade(self) -> Result<(WebSocket, Response<Body>), BoxError> {
-        let WebSocketUpgrade { key, upgrade } = self;
+    pub fn upgrade(self) -> Result<(PendingWebSocketUpgrade, Response<Body>), BoxError> {
+        let WebSocketUpgrade { key, pending } = self;
         let hash_bytes = http1::common::sha1::hash(format!("{key}{WEB_SOCKET_UUID_STR}"));
         let accept_key = http1::common::base64::encode_to_string(&hash_bytes);
 
@@ -31,9 +45,8 @@ impl WebSocketUpgrade {
             .insert_header(headers::SEC_WEBSOCKET_ACCEPT, accept_key)
             .body(Body::empty());
 
-        let web_socket = WebSocket::new(upgrade);
-
-        Ok((web_socket, response))
+        let pending = PendingWebSocketUpgrade(pending);
+        Ok((pending, response))
     }
 }
 
@@ -157,12 +170,15 @@ impl FromRequest for WebSocketUpgrade {
             );
         }
 
-        let upgrade = req.extensions_mut().remove::<Upgrade>().ok_or_else(|| {
-            WebSocketUpgradeError::Other(
-                String::from("Failed to get connection upgrade stream").into(),
-            )
-        })?;
+        let pending = req
+            .extensions_mut()
+            .remove::<PendingUpgrade>()
+            .ok_or_else(|| {
+                WebSocketUpgradeError::Other(
+                    String::from("Failed to get connection upgrade stream").into(),
+                )
+            })?;
 
-        Ok(WebSocketUpgrade { key, upgrade })
+        Ok(WebSocketUpgrade { key, pending })
     }
 }

@@ -18,12 +18,16 @@ fn main() -> std::io::Result<()> {
 }
 
 fn web_socket(upgrade: WebSocketUpgrade) -> Result<Response<Body>, ErrorResponse> {
-    let (mut ws, res) = upgrade.upgrade()?;
+    let (pending, res) = upgrade.upgrade()?;
 
     std::thread::spawn(move || {
+        let mut ws = pending.wait().unwrap();
         std::thread::sleep(Duration::from_millis(5000));
-        let msg = ws.read().unwrap();
-        println!("Message: {msg:?}");
+        let msg = ws.recv().unwrap();
+        let text = msg.as_str();
+        println!("Message: {text:?}");
+
+        ws.send("message").unwrap();
     });
 
     Ok(res)
