@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::{Read, Write},
     sync::{atomic::AtomicBool, Arc},
 };
@@ -46,12 +46,10 @@ impl From<std::io::Error> for WebSocketError {
     }
 }
 
-#[derive(Clone)]
 pub struct WebSocket {
     upgrade: Upgrade,
     max_payload_len: Option<usize>,
     buf: Box<[u8]>,
-    is_closed: Arc<AtomicBool>,
 }
 
 impl WebSocket {
@@ -67,7 +65,6 @@ impl WebSocket {
             upgrade,
             buf,
             max_payload_len,
-            is_closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -113,10 +110,6 @@ impl WebSocket {
 
     /// Sends a message.
     pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
-        if self.is_server_connection_closed() {
-            return Err(WebSocketError::Closed);
-        }
-
         let message = message.into();
         let op_code = OpCode::from_message(&message);
         let frame = Frame::builder(op_code)
@@ -130,20 +123,8 @@ impl WebSocket {
 
     /// Closes this websocket and notifies the client to close this websocket connection.
     pub fn close(mut self) -> Result<(), WebSocketError> {
-        if self.is_server_connection_closed() {
-            return Ok(());
-        }
-
         self.send(Message::Close)?;
-
-        self.is_closed
-            .store(true, std::sync::atomic::Ordering::Release);
-
         Ok(())
-    }
-
-    fn is_server_connection_closed(&self) -> bool {
-        self.is_closed.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -281,6 +262,12 @@ impl WebSocket {
             masking_key,
             payload,
         })
+    }
+}
+
+impl Debug for WebSocket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebSocket").finish_non_exhaustive()
     }
 }
 
