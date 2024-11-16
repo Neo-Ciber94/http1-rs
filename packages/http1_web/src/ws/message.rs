@@ -1,12 +1,14 @@
 use std::fmt::Display;
 
+use super::frame::CloseFrame;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
     Binary(Vec<u8>),
     Text(String),
     Ping(Vec<u8>),
     Pong(Vec<u8>),
-    Close,
+    Close(Option<CloseFrame>),
 }
 
 impl Message {
@@ -14,7 +16,8 @@ impl Message {
         match self {
             Message::Binary(data) | Message::Ping(data) | Message::Pong(data) => data.as_slice(),
             Message::Text(s) => s.as_bytes(),
-            Message::Close => &[],
+            Message::Close(Some(close)) => close.reason().as_bytes(),
+            Message::Close(None) => &[],
         }
     }
 
@@ -24,7 +27,8 @@ impl Message {
             Message::Binary(data) | Message::Ping(data) | Message::Pong(data) => {
                 std::str::from_utf8(data).ok()
             }
-            Message::Close => Some(""),
+            Message::Close(Some(close)) => Some(close.reason()),
+            Message::Close(None) => Some(""),
         }
     }
 
@@ -32,7 +36,8 @@ impl Message {
         match self {
             Message::Text(text) => text.into_bytes(),
             Message::Binary(vec) | Message::Ping(vec) | Message::Pong(vec) => vec,
-            Message::Close => Vec::new(),
+            Message::Close(Some(close)) => close.into_string().into_bytes(),
+            Message::Close(None) => Vec::new(),
         }
     }
 
@@ -42,7 +47,8 @@ impl Message {
             Message::Binary(vec) | Message::Ping(vec) | Message::Pong(vec) => {
                 String::from_utf8(vec).ok()
             }
-            Message::Close => Some(String::new()),
+            Message::Close(Some(close)) => Some(close.into_string()),
+            Message::Close(None) => Some(String::new()),
         }
     }
 
@@ -71,7 +77,7 @@ impl Message {
     }
 
     pub fn is_close(&self) -> bool {
-        matches!(self, Message::Close)
+        matches!(self, Message::Close(_))
     }
 }
 

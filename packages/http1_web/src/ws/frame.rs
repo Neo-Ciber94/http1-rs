@@ -1,3 +1,5 @@
+use std::{fmt::Display, string::FromUtf8Error};
+
 use super::Message;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +19,7 @@ impl OpCode {
             Message::Text(_) => OpCode::Text,
             Message::Ping(_) => OpCode::Ping,
             Message::Pong(_) => OpCode::Pong,
-            Message::Close => OpCode::Close,
+            Message::Close(_) => OpCode::Close,
         }
     }
 
@@ -114,6 +116,7 @@ impl Frame {
     }
 }
 
+/// Allow to construct a raw frame.
 #[derive(Debug)]
 pub struct FrameBuilder(Frame);
 
@@ -171,13 +174,122 @@ impl FrameBuilder {
         self
     }
 
-    pub fn push_payload(mut self, payload: &[u8]) -> Self {
-        self.0.payload_len += payload.len() as u64;
-        self.0.payload.extend_from_slice(payload);
-        self
+    pub fn close_frame(self, close_frame: CloseFrame) -> Self {
+        let bytes = close_frame.to_bytes();
+        self.payload(bytes)
     }
 
     pub fn build(self) -> Frame {
         self.0
+    }
+}
+
+#[derive(Debug)]
+pub enum CloseFrameError {
+    CloseFrameTooShort,
+    InvalidStatusCode(u16),
+    Utf8(FromUtf8Error),
+}
+
+impl Display for CloseFrameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CloseFrameError::CloseFrameTooShort => write!(f, "close frame is too short"),
+            CloseFrameError::InvalidStatusCode(code) => write!(f, "invalid close code: `{code}`"),
+            CloseFrameError::Utf8(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+
+pub struct CloseFrame {
+    code: CloseStatusCode,
+    reason: String,
+}
+
+impl CloseFrame {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, CloseFrameError> {
+        if bytes.len() < 2 {
+            return Err(CloseFrameError::CloseFrameTooShort);
+        }
+
+        let code_raw = u16::from_be_bytes([bytes[0], bytes[1]]);
+        let code = CloseStatusCode::from_u16(code_raw)
+            .ok_or_else(|| CloseFrameError::InvalidStatusCode(code_raw))?;
+
+        let reason = String::from_utf8(bytes[3..].to_vec()).map_err(CloseFrameError::Utf8)?;
+
+        Ok(CloseFrame { code, reason })
+    }
+
+    pub fn new(code: CloseStatusCode, reason: impl Into<String>) -> Self {
+        CloseFrame {
+            code,
+            reason: reason.into(),
+        }
+    }
+
+    pub fn code(&self) -> CloseStatusCode {
+        self.code
+    }
+
+    pub fn reason(&self) -> &str {
+        &self.reason
+    }
+
+    pub fn into_string(self) -> String {
+        self.reason
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let b1 = self.code().as_u16().to_be_bytes();
+        let b2 = self.reason.as_bytes();
+
+        let mut b = Vec::new();
+        b.extend_from_slice(&b1);
+        b.extend_from_slice(&b2);
+        b
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u16)]
+pub enum CloseStatusCode {
+    NormalClosure = 1000,
+    GoingAway = 1001,
+    ProtocolError = 1002,
+    UnsupportedData = 1003,
+    NoStatusRcvd = 1005,
+    AbnormalClosure = 1006,
+    InvalidFramePayloadData = 1007,
+    PolicyViolation = 1008,
+    MessageTooBig = 1009,
+    MandatoryExt = 1010,
+    InternalServerError = 1011,
+    TlsHandshake = 1015,
+}
+
+impl CloseStatusCode {
+    pub fn from_u16(value: u16) -> Option<Self> {
+        match value {
+            1000 => Some(CloseStatusCode::NormalClosure),
+            1001 => Some(CloseStatusCode::GoingAway),
+            1002 => Some(CloseStatusCode::ProtocolError),
+            1003 => Some(CloseStatusCode::UnsupportedData),
+            1005 => Some(CloseStatusCode::NoStatusRcvd),
+            1006 => Some(CloseStatusCode::AbnormalClosure),
+            1007 => Some(CloseStatusCode::InvalidFramePayloadData),
+            1008 => Some(CloseStatusCode::PolicyViolation),
+            1009 => Some(CloseStatusCode::MessageTooBig),
+            1010 => Some(CloseStatusCode::MandatoryExt),
+            1011 => Some(CloseStatusCode::InternalServerError),
+            1015 => Some(CloseStatusCode::TlsHandshake),
+            _ => None,
+        }
+    }
+
+    pub fn as_u16(&self) -> u16 {
+        *self as u16
     }
 }

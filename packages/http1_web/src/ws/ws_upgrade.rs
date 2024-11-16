@@ -14,8 +14,6 @@ use crate::{from_request::FromRequest, IntoResponse, RequestExt};
 
 use super::{WebSocket, WebSocketConfig};
 
-//// Based on: https://datatracker.ietf.org/doc/html/rfc6455
-
 const WEB_SOCKET_VERSION: &str = "13";
 const WEB_SOCKET_UUID_STR: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

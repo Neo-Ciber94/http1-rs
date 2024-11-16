@@ -7,7 +7,7 @@ use std::{
 use http1::{common::uuid::Uuid, error::BoxError, protocol::upgrade::Upgrade};
 
 use super::{
-    frame::{Frame, OpCode},
+    frame::{CloseFrame, CloseFrameError, CloseStatusCode, Frame, OpCode},
     Message,
 };
 
@@ -35,6 +35,7 @@ pub enum WebSocketError {
     InvalidPayloadLen(u64),
     InvalidOpCode(u8),
     UnmaskedClientPayload,
+    CloseError(CloseFrameError),
     Timeout,
     Closed,
     IO(std::io::Error),
@@ -55,6 +56,7 @@ impl Display for WebSocketError {
             WebSocketError::UnmaskedClientPayload => {
                 write!(f, "client payload should always be encoded")
             }
+            WebSocketError::CloseError(error) => write!(f, "failed to close websocket: `{error}`"),
             WebSocketError::Closed => write!(f, "websocket connection is closed"),
             WebSocketError::Other(error) => write!(f, "{error}"),
             WebSocketError::Timeout => write!(f, "websocket timeout"),
@@ -147,7 +149,15 @@ impl WebSocket {
             }
             OpCode::Ping => Ok(Message::Ping(msg_data)),
             OpCode::Pong => Ok(Message::Pong(msg_data)),
-            OpCode::Close => Ok(Message::Close),
+            OpCode::Close => {
+                if msg_data.is_empty() {
+                    Ok(Message::Close(None))
+                } else {
+                    let close =
+                        CloseFrame::from_bytes(&msg_data).map_err(WebSocketError::CloseError)?;
+                    Ok(Message::Close(Some(close)))
+                }
+            }
             OpCode::Continuation => {
                 unreachable!("Continuation must not be possible because all the data is aggregated")
             }
@@ -196,9 +206,20 @@ impl WebSocket {
         }
     }
 
-    /// Closes this websocket and notifies the client to close this websocket connection.
+    /// Sends a close signal to the client.
     pub fn close(mut self) -> Result<(), WebSocketError> {
-        self.send(Message::Close)?;
+        self.send(Message::Close(None))?;
+        Ok(())
+    }
+
+    /// Sends a close signal to the client with the given code and reason.
+    pub fn send_close(
+        mut self,
+        code: CloseStatusCode,
+        reason: impl Into<String>,
+    ) -> Result<(), WebSocketError> {
+        let close = CloseFrame::new(code, reason.into());
+        self.send(Message::Close(Some(close)))?;
         Ok(())
     }
 }
@@ -310,6 +331,8 @@ impl WebSocket {
 
     /// Read a raw websocket frame.
     pub fn read_frame(&mut self) -> Result<Frame, WebSocketError> {
+        // Specification: https://datatracker.ietf.org/doc/html/rfc6455#section-5.2
+
         // fin, rsv1, rsv2, rsv3, op_code
         let first_byte = self.read_next_byte()?;
         let fin = (first_byte & 0b1000_0000) != 0;
