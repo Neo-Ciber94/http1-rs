@@ -1,4 +1,7 @@
-use std::{fmt::Display, io::Read};
+use std::{
+    fmt::Display,
+    io::{Read, Write},
+};
 
 use http1::{error::BoxError, protocol::upgrade::Upgrade};
 
@@ -170,6 +173,10 @@ impl WebSocket {
         let op_code = OpCode::from_byte(op_code_seq)
             .ok_or_else(|| WebSocketError::InvalidOpCode(op_code_seq))?;
 
+        if rsv1 || rsv2 || rsv3 {
+            log::warn!("rsv bits were set but extensions are not supported");
+        }
+
         let (mask, payload_len) = self.read_frame_len()?;
 
         if !mask {
@@ -234,7 +241,14 @@ impl WebSocket {
     }
 
     pub fn send(&mut self, message: Message) -> Result<(), WebSocketError> {
-        todo!()
+        let op_code = OpCode::from_message(&message);
+        let frame = Frame::builder(op_code)
+            .fin(true)
+            .payload(message.into_bytes())
+            .build();
+
+        self.upgrade.write_all(&frame.into_bytes())?;
+        Ok(())
     }
 }
 
@@ -249,6 +263,16 @@ enum OpCode {
 }
 
 impl OpCode {
+    pub fn from_message(msg: &Message) -> Self {
+        match msg {
+            Message::Binary(_) => OpCode::Binary,
+            Message::Text(_) => OpCode::Text,
+            Message::Ping(_) => OpCode::Ping,
+            Message::Pong(_) => OpCode::Pong,
+            Message::Close => OpCode::Close,
+        }
+    }
+
     pub fn from_byte(value: u8) -> Option<Self> {
         match value {
             0x0 => Some(OpCode::Continuation),
@@ -273,6 +297,18 @@ pub enum Message {
     Ping(Vec<u8>),
     Pong(Vec<u8>),
     Close,
+}
+
+impl Message {
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self {
+            Message::Binary(vec) => vec,
+            Message::Text(text) => text.into_bytes(),
+            Message::Ping(vec) => vec,
+            Message::Pong(vec) => vec,
+            Message::Close => Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
