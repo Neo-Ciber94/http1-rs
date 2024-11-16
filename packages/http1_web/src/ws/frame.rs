@@ -216,7 +216,7 @@ impl CloseFrame {
 
         let code_raw = u16::from_be_bytes([bytes[0], bytes[1]]);
         let code = CloseStatusCode::from_u16(code_raw)
-            .ok_or_else(|| CloseFrameError::InvalidStatusCode(code_raw))?;
+            .ok_or(CloseFrameError::InvalidStatusCode(code_raw))?;
 
         let reason = String::from_utf8(bytes[3..].to_vec()).map_err(CloseFrameError::Utf8)?;
 
@@ -248,7 +248,7 @@ impl CloseFrame {
 
         let mut b = Vec::new();
         b.extend_from_slice(&b1);
-        b.extend_from_slice(&b2);
+        b.extend_from_slice(b2);
         b
     }
 }
