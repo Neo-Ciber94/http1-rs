@@ -168,10 +168,7 @@ impl WebSocket {
     pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
         let message = message.into();
         let op_code = OpCode::from_message(&message);
-        let frame = Frame::builder(op_code)
-            .fin(true)
-            .payload(message.into_bytes())
-            .build();
+        let frame = Frame::builder(op_code).fin(true).data(message.into_bytes());
 
         self.send_frame(frame)
     }

@@ -168,18 +168,9 @@ impl FrameBuilder {
         self.mask(Some(key))
     }
 
-    pub fn payload(mut self, payload: Vec<u8>) -> Self {
-        self.0.payload_len = payload.len() as u64;
-        self.0.payload = payload;
-        self
-    }
-
-    pub fn close_frame(self, close_frame: CloseFrame) -> Self {
-        let bytes = close_frame.to_bytes();
-        self.payload(bytes)
-    }
-
-    pub fn build(self) -> Frame {
+    pub fn data(mut self, bytes: Vec<u8>) -> Frame {
+        self.0.payload_len = bytes.len() as u64;
+        self.0.payload = bytes;
         self.0
     }
 }
