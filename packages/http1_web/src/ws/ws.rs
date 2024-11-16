@@ -330,8 +330,59 @@ impl Frame {
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
+        let Frame {
+            fin,
+            rsv1,
+            rsv2,
+            rsv3,
+            op_code,
+            mask,
+            payload_len,
+            masking_key,
+            payload,
+        } = self;
+
+        let mut bytes = Vec::new();
+
         // fin, rsv1, rsv2, rsv3, op_code
-        todo!()
+        let b_fin = fin as u8;
+        let b_rsv1 = rsv1 as u8;
+        let b_rsv2 = rsv2 as u8;
+        let b_rsv3 = rsv3 as u8;
+        let b0 = b_fin | (b_rsv1 >> 1) | (b_rsv2 >> 2) | (b_rsv3 >> 3) | (op_code.to_bit() >> 4);
+
+        bytes.push(b0);
+
+        // mask and payload len
+        let b_mask = mask as u8;
+        match payload_len {
+            n if n < 126 => {
+                let b1 = b_mask | (payload_len as u8 >> 1);
+                bytes.push(b1);
+            }
+            n if n < u16::MAX as u64 => {
+                let b1 = b_mask | (126 >> 1);
+                let b2 = (n as u16).to_be_bytes();
+                bytes.push(b1);
+                bytes.extend_from_slice(&b2);
+            }
+            n => {
+                let b1 = b_mask | (127 >> 1);
+                let b2 = (n as u64).to_be_bytes();
+                bytes.push(b1);
+                bytes.extend_from_slice(&b2);
+            },
+        };
+
+        // masking key
+        if mask {
+            bytes.extend_from_slice(&masking_key.to_be_bytes());
+        }
+
+        // payload
+        bytes.extend(payload);
+
+        bytes
     }
 }
 
