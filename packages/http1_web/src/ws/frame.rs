@@ -209,7 +209,11 @@ impl CloseFrame {
         let code = CloseStatusCode::from_u16(code_raw)
             .ok_or(CloseFrameError::InvalidStatusCode(code_raw))?;
 
-        let reason = String::from_utf8(bytes[3..].to_vec()).map_err(CloseFrameError::Utf8)?;
+        let reason = if bytes.len() == 2 {
+            String::new()
+        } else {
+            String::from_utf8(bytes[3..].to_vec()).map_err(CloseFrameError::Utf8)?
+        };
 
         Ok(CloseFrame { code, reason })
     }
