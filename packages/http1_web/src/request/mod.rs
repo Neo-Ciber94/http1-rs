@@ -41,6 +41,11 @@ pub trait RequestExt {
 
     /// Get a request extension from its state.
     fn state<T: Send + Sync + Clone + 'static>(&self) -> Option<T>;
+
+    /// Get a value that implements `FromRequestRef`.
+    fn extract<T>(&self) -> Result<T, T::Rejection>
+    where
+        T: FromRequestRef;
 }
 
 impl RequestExt for Request<Body> {
@@ -55,5 +60,12 @@ impl RequestExt for Request<Body> {
 
     fn state<T: Send + Sync + Clone + 'static>(&self) -> Option<T> {
         State::<T>::from_request_ref(self).ok().map(|x| x.0.clone())
+    }
+
+    fn extract<T>(&self) -> Result<T, T::Rejection>
+    where
+        T: FromRequestRef,
+    {
+        T::from_request_ref(self)
     }
 }
