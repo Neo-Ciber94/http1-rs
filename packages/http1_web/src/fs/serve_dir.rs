@@ -74,7 +74,7 @@ impl<F> ServeDir<F> {
         }
     }
 
-    /// Whether if try to append `/index.html` when request a directory, defaults to false.
+    /// Whether if try to append `/index.html` or /<path>.html when request a directory, defaults to false.
     ///
     /// # Example
     /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
@@ -132,11 +132,26 @@ where
         let route = get_route(route_info, req_path);
         let mut serve_path = self.root.join(&route);
 
-        if serve_path.is_dir() && self.append_index_html {
-            let index_html = serve_path.join("index.html");
+        if self.append_index_html {
+            // Try to match /index.html
+            if serve_path.is_dir() {
+                let index_html = serve_path.join("index.html");
 
-            if index_html.exists() {
-                serve_path = index_html;
+                if index_html.exists() {
+                    serve_path = index_html;
+                }
+            }
+
+            // Try to match /<path>.html
+            if !serve_path.exists() {
+                let mut html_file = serve_path.clone();
+                html_file.set_extension("html");
+
+                dbg!(&html_file);
+
+                if html_file.exists() {
+                    serve_path = html_file;
+                }
             }
         }
 
