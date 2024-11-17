@@ -30,7 +30,7 @@ impl PendingWebSocketUpgrade {
         let PendingWebSocketUpgrade { pending, config } = self;
         let config = config.unwrap_or_default();
 
-        log::debug!("Websocket connection ready with config: {config:#?}");
+        log::debug!("Websocket connection ready with config: {config:?}");
 
         pending
             .wait()

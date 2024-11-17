@@ -15,6 +15,7 @@ use super::IntoResponse;
 
 /// A convenient `HttpResponse` builder for creating HTTP responses with
 /// common status codes and custom headers.
+#[derive(Debug)]
 pub struct HttpResponse<B = Body>(Response<B>);
 
 impl<B> HttpResponse<B> {
