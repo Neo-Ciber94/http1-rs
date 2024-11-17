@@ -1,4 +1,4 @@
-import { getCurrentUser, getMessages } from "./api";
+import { getCurrentUser, getMessages } from "./api.js";
 
 /**
  * @type {{id: string, username: string, content: string }[]}
@@ -15,17 +15,18 @@ window.addEventListener("load", async () => {
   chat();
 });
 
-function render(messages) {
-  const messagesList = document.querySelector("#messages");
-  const userMessageTemplate = document.querySelector("#user-message").content;
+const messagesListEl = document.querySelector("#messages");
+const chatBoxFormEl = document.querySelector("#chatbox");
+const chatMessageTemplate = document.querySelector("#chat-message").content;
 
-  messagesList.replaceChildren([]);
+function render(newMessages) {
+  messagesListEl.replaceChildren([]);
 
-  for (const { id, username, content } in messages) {
+  for (const { id, username, content } in newMessages) {
     /**
      * @type {HTMLElement}
      */
-    const userMessageEl = userMessageTemplate.cloneNode(true);
+    const userMessageEl = chatMessageTemplate.cloneNode(true);
 
     if (currentUser && currentUser.username === username) {
       userMessageEl.style.fontWeight = "bold";
@@ -33,20 +34,26 @@ function render(messages) {
 
     userMessageEl.dataList = `user/${id}`;
     userMessageEl.innerText = `${username}: ${content}`;
-    messagesList.append(userMessageEl);
+    messagesListEl.append(userMessageEl);
+  }
+
+  if (newMessages.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No messages";
+    messagesListEl.append(li);
   }
 }
 
 async function initialize() {
+  // Initialize chat messages
   const initialMessages = await getMessages();
   currentUser = await getCurrentUser();
-
-  currentUser = me;
   messages = [...initialMessages, ...messages];
   render(messages);
 }
 
 function chat() {
+  const abortController = new AbortController();
   const ws = new WebSocket("/api/chat");
 
   ws.onopen = () => {
@@ -61,5 +68,34 @@ function chat() {
 
   ws.onclose = () => {
     console.log("Chat closed");
+
+    // Try reconnect
+    setTimeout(() => {
+      console.log("Reconnecting...");
+      abortController.abort();
+      chat();
+    }, 1000);
   };
+
+  /**
+   * @param {Event} ev
+   */
+  function handleChatMessageSubmit(ev) {
+    ev.preventDefault();
+
+    const form = new FormData(ev.currentTarget);
+    const content = form.get("content");
+    const id = `local_${crypto.randomUUID()}`;
+    const { username } = currentUser;
+    const newMessage = { id, username, content };
+    render([...messages, newMessage]);
+
+    // Send chat message
+    ws.send(content);
+    ev.currentTarget.reset();
+  }
+
+  chatBoxFormEl.addEventListener("submit", handleChatMessageSubmit, {
+    signal: abortController.signal,
+  });
 }

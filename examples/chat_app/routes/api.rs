@@ -40,15 +40,12 @@ impl_serde_struct!(LoginInput => {
 
 fn login(Form(input): Form<LoginInput>) -> Result<HttpResponse, ErrorResponse> {
     let session_id = http1::common::base64::encode(input.username);
+    let cookie = Cookie::new(crate::constants::COOKIE_AUTH_SESSION, session_id)
+        .path("/")
+        .http_only(true)
+        .max_age(crate::constants::SESSION_DURATION_SECS);
 
-    let res = HttpResponse::see_other("/")
-        .set_cookie(
-            Cookie::new(crate::constants::COOKIE_AUTH_SESSION, session_id)
-                .path("/")
-                .http_only(true)
-                .max_age(crate::constants::SESSION_DURATION_SECS),
-        )
-        .finish();
+    let res = HttpResponse::see_other("/").set_cookie(cookie).finish();
 
     Ok(res)
 }
@@ -107,6 +104,8 @@ fn chat_conversation(
     user: ChatUser,
     ChatRoom(chat_room): ChatRoom,
 ) {
+    log::info!("Starting chat: {user:?}");
+
     std::thread::spawn(move || loop {
         let mut lock = chat_room.lock().unwrap();
         let (ws, _) = lock
@@ -127,6 +126,8 @@ fn chat_conversation(
                 username,
                 content,
             };
+
+            log::info!("new message: {message:?}");
             db.set(format!("message/{}", message.id), message.clone())
                 .unwrap();
 

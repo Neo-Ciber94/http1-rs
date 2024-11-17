@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
         .start(
             App::new()
                 .middleware(Logging)
-                .middleware(auth_middleware)
+                //.middleware(auth_middleware)
                 .state(KeyValueDatabase::new("examples/chat_app/db.json").unwrap())
                 .state(chat_room)
                 .scope("/api", routes::api::routes())
