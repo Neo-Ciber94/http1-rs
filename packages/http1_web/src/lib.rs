@@ -22,3 +22,18 @@ pub mod ws;
 mod request;
 mod response;
 pub use {request::*, response::*};
+
+mod macros {
+    /// Checks a `Result<T, impl IntoResponse>` and returns the error response if is an error.
+    #[macro_export]
+    macro_rules! guard {
+        ($expr:expr) => {
+            match $expr {
+                Ok(res) => res,
+                Err(err) => {
+                    return $crate::IntoResponse::into_response(err);
+                }
+            }
+        };
+    }
+}
