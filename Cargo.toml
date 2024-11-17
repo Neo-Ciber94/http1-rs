@@ -8,7 +8,8 @@ members = [
     "packages/datetime",
     "packages/http1",
     "packages/http1_web",
-    "packages/log", "packages/orderedmap",
+    "packages/log",
+    "packages/orderedmap",
     "packages/rng",
     "packages/serde",
 ]
