@@ -144,6 +144,8 @@ impl TryFrom<u8> for Month {
 pub struct DateTime(u128);
 
 impl DateTime {
+    pub const UNIX_EPOCH : DateTime = DateTime::with_millis(0);
+
     pub fn builder() -> Builder {
         Builder::new()
     }
@@ -157,7 +159,7 @@ impl DateTime {
         Self::with_millis(ms)
     }
 
-    pub fn with_millis(ms: u128) -> Self {
+    pub const fn with_millis(ms: u128) -> Self {
         Self(ms)
     }
 
