@@ -186,9 +186,7 @@ impl RequestHandler for App {
             Some(r) => {
                 req.extensions_mut().insert(RouteInfo(r));
             }
-            None => {
-                log::warn!("RouteInfo was not found for `{req_path}` this is a bug");
-            }
+            None => {}
         }
 
         req.extensions_mut().insert(mtch.params.clone());
