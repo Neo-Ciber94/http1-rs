@@ -10,9 +10,9 @@ use http1_web::{
     ErrorResponse, HttpResponse,
 };
 use serde::impl_serde_struct;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 
-use crate::models::{ChatMessage, ChatRoom, ChatUser};
+use crate::models::{ChatClient, ChatMessage, ChatRoom, ChatUser};
 
 static THREAD_POOL: LazyLock<ThreadPool> = LazyLock::new(|| {
     ThreadPool::builder()
@@ -86,13 +86,18 @@ fn chat(
                 .wait()
                 .expect("failed to complete websocket connection");
 
-            // handle chat
-            chat_conversation(state, user.clone(), chat_room.clone());
-
             // save chat to track it
-            let ChatRoom(chat_room) = chat_room;
-            let mut lock = chat_room.lock().unwrap();
-            lock.push((ws, user));
+            {
+                let ChatRoom(chat_room) = chat_room.clone();
+                let mut lock = chat_room.try_write().expect("failed to get lock");
+                lock.push_back(ChatClient {
+                    ws: Arc::new(Mutex::new(ws)),
+                    user: user.clone(),
+                });
+            }
+
+            // handle chat
+            chat_conversation(state, user, chat_room.clone());
         })
         .unwrap();
 
@@ -107,24 +112,31 @@ fn chat_conversation(
     log::info!("Starting chat: {user:?}");
 
     std::thread::spawn(move || loop {
-        let mut lock = chat_room.lock().unwrap();
-        let (ws, _) = lock
-            .iter_mut()
-            .find(|(_, u)| u.username == user.username)
-            .unwrap();
+        let client = {
+            let lock = chat_room.read().unwrap();
+            lock.iter()
+                .find(|client| client.user.username == user.username)
+                .cloned()
+                .unwrap()
+        };
 
-        let msg = ws.recv().unwrap();
-        drop(lock);
+        let msg = client
+            .ws
+            .lock()
+            .expect("failed to lock ws")
+            .recv()
+            .expect("failed to read ws message");
 
         if let Some(content) = msg.into_text() {
             let id = Uuid::new_v4();
+            let content = content.trim().to_owned();
             let username = user.username.clone();
 
             // Save to the db
             let message = ChatMessage {
                 id,
-                username,
                 content,
+                username,
             };
 
             log::info!("new message: {message:?}");
@@ -132,12 +144,19 @@ fn chat_conversation(
                 .unwrap();
 
             // Broadcast to all the users
-            let mut lock = chat_room.lock().unwrap();
-            let other_users = lock.iter_mut().filter(|(_, u)| u.username != user.username);
+            let lock = chat_room.read().unwrap();
+            let other_clients = lock
+                .iter()
+                .filter(|client| client.user.username != user.username);
 
             let message_json = serde::json::to_string(&message).unwrap();
-            for (ws, _) in other_users {
-                ws.send(message_json.as_str()).unwrap();
+            log::info!("broadcasting message from user: {}", user.username);
+            for client in other_clients {
+                let mut ws = client.ws.lock().unwrap();
+                log::info!("sending message to: {}", client.user.username);
+                if let Err(err) = ws.send(message_json.as_str()) {
+                    log::error!("Failed to broadcast message to `{user:?}`: {err}");
+                }
             }
         }
     });

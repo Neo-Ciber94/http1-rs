@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use app::db::KeyValueDatabase;
 use http1::{body::Body, request::Request, response::Response, server::Server};
@@ -16,14 +16,14 @@ fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
     let server = Server::new("localhost:5678");
-    let chat_room = ChatRoom(Arc::new(Mutex::new(vec![])));
+    let chat_room = ChatRoom(Arc::new(RwLock::new(Default::default())));
 
     server
         .on_ready(|addr| log::debug!("Listening on http://{addr}"))
         .start(
             App::new()
                 .middleware(Logging)
-                //.middleware(auth_middleware)
+                .middleware(auth_middleware)
                 .state(KeyValueDatabase::new("examples/chat_app/db.json").unwrap())
                 .state(chat_room)
                 .scope("/api", routes::api::routes())
@@ -35,13 +35,19 @@ fn main() -> std::io::Result<()> {
 }
 
 fn auth_middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
-    let is_authenticated = http1_web::guard!(req.extract::<Option<ChatUser>>()).is_some();
     let path = req.uri().path_and_query().path();
-    let is_login = path == "/login";
 
-    if is_authenticated && is_login {
+    if path.starts_with("/api") {
+        return next.call(req);
+    }
+
+    let is_authenticated = http1_web::guard!(req.extract::<Option<ChatUser>>()).is_some();
+    let to_login = path == "/login";
+    log::debug!("is_authenticated? {is_authenticated}, path: {path}");
+
+    if is_authenticated && to_login {
         Redirect::see_other("/").into_response()
-    } else if !is_authenticated && !is_login {
+    } else if !is_authenticated && !to_login {
         Redirect::see_other("/login").into_response()
     } else {
         next.call(req)

@@ -20,20 +20,21 @@ const chatBoxFormEl = document.querySelector("#chatbox");
 const chatMessageTemplate = document.querySelector("#chat-message").content;
 
 function render(newMessages) {
+  messages = newMessages;
   messagesListEl.replaceChildren([]);
 
-  for (const { id, username, content } in newMessages) {
+  for (const { id, username, content } of newMessages) {
     /**
      * @type {HTMLElement}
      */
-    const userMessageEl = chatMessageTemplate.cloneNode(true);
+    const userMessageEl = chatMessageTemplate.cloneNode(true).querySelector("li");
 
     if (currentUser && currentUser.username === username) {
       userMessageEl.style.fontWeight = "bold";
     }
 
     userMessageEl.dataList = `user/${id}`;
-    userMessageEl.innerText = `${username}: ${content}`;
+    userMessageEl.innerText = `${username}: ${content || "<empty>"}`;
     messagesListEl.append(userMessageEl);
   }
 
@@ -70,11 +71,11 @@ function chat() {
     console.log("Chat closed");
 
     // Try reconnect
-    setTimeout(() => {
-      console.log("Reconnecting...");
-      abortController.abort();
-      chat();
-    }, 1000);
+    // setTimeout(() => {
+    //   console.log("Reconnecting...");
+    //   abortController.abort();
+    //   chat();
+    // }, 1000);
   };
 
   /**

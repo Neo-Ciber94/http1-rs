@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{collections::VecDeque, sync::{Arc, Mutex, RwLock}};
 
 use http1::common::uuid::Uuid;
 use http1_web::{
@@ -30,8 +30,14 @@ impl_serde_struct!(ChatUser => {
     username: String
 });
 
+#[derive(Debug, Clone)]
+pub struct ChatClient {
+    pub ws: Arc<Mutex<WebSocket>>,
+    pub user: ChatUser,
+}
+
 #[derive(Debug, Clone, Default)]
-pub struct ChatRoom(pub Arc<Mutex<Vec<(WebSocket, ChatUser)>>>);
+pub struct ChatRoom(pub Arc<RwLock<VecDeque<ChatClient>>>);
 
 impl FromRequestRef for ChatUser {
     type Rejection = ErrorStatusCode;
