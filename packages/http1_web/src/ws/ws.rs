@@ -101,15 +101,18 @@ impl WebSocket {
     }
 
     /// Reads a message.
+    #[track_caller]
     pub fn recv(&mut self) -> Result<Message, WebSocketError> {
         self.read(None)
     }
 
+    #[track_caller]
     /// Reads a message and errors if timeout.
     pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Message, WebSocketError> {
         self.read(Some(timeout))
     }
 
+    #[track_caller]
     fn read(&mut self, timeout: Option<Duration>) -> Result<Message, WebSocketError> {
         let mut msg_data = Vec::new();
         let mut msg_op_code: Option<OpCode> = None;
