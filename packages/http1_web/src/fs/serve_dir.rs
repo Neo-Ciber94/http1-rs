@@ -147,8 +147,6 @@ where
                 let mut html_file = serve_path.clone();
                 html_file.set_extension("html");
 
-                dbg!(&html_file);
-
                 if html_file.exists() {
                     serve_path = html_file;
                 }
