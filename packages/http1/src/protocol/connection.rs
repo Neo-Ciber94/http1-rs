@@ -1,10 +1,16 @@
 use std::{
     fs::File,
+    io::{Read, Write},
     net::{SocketAddr, TcpStream},
 };
 
+#[doc(hidden)]
+pub trait Io: Read + Write {}
+
+impl<T: Read + Write> Io for T {}
+
 /// Represents a request connection stream to read the request and write the response.
-pub trait Connection: std::io::Write + std::io::Read + Sized {
+pub trait Connection: Io + Sized {
     type Err: std::error::Error;
 
     /// Try cloning this connection stream to get the write and read part.

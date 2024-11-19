@@ -42,13 +42,11 @@ where
         };
 
         lock.push_back(Slot { value, received: 0 });
-        self.cond_var.notify_one();
+        self.cond_var.notify_all();
         Ok(())
     }
 
     fn recv(&self, timeout: Option<Duration>) -> Result<T, RecvError> {
-        self.check_connected()?;
-
         let mut lock = match self.queue.lock() {
             Ok(x) => x,
             Err(_) => {
@@ -56,37 +54,42 @@ where
             }
         };
 
-        loop {
-            self.check_connected()?;
+        // Wait for new data
+        lock = if let Some(dur) = timeout {
+            let (lock, timeout_result) = self
+                .cond_var
+                .wait_timeout_while(lock, dur, |x| x.is_empty())
+                .map_err(|_| RecvError::NotReceived)?;
 
-            if let Some(slot) = lock.front_mut() {
-                let receivers_count = self
-                    .receivers_count
-                    .load(std::sync::atomic::Ordering::Relaxed);
-
-                slot.received += 1;
-
-                let value = if slot.received >= receivers_count {
-                    lock.pop_front().unwrap().value
-                } else {
-                    slot.value.clone()
-                };
-
-                return Ok(value);
+            if timeout_result.timed_out() {
+                return Err(RecvError::Timeout);
             }
 
-            lock = if let Some(dur) = timeout {
-                let (ret, _) = self
-                    .cond_var
-                    .wait_timeout(lock, dur)
-                    .map_err(|_| RecvError::NotReceived)?;
+            lock
+        } else {
+            self.cond_var
+                .wait_while(lock, |x| x.is_empty())
+                .map_err(|_| RecvError::NotReceived)?
+        };
 
-                ret
+        self.check_connected()?;
+
+        if let Some(slot) = lock.front_mut() {
+            let receivers_count = self
+                .receivers_count
+                .load(std::sync::atomic::Ordering::Relaxed);
+
+            slot.received += 1;
+
+            let value = if slot.received >= receivers_count {
+                lock.pop_front().unwrap().value
             } else {
-                self.cond_var
-                    .wait(lock)
-                    .map_err(|_| RecvError::NotReceived)?
-            }
+                slot.value.clone()
+            };
+
+            Ok(value)
+        } else {
+            Err(RecvError::NotReceived)
         }
     }
 }
@@ -109,6 +112,16 @@ where
 {
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
         self.channel.send(value)
+    }
+
+    pub fn subscribe(&self) -> Receiver<T> {
+        self.channel
+            .receivers_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        Receiver {
+            channel: self.channel.clone(),
+        }
     }
 }
 
@@ -138,6 +151,7 @@ impl<T> Drop for Sender<T> {
 pub enum RecvError {
     Disconnected,
     NotReceived,
+    Timeout,
 }
 
 pub struct Receiver<T> {
@@ -151,18 +165,6 @@ impl<T: Clone> Receiver<T> {
 
     pub fn recv_timeout(&mut self, dur: Duration) -> Result<T, RecvError> {
         self.channel.recv(Some(dur))
-    }
-}
-
-impl<T> Clone for Receiver<T> {
-    fn clone(&self) -> Self {
-        self.channel
-            .receivers_count
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-        Self {
-            channel: self.channel.clone(),
-        }
     }
 }
 
@@ -193,62 +195,47 @@ pub fn channel<T: Clone>() -> (Sender<T>, Receiver<T>) {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{atomic::AtomicUsize, Arc, Mutex},
-        time::Duration,
-    };
+    use std::sync::{Arc, Barrier, Mutex};
 
     use super::channel;
 
     #[test]
     fn should_send_value() {
-        let (sender, receiver) = channel::<&str>();
+        let (sender, mut receiver) = channel::<&str>();
 
-        let mut r1 = receiver.clone();
-        let mut r2 = receiver.clone();
+        let mut r2 = sender.subscribe();
 
         let values = Arc::new(Mutex::new(vec![]));
-        let signal = Arc::new(AtomicUsize::new(0));
+        let barrier = Arc::new(Barrier::new(2));
 
-        {
+        let t1 = {
             let values = values.clone();
-            let s = signal.clone();
+            let barrier = barrier.clone();
 
             std::thread::spawn(move || {
-                values
-                    .lock()
-                    .unwrap()
-                    .push(r1.recv_timeout(Duration::from_millis(100)).unwrap());
-                values
-                    .lock()
-                    .unwrap()
-                    .push(r1.recv_timeout(Duration::from_millis(100)).unwrap());
-                s.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                values.lock().unwrap().push(receiver.recv().unwrap());
+                values.lock().unwrap().push(receiver.recv().unwrap());
+
+                barrier.wait();
             })
         };
 
-        {
+        let t2 = {
             let values = values.clone();
-            let s = signal.clone();
 
             std::thread::spawn(move || {
-                values
-                    .lock()
-                    .unwrap()
-                    .push(r2.recv_timeout(Duration::from_millis(100)).unwrap());
-                values
-                    .lock()
-                    .unwrap()
-                    .push(r2.recv_timeout(Duration::from_millis(100)).unwrap());
-                s.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                values.lock().unwrap().push(r2.recv().unwrap());
+                values.lock().unwrap().push(r2.recv().unwrap());
+                barrier.wait();
             })
         };
 
         sender.send("Fionna").unwrap();
         sender.send("Cake").unwrap();
 
-        // while signal.load(std::sync::atomic::Ordering::Relaxed) < 2 {}
-        std::thread::sleep(Duration::from_millis(100));
+        // Wait for the thread
+        t1.join().unwrap();
+        t2.join().unwrap();
 
         let v = &*values.lock().unwrap();
 
