@@ -7,3 +7,4 @@ pub mod thread_pool;
 pub mod thread_spawner;
 pub mod uuid;
 pub mod mpmc;
+pub mod broadcast;
