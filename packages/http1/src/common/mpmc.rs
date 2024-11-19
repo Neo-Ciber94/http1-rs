@@ -47,7 +47,7 @@ where
     }
 
     fn recv(&self, timeout: Option<Duration>) -> Result<T, RecvError> {
-        let mut lock = match self.queue.lock() {
+        let mut lock = match self.queue.try_lock() {
             Ok(x) => x,
             Err(_) => {
                 return Err(RecvError::NotReceived);
@@ -195,7 +195,10 @@ pub fn channel<T: Clone>() -> (Sender<T>, Receiver<T>) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Barrier, Mutex};
+    use std::{
+        sync::{Arc, Barrier, Mutex},
+        time::Duration,
+    };
 
     use super::channel;
 
@@ -242,5 +245,78 @@ mod tests {
         assert_eq!(v.len(), 4);
         assert_eq!(v.iter().filter(|x| **x == "Fionna").count(), 2);
         assert_eq!(v.iter().filter(|x| **x == "Cake").count(), 2);
+    }
+
+    #[test]
+    fn should_timeout_on_recv() {
+        let (_, mut receiver) = channel::<&str>();
+        let result = receiver.recv_timeout(Duration::from_millis(100));
+        assert!(matches!(result, Err(super::RecvError::Timeout)));
+    }
+
+    #[test]
+    fn should_disconnect_on_drop() {
+        let (sender, mut receiver) = channel::<&str>();
+        drop(sender); // Drop the sender
+        let result = receiver.recv();
+        assert!(matches!(result, Err(super::RecvError::Disconnected)));
+    }
+
+    #[test]
+    fn should_receive_ordered_values() {
+        let (sender, mut receiver) = channel::<&str>();
+        sender.send("Jake").unwrap();
+        sender.send("Finn").unwrap();
+        sender.send("Ice King").unwrap();
+
+        assert_eq!(receiver.recv().unwrap(), "Jake");
+        assert_eq!(receiver.recv().unwrap(), "Finn");
+        assert_eq!(receiver.recv().unwrap(), "Ice King");
+    }
+
+    #[test]
+    fn should_support_multiple_subscribers() {
+        let (sender, mut receiver1) = channel::<&str>();
+        let mut receiver2 = sender.subscribe();
+
+        sender.send("Princess Bubblegum").unwrap();
+        sender.send("Marceline").unwrap();
+
+        assert_eq!(receiver1.recv().unwrap(), "Princess Bubblegum");
+        assert_eq!(receiver1.recv().unwrap(), "Marceline");
+        assert_eq!(receiver2.recv().unwrap(), "Princess Bubblegum");
+        assert_eq!(receiver2.recv().unwrap(), "Marceline");
+    }
+
+    #[test]
+    fn should_handle_concurrent_sends() {
+        let (sender, mut receiver) = channel::<&str>();
+        let barrier = Arc::new(Barrier::new(3)); // Two senders + main thread
+
+        let t1 = {
+            let sender = sender.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                sender.send("BMO").unwrap();
+                barrier.wait();
+            })
+        };
+
+        let t2 = {
+            let sender = sender.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                sender.send("Lumpy Space Princess").unwrap();
+                barrier.wait();
+            })
+        };
+
+        barrier.wait(); // Wait for all threads to complete
+        t1.join().unwrap();
+        t2.join().unwrap();
+
+        let received: Vec<_> = (0..2).map(|_| receiver.recv().unwrap()).collect();
+        assert!(received.contains(&"BMO"));
+        assert!(received.contains(&"Lumpy Space Princess"));
     }
 }

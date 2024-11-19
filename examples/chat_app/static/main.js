@@ -1,3 +1,4 @@
+'use strict';
 import { getCurrentUser, getMessages } from "./api.js";
 
 /**
@@ -63,8 +64,8 @@ function chat() {
 
   ws.onmessage = (ev) => {
     console.log("Chat message received: ", ev.data);
-    const newMessage = JSON.parse(newMessage);
-    render([...messages, newMessage]);
+    const msg = JSON.parse(ev.data);
+    render([...messages, msg]);
   };
 
   ws.onclose = () => {

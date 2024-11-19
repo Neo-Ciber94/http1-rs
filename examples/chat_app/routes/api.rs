@@ -2,15 +2,23 @@ use app::db::KeyValueDatabase;
 use datetime::DateTime;
 use http1::{
     body::Body,
-    common::{thread_pool::ThreadPool, uuid::Uuid},
+    common::{broadcast::Broadcast, thread_pool::ThreadPool, uuid::Uuid},
     response::Response,
 };
 use http1_web::{
-    app::Scope, cookies::Cookie, forms::form::Form, json::Json, state::State, ws::WebSocketUpgrade,
+    app::Scope,
+    cookies::Cookie,
+    forms::form::Form,
+    json::Json,
+    state::State,
+    ws::{Message, WebSocketUpgrade},
     ErrorResponse, HttpResponse,
 };
 use serde::impl_serde_struct;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::{
+    sync::{Arc, LazyLock, Mutex},
+    time::Duration,
+};
 
 use crate::models::{ChatClient, ChatMessage, ChatRoom, ChatUser};
 
@@ -73,36 +81,105 @@ fn messages(
 }
 
 fn chat(
-    state: State<KeyValueDatabase>,
+    State(db): State<KeyValueDatabase>,
     user: ChatUser,
-    State(chat_room): State<ChatRoom>,
+    State(broadcast): State<Broadcast<ChatMessage>>,
     upgrade: WebSocketUpgrade,
 ) -> Response<Body> {
     let (pending, res) = upgrade.upgrade();
 
-    THREAD_POOL
-        .execute(move || {
-            let ws = pending
-                .wait()
-                .expect("failed to complete websocket connection");
+    std::thread::spawn(move || {
+        let websocket = pending.wait().expect("failed to upgrade websocket");
+        let ws = Arc::new(Mutex::new(websocket));
 
-            // save chat to track it
-            {
-                let ChatRoom(chat_room) = chat_room.clone();
-                let mut lock = chat_room.try_write().expect("failed to get lock");
-                lock.push_back(ChatClient {
-                    ws: Arc::new(Mutex::new(ws)),
-                    user: user.clone(),
-                });
+        // Wait for messages
+        let _subscription = {
+            let ws = Arc::clone(&ws);
+            let user = user.clone();
+
+            broadcast
+                .subscribe(move |msg| {
+                    log::info!("receiving message");
+                    if user.username == msg.username {
+                        return;
+                    }
+
+                    let mut lock = ws.lock().expect("failed to get ws lock");
+                    let message_json = serde::json::to_string(&msg).unwrap();
+                    log::info!("broadcasting message from user: {}", user.username);
+                    lock.send(message_json).expect("failed to send message");
+                })
+                .unwrap()
+        };
+
+        // Read incoming messages
+        let t = std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_millis(100));
+                let mut lock = ws.lock().expect("failed to get ws lock");
+                let next_msg = lock.recv().expect("failed to read message");
+                drop(lock);
+
+                if let Message::Text(content) = next_msg {
+                    let id = Uuid::new_v4();
+                    let content = content.trim().to_owned();
+                    let username = user.username.clone();
+
+                    // Save to the db
+                    let message = ChatMessage {
+                        id,
+                        content,
+                        username,
+                    };
+
+                    log::info!("new message: {message:?}");
+                    db.set(format!("message/{}", message.id), message.clone())
+                        .unwrap();
+
+                    broadcast
+                        .send(message)
+                        .expect("failed to broadcast message");
+                }
             }
+        });
 
-            // handle chat
-            chat_conversation(state, user, chat_room.clone());
-        })
-        .unwrap();
+        t.join().unwrap();
+    });
 
     res
 }
+
+// fn chat(
+//     state: State<KeyValueDatabase>,
+//     user: ChatUser,
+//     State(chat_room): State<ChatRoom>,
+//     upgrade: WebSocketUpgrade,
+// ) -> Response<Body> {
+//     let (pending, res) = upgrade.upgrade();
+
+//     THREAD_POOL
+//         .execute(move || {
+//             let ws = pending
+//                 .wait()
+//                 .expect("failed to complete websocket connection");
+
+//             // save chat to track it
+//             {
+//                 let ChatRoom(chat_room) = chat_room.clone();
+//                 let mut lock = chat_room.try_write().expect("failed to get lock");
+//                 lock.push_back(ChatClient {
+//                     ws: Arc::new(Mutex::new(ws)),
+//                     user: user.clone(),
+//                 });
+//             }
+
+//             // handle chat
+//             chat_conversation(state, user, chat_room.clone());
+//         })
+//         .unwrap();
+
+//     res
+// }
 
 fn chat_conversation(
     State(db): State<KeyValueDatabase>,
