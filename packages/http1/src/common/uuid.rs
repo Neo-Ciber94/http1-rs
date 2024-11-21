@@ -140,7 +140,7 @@ impl FromStr for Uuid {
         let segment = parts
             .next()
             .ok_or_else(|| InvalidUuid::InvalidValue(s.to_owned()))?;
-        let e = u64::from_str_radix(segment, 16).map_err(|e| InvalidUuid::ParseError(e))?;
+        let e = u64::from_str_radix(segment, 16).map_err(InvalidUuid::ParseError)?;
 
         // Ensure no extra parts
         if parts.next().is_some() {

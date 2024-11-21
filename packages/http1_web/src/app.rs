@@ -182,11 +182,8 @@ impl RequestHandler for App {
         let mtch = self.scope.find(req_path, req.method());
 
         // Add any additional extensions
-        match self.scope.find_route(req_path) {
-            Some(r) => {
-                req.extensions_mut().insert(RouteInfo(r));
-            }
-            None => {}
+        if let Some(r) = self.scope.find_route(req_path) {
+            req.extensions_mut().insert(RouteInfo(r));
         }
 
         req.extensions_mut().insert(mtch.params.clone());
