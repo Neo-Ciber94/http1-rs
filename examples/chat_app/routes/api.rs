@@ -2,7 +2,7 @@ use app::db::KeyValueDatabase;
 use datetime::DateTime;
 use http1::{
     body::Body,
-    common::{broadcast::Broadcast, thread_pool::ThreadPool, uuid::Uuid},
+    common::{broadcast::Broadcast, uuid::Uuid},
     response::Response,
 };
 use http1_web::{
@@ -15,19 +15,8 @@ use http1_web::{
     ErrorResponse, HttpResponse,
 };
 use serde::impl_serde_struct;
-use std::{
-    sync::{Arc, LazyLock, Mutex},
-    time::Duration,
-};
 
-use crate::models::{ChatClient, ChatMessage, ChatRoom, ChatUser};
-
-static THREAD_POOL: LazyLock<ThreadPool> = LazyLock::new(|| {
-    ThreadPool::builder()
-        .spawn_on_full(true)
-        .build()
-        .expect("failed to create thread pool")
-});
+use crate::models::{ChatMessage, ChatUser};
 
 pub fn routes() -> Scope {
     Scope::new()
@@ -101,23 +90,7 @@ fn chat(
             .unwrap();
             tx.send(message_json).unwrap();
         }
-
-        // let (tx, rx) = std::sync::mpsc::channel();
-
-        // let broadcast_thread = {
-        //     let ws = Arc::clone(&ws);
-        //     std::thread::spawn(move || {
-        //         for msg in rx.iter() {
-        //             log::info!("Broadcasting message: {:?}", msg);
-        //             let mut lock = ws.lock().expect("Failed to lock WebSocket");
-        //             let message_json = serde::json::to_string(&msg).unwrap();
-        //             if let Err(e) = lock.send(message_json) {
-        //                 log::error!("Failed to send message: {:?}", e);
-        //             }
-        //         }
-        //     })
-        // };
-
+        
         // Wait for messages
         let _subscription = {
             let user = user.clone();

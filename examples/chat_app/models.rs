@@ -1,9 +1,5 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex, RwLock}};
-
 use http1::common::uuid::Uuid;
-use http1_web::{
-    cookies::Cookies, from_request::FromRequestRef, ws::WebSocket, ErrorStatusCode, RequestExt,
-};
+use http1_web::{cookies::Cookies, from_request::FromRequestRef, ErrorStatusCode, RequestExt};
 use serde::impl_serde_struct;
 
 use crate::constants;
@@ -29,15 +25,6 @@ pub struct ChatUser {
 impl_serde_struct!(ChatUser => {
     username: String
 });
-
-#[derive(Debug, Clone)]
-pub struct ChatClient {
-    pub ws: Arc<Mutex<WebSocket>>,
-    pub user: ChatUser,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ChatRoom(pub Arc<RwLock<VecDeque<ChatClient>>>);
 
 impl FromRequestRef for ChatUser {
     type Rejection = ErrorStatusCode;
