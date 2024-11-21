@@ -89,7 +89,9 @@ fn chat(
     let (pending, res) = upgrade.upgrade();
 
     std::thread::spawn(move || {
-        let mut websocket = pending.wait().expect("failed to upgrade websocket");
+        let websocket = pending.wait().expect("failed to upgrade websocket");
+        let (mut tx, mut rx) = websocket.split().unwrap();
+
         {
             let message_json = serde::json::to_string(&ChatMessage {
                 id: Uuid::new_v4(),
@@ -97,46 +99,26 @@ fn chat(
                 username: String::from("server"),
             })
             .unwrap();
-            websocket.send(message_json).unwrap();
+            tx.send(message_json).unwrap();
         }
 
-        let ws = Arc::new(Mutex::new(websocket));
-        let (tx, rx) = std::sync::mpsc::channel();
+        // let (tx, rx) = std::sync::mpsc::channel();
 
-        let broadcast_thread = {
-            let ws = Arc::clone(&ws);
-            std::thread::spawn(move || {
-                for msg in rx.iter() {
-                    log::info!("Broadcasting message: {:?}", msg);
-                    let mut lock = ws.lock().expect("Failed to lock WebSocket");
-                    let message_json = serde::json::to_string(&msg).unwrap();
-                    if let Err(e) = lock.send(message_json) {
-                        log::error!("Failed to send message: {:?}", e);
-                    }
-                }
-            })
-        };
-
-        // Wait for messages
-        // let _subscription = {
+        // let broadcast_thread = {
         //     let ws = Arc::clone(&ws);
-        //     let user = user.clone();
-
-        //     broadcast
-        //         .subscribe(move |msg| {
-        //             log::info!("receiving message");
-        //             if user.username == msg.username {
-        //                 return;
-        //             }
-
-        //             let mut lock = ws.lock().expect("failed to get ws lock");
+        //     std::thread::spawn(move || {
+        //         for msg in rx.iter() {
+        //             log::info!("Broadcasting message: {:?}", msg);
+        //             let mut lock = ws.lock().expect("Failed to lock WebSocket");
         //             let message_json = serde::json::to_string(&msg).unwrap();
-        //             log::info!("broadcasting message from user: {}", user.username);
-        //             lock.send(message_json).expect("failed to send message");
-        //         })
-        //         .unwrap()
+        //             if let Err(e) = lock.send(message_json) {
+        //                 log::error!("Failed to send message: {:?}", e);
+        //             }
+        //         }
+        //     })
         // };
 
+        // Wait for messages
         let _subscription = {
             let user = user.clone();
 
@@ -147,7 +129,9 @@ fn chat(
                         return;
                     }
 
-                    tx.send(msg).unwrap();
+                    let message_json = serde::json::to_string(&msg).unwrap();
+                    log::info!("broadcasting message from user: {}", user.username);
+                    tx.send(message_json).expect("failed to send message");
                 })
                 .unwrap()
         };
@@ -155,10 +139,7 @@ fn chat(
         // Read incoming messages
         let t = std::thread::spawn(move || {
             loop {
-                std::thread::sleep(Duration::from_millis(100));
-                let mut lock = ws.lock().expect("failed to get ws lock");
-                let next_msg = lock.recv().expect("failed to read message");
-                drop(lock);
+                let next_msg = rx.recv().expect("failed to read message");
 
                 if let Message::Text(content) = next_msg {
                     let id = Uuid::new_v4();

@@ -240,12 +240,12 @@ impl WebSocket {
     }
 
     /// Split the websocket into a read and write part.
-    pub fn split(self) -> Result<(WebSocketReader, WebSocketWriter), WebSocketSplitError> {
+    pub fn split(self) -> Result<(WebSocketWriter, WebSocketReader), WebSocketSplitError> {
         let other = self.try_clone().ok_or(WebSocketSplitError)?;
-        let read = WebSocketReader(self);
         let write = WebSocketWriter(other);
+        let read = WebSocketReader(self);
 
-        Ok((read, write))
+        Ok((write, read))
     }
 }
 
