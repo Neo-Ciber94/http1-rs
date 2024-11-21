@@ -1,3 +1,4 @@
+pub(crate) mod io;
 pub mod request;
 pub mod response;
 
@@ -15,15 +16,14 @@ use super::{
 /**
  * Handles and send a response to a HTTP1 request.
  */
-pub fn handle_incoming<H, C>(handler: &H, config: &Config, conn: C) -> std::io::Result<()>
+pub fn handle_incoming<H>(handler: &H, config: &Config, conn: Connection) -> std::io::Result<()>
 where
     H: RequestHandler + Send + Sync + 'static,
-    C: Connection + Send + Sync + 'static,
 {
     let mut write_conn = match conn.try_clone() {
-        Ok(conn) => conn,
-        Err(err) => {
-            return Err(std::io::Error::other(err.to_string()));
+        Some(conn) => conn,
+        None => {
+            return Err(std::io::Error::other("failed to clone connection"));
         }
     };
 
@@ -70,10 +70,7 @@ where
     }
 }
 
-fn pre_process_request<C>(request: &mut Request<Body>, conn: &C, config: &Config)
-where
-    C: Connection + Sync + Send + 'static,
-{
+fn pre_process_request(request: &mut Request<Body>, conn: &Connection, config: &Config) {
     if config.include_conn_info {
         request
             .extensions_mut()
@@ -92,12 +89,13 @@ fn is_upgrade_request(req: &Request<Body>) -> bool {
 }
 
 #[cfg(test)]
-mod pipe {
-    use std::convert::Infallible;
+mod tests {
+    use crate::protocol::connection::Connection;
+    use crate::{response::Response, server::Config, status::StatusCode};
+
+    use super::handle_incoming;
     use std::io::{self, Cursor, Read, Write};
     use std::sync::{Arc, Mutex};
-
-    use crate::protocol::connection::Connection;
 
     #[derive(Clone)]
     struct Inner {
@@ -158,28 +156,6 @@ mod pipe {
         }
     }
 
-    impl Connection for Pipe {
-        type Err = Infallible;
-
-        fn try_clone(&self) -> Result<Self, Self::Err> {
-            Ok(Self {
-                inner: Arc::clone(&self.inner),
-            })
-        }
-
-        fn peer_addr(&self) -> Option<std::net::SocketAddr> {
-            None
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::{response::Response, server::Config, status::StatusCode};
-
-    use super::{handle_incoming, pipe::Pipe};
-
     #[test]
     fn should_get_request_and_get_response() {
         let pipe = Pipe::from("GET / HTTP/1.1\nHost: localhost:3000");
@@ -190,8 +166,8 @@ mod tests {
         };
 
         let handler = |_| Response::new(StatusCode::OK, "Hello World!".into());
-
-        handle_incoming(&handler, &config, pipe.clone()).unwrap();
+        let conn = Connection::from_io(pipe.clone());
+        handle_incoming(&handler, &config, conn).unwrap();
 
         let data = pipe.into_writer();
         let response_text = std::io::read_to_string(data.as_slice()).unwrap();

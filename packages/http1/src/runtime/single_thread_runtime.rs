@@ -1,4 +1,4 @@
-use crate::protocol::h1::handle_incoming;
+use crate::protocol::{connection::Connection, h1::handle_incoming};
 
 use super::runtime::{Runtime, StartRuntime};
 
@@ -26,10 +26,12 @@ impl Runtime for SingleThreadRuntime {
             }
 
             match listener.accept() {
-                Ok((stream, _)) => match handle_incoming(&handler, &config, stream) {
-                    Ok(_) => {}
-                    Err(err) => log::error!("{err}"),
-                },
+                Ok((stream, _)) => {
+                    match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
+                        Ok(_) => {}
+                        Err(err) => log::error!("{err}"),
+                    }
+                }
                 Err(err) => {
                     return Err(err);
                 }

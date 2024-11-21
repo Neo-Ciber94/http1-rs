@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{common::thread_pool::ThreadPool, protocol::h1::handle_incoming};
+use crate::{
+    common::thread_pool::ThreadPool,
+    protocol::{connection::Connection, h1::handle_incoming},
+};
 
 use super::runtime::{Runtime, StartRuntime};
 
@@ -60,9 +63,11 @@ impl Runtime for ThreadPooledRuntime {
                     let config = config.clone();
                     let handler = lock.clone();
 
-                    pool.execute(move || match handle_incoming(&handler, &config, stream) {
-                        Ok(_) => {}
-                        Err(err) => log::error!("{err}"),
+                    pool.execute(move || {
+                        match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
+                            Ok(_) => {}
+                            Err(err) => log::error!("{err}"),
+                        }
                     })?;
                 }
                 Err(err) => return Err(err),

@@ -1,58 +1,68 @@
 use std::{
-    fs::File,
+    fmt::Debug,
     io::{Read, Write},
     net::{SocketAddr, TcpStream},
 };
 
-#[doc(hidden)]
-pub trait Io: Read + Write {}
-
-impl<T: Read + Write> Io for T {}
+use super::h1::io::IoStream;
 
 /// Represents a request connection stream to read the request and write the response.
-pub trait Connection: Io + Sized {
-    type Err: std::error::Error;
-
-    /// Try cloning this connection stream to get the write and read part.
-    fn try_clone(&self) -> Result<Self, Self::Err>;
-
-    /// Returns the ip address of this connection.
-    fn peer_addr(&self) -> Option<SocketAddr>;
+pub enum Connection {
+    Tcp(TcpStream),
+    Io(IoStream),
 }
 
-impl Connection for TcpStream {
-    type Err = std::io::Error;
-
-    fn try_clone(&self) -> Result<Self, Self::Err> {
-        TcpStream::try_clone(self)
+impl Connection {
+    pub fn from_io<T>(io: T) -> Self
+    where
+        T: Read + Write + Send + Sync + 'static,
+    {
+        Connection::Io(IoStream::new(io))
     }
 
-    fn peer_addr(&self) -> Option<SocketAddr> {
-        self.peer_addr().ok()
-    }
-}
-
-impl Connection for File {
-    type Err = std::io::Error;
-
-    fn try_clone(&self) -> Result<Self, Self::Err> {
-        File::try_clone(self)
+    pub fn try_clone(&self) -> Option<Connection> {
+        match self {
+            Connection::Tcp(tcp_stream) => tcp_stream.try_clone().ok().map(Connection::Tcp),
+            Connection::Io(io) => Some(Connection::Io(io.clone())),
+        }
     }
 
-    fn peer_addr(&self) -> Option<SocketAddr> {
-        None
+    pub fn peer_addr(&self) -> Option<SocketAddr> {
+        match self {
+            Connection::Tcp(tcp_stream) => tcp_stream.peer_addr().ok(),
+            Connection::Io(_) => None,
+        }
     }
 }
 
-impl<T: Connection> Connection for Box<T> {
-    type Err = T::Err;
+impl Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Connection")
+    }
+}
 
-    fn try_clone(&self) -> Result<Self, Self::Err> {
-        (**self).try_clone().map(Box::new)
+impl Read for Connection {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Connection::Tcp(tcp_stream) => Read::read(tcp_stream, buf),
+            Connection::Io(arc) => Read::read(arc, buf),
+        }
+    }
+}
+
+impl Write for Connection {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Connection::Tcp(tcp_stream) => Write::write(tcp_stream, buf),
+            Connection::Io(arc) => Write::write(arc, buf),
+        }
     }
 
-    fn peer_addr(&self) -> Option<SocketAddr> {
-        (**self).peer_addr()
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Connection::Tcp(tcp_stream) => Write::flush(tcp_stream),
+            Connection::Io(arc) => Write::flush(arc),
+        }
     }
 }
 
@@ -62,7 +72,7 @@ pub struct Connected {
 }
 
 impl Connected {
-    pub fn from_connection<C: Connection>(conn: &C) -> Self {
+    pub fn from_connection(conn: &Connection) -> Self {
         Connected {
             peer_addr: conn.peer_addr(),
         }

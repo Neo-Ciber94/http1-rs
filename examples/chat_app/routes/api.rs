@@ -89,12 +89,55 @@ fn chat(
     let (pending, res) = upgrade.upgrade();
 
     std::thread::spawn(move || {
-        let websocket = pending.wait().expect("failed to upgrade websocket");
+        let mut websocket = pending.wait().expect("failed to upgrade websocket");
+        {
+            let message_json = serde::json::to_string(&ChatMessage {
+                id: Uuid::new_v4(),
+                content: format!("{} joined", user.username),
+                username: String::from("server"),
+            })
+            .unwrap();
+            websocket.send(message_json).unwrap();
+        }
+
         let ws = Arc::new(Mutex::new(websocket));
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let broadcast_thread = {
+            let ws = Arc::clone(&ws);
+            std::thread::spawn(move || {
+                for msg in rx.iter() {
+                    log::info!("Broadcasting message: {:?}", msg);
+                    let mut lock = ws.lock().expect("Failed to lock WebSocket");
+                    let message_json = serde::json::to_string(&msg).unwrap();
+                    if let Err(e) = lock.send(message_json) {
+                        log::error!("Failed to send message: {:?}", e);
+                    }
+                }
+            })
+        };
 
         // Wait for messages
+        // let _subscription = {
+        //     let ws = Arc::clone(&ws);
+        //     let user = user.clone();
+
+        //     broadcast
+        //         .subscribe(move |msg| {
+        //             log::info!("receiving message");
+        //             if user.username == msg.username {
+        //                 return;
+        //             }
+
+        //             let mut lock = ws.lock().expect("failed to get ws lock");
+        //             let message_json = serde::json::to_string(&msg).unwrap();
+        //             log::info!("broadcasting message from user: {}", user.username);
+        //             lock.send(message_json).expect("failed to send message");
+        //         })
+        //         .unwrap()
+        // };
+
         let _subscription = {
-            let ws = Arc::clone(&ws);
             let user = user.clone();
 
             broadcast
@@ -104,10 +147,7 @@ fn chat(
                         return;
                     }
 
-                    let mut lock = ws.lock().expect("failed to get ws lock");
-                    let message_json = serde::json::to_string(&msg).unwrap();
-                    log::info!("broadcasting message from user: {}", user.username);
-                    lock.send(message_json).expect("failed to send message");
+                    tx.send(msg).unwrap();
                 })
                 .unwrap()
         };
@@ -134,7 +174,7 @@ fn chat(
 
                     log::info!("new message: {message:?}");
                     db.set(format!("message/{}", message.id), message.clone())
-                        .unwrap();
+                        .expect("failed to save value");
 
                     broadcast
                         .send(message)
@@ -147,94 +187,4 @@ fn chat(
     });
 
     res
-}
-
-// fn chat(
-//     state: State<KeyValueDatabase>,
-//     user: ChatUser,
-//     State(chat_room): State<ChatRoom>,
-//     upgrade: WebSocketUpgrade,
-// ) -> Response<Body> {
-//     let (pending, res) = upgrade.upgrade();
-
-//     THREAD_POOL
-//         .execute(move || {
-//             let ws = pending
-//                 .wait()
-//                 .expect("failed to complete websocket connection");
-
-//             // save chat to track it
-//             {
-//                 let ChatRoom(chat_room) = chat_room.clone();
-//                 let mut lock = chat_room.try_write().expect("failed to get lock");
-//                 lock.push_back(ChatClient {
-//                     ws: Arc::new(Mutex::new(ws)),
-//                     user: user.clone(),
-//                 });
-//             }
-
-//             // handle chat
-//             chat_conversation(state, user, chat_room.clone());
-//         })
-//         .unwrap();
-
-//     res
-// }
-
-fn chat_conversation(
-    State(db): State<KeyValueDatabase>,
-    user: ChatUser,
-    ChatRoom(chat_room): ChatRoom,
-) {
-    log::info!("Starting chat: {user:?}");
-
-    std::thread::spawn(move || loop {
-        let client = {
-            let lock = chat_room.read().unwrap();
-            lock.iter()
-                .find(|client| client.user.username == user.username)
-                .cloned()
-                .unwrap()
-        };
-
-        let msg = client
-            .ws
-            .lock()
-            .expect("failed to lock ws")
-            .recv()
-            .expect("failed to read ws message");
-
-        if let Some(content) = msg.into_text() {
-            let id = Uuid::new_v4();
-            let content = content.trim().to_owned();
-            let username = user.username.clone();
-
-            // Save to the db
-            let message = ChatMessage {
-                id,
-                content,
-                username,
-            };
-
-            log::info!("new message: {message:?}");
-            db.set(format!("message/{}", message.id), message.clone())
-                .unwrap();
-
-            // Broadcast to all the users
-            let lock = chat_room.read().unwrap();
-            let other_clients = lock
-                .iter()
-                .filter(|client| client.user.username != user.username);
-
-            let message_json = serde::json::to_string(&message).unwrap();
-            log::info!("broadcasting message from user: {}", user.username);
-            for client in other_clients {
-                let mut ws = client.ws.lock().unwrap();
-                log::info!("sending message to: {}", client.user.username);
-                if let Err(err) = ws.send(message_json.as_str()) {
-                    log::error!("Failed to broadcast message to `{user:?}`: {err}");
-                }
-            }
-        }
-    });
 }
