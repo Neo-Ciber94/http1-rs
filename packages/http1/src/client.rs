@@ -340,10 +340,7 @@ fn get_addr(uri: &Uri) -> std::io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{Arc, Mutex},
-        time::Duration,
-    };
+    use std::{sync::mpsc::channel, time::Duration};
 
     use crate::{
         body::{chunked_body::ChunkedBody, http_body::HttpBody, Body},
@@ -365,16 +362,14 @@ mod tests {
         let server = Server::new(addr.clone());
         let handle = server.handle();
 
-        let req_mutex = Arc::new(Mutex::new(None));
+        let (tx, rx) = channel();
 
         {
-            let req = Arc::clone(&req_mutex);
-
             std::thread::spawn(move || {
                 server
                     .on_ready(|addr| println!("server running on: {addr}"))
                     .start(move |request| {
-                        *req.lock().unwrap() = Some(request);
+                        tx.send(request).unwrap();
                         Response::new(StatusCode::OK, "Bloom Into You".into())
                     })
                     .unwrap();
@@ -388,7 +383,7 @@ mod tests {
             .unwrap();
 
         // Assert server
-        let mut req = req_mutex.lock().unwrap().take().expect("request");
+        let mut req = rx.recv_timeout(Duration::from_millis(100)).unwrap();
 
         assert_eq!(req.method(), Method::POST);
         assert_eq!(
@@ -411,17 +406,14 @@ mod tests {
 
         let server = Server::new(addr.clone());
         let handle = server.handle();
-
-        let req_mutex = Arc::new(Mutex::new(None));
+        let (tx, rx) = channel();
 
         {
-            let req = Arc::clone(&req_mutex);
-
             std::thread::spawn(move || {
                 server
                     .on_ready(|addr| println!("server running on: {addr}"))
                     .start(move |request| {
-                        *req.lock().unwrap() = Some(request);
+                        tx.send(request).unwrap();
                         let (body, sender) = ChunkedBody::new();
 
                         std::thread::spawn(move || {
@@ -440,14 +432,16 @@ mod tests {
             });
         }
 
-        let client = Client::new();
+        let client = Client::builder()
+            .read_timeout(Some(Duration::from_millis(10_000)))
+            .build();
         let res = client
             .request(Method::GET, format!("{addr}/message?text=hello"))
             .send(())
             .unwrap();
 
         // Assert server
-        let mut req = req_mutex.lock().unwrap().take().expect("request");
+        let mut req = rx.recv().unwrap();
 
         assert_eq!(req.method(), Method::GET);
         assert_eq!(req.body_mut().read_all_bytes().unwrap(), b"");
