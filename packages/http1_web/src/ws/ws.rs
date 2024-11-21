@@ -70,6 +70,9 @@ impl From<std::io::Error> for WebSocketError {
     }
 }
 
+#[derive(Debug)]
+pub struct WebSocketSplitError;
+
 pub struct WebSocket {
     upgrade: Upgrade,
     max_payload_length: Option<usize>,
@@ -221,6 +224,28 @@ impl WebSocket {
         let close = CloseFrame::new(code, reason.into());
         self.send(Message::Close(Some(close)))?;
         Ok(())
+    }
+
+    fn try_clone(&self) -> Option<Self> {
+        let upgrade = self.upgrade.try_clone()?;
+        let buffer_size = self.buf.len();
+        let max_payload_length = self.max_payload_length;
+        Some(WebSocket::with_config(
+            upgrade,
+            WebSocketConfig {
+                buffer_size,
+                max_payload_length,
+            },
+        ))
+    }
+
+    /// Split the websocket into a read and write part.
+    pub fn split(self) -> Result<(WebSocketReader, WebSocketWriter), WebSocketSplitError> {
+        let other = self.try_clone().ok_or(WebSocketSplitError)?;
+        let read = WebSocketReader(self);
+        let write = WebSocketWriter(other);
+
+        Ok((read, write))
     }
 }
 
@@ -381,5 +406,52 @@ impl Iterator for WebSocket {
 
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.recv())
+    }
+}
+
+pub struct WebSocketReader(WebSocket);
+impl WebSocketReader {
+    /// Reads a message.
+    #[track_caller]
+    pub fn recv(&mut self) -> Result<Message, WebSocketError> {
+        self.0.recv()
+    }
+
+    #[track_caller]
+    /// Reads a message and errors if timeout.
+    pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Message, WebSocketError> {
+        self.0.recv_timeout(timeout)
+    }
+}
+
+impl Iterator for WebSocketReader {
+    type Item = Result<Message, WebSocketError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.recv())
+    }
+}
+
+pub struct WebSocketWriter(WebSocket);
+impl WebSocketWriter {
+    /// Sends a message.
+    pub fn send(&mut self, message: impl Into<Message>) -> Result<(), WebSocketError> {
+        self.0.send(message)
+    }
+
+    /// Send a ping to the client to check if still connected.
+    ///
+    /// # Returns
+    /// An error if the client does not respond.
+    pub fn ping(&mut self) -> Result<(), WebSocketError> {
+        self.0.ping()
+    }
+
+    /// Sends a ping to check if the client still connected within the given timeout.
+    ///
+    /// # Returns
+    /// An error if the client does not respond.
+    pub fn ping_timeout(&mut self, timeout: Option<Duration>) -> Result<(), WebSocketError> {
+        self.0.ping_timeout(timeout)
     }
 }

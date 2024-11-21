@@ -4,10 +4,7 @@ use std::{
     sync::{Arc, Condvar, Mutex},
 };
 
-#[doc(hidden)]
-pub trait Conn: Read + Write {}
-
-impl<T> Conn for T where T: Read + Write {}
+use super::connection::Connection;
 
 #[derive(Debug)]
 pub enum PendingUpgradeError {
@@ -77,15 +74,15 @@ impl Debug for PendingUpgrade {
 }
 
 /// Provides the connection stream to write and read after a connection upgrade.
-#[derive(Clone)]
-pub struct Upgrade(Arc<Mutex<dyn Conn + Send + Sync>>);
+pub struct Upgrade(Connection);
 
 impl Upgrade {
-    pub(crate) fn new<C>(conn: C) -> Self
-    where
-        C: Conn + Sync + Send + 'static,
-    {
-        Upgrade(Arc::new(Mutex::new(conn)))
+    pub(crate) fn new(conn: Connection) -> Self {
+        Upgrade(conn)
+    }
+
+    pub fn try_clone(&self) -> Option<Self> {
+        self.0.try_clone().map(Upgrade)
     }
 }
 
@@ -97,19 +94,16 @@ impl Debug for Upgrade {
 
 impl Read for Upgrade {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut lock = &mut *self.0.lock().unwrap();
-        Read::read(&mut lock, buf)
+        Read::read(&mut self.0, buf)
     }
 }
 
 impl Write for Upgrade {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut lock = &mut *self.0.lock().unwrap();
-        Write::write(&mut lock, buf)
+        Write::write(&mut self.0, buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        let mut lock = &mut *self.0.lock().unwrap();
-        Write::flush(&mut lock)
+        Write::flush(&mut self.0)
     }
 }
