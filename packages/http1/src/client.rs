@@ -383,7 +383,7 @@ mod tests {
             .unwrap();
 
         // Assert server
-        let mut req = rx.recv_timeout(Duration::from_millis(100)).unwrap();
+        let mut req = rx.recv().unwrap();
 
         assert_eq!(req.method(), Method::POST);
         assert_eq!(

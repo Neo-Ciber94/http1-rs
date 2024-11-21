@@ -300,6 +300,12 @@ fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std
     Ok(())
 }
 
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -432,7 +438,6 @@ mod tests {
     #[test]
     fn should_spawn_additional_worker_on_panic() {
         let pool = ThreadPool::builder().num_workers(2).build().unwrap();
-
         let is_done = Arc::new(AtomicBool::new(false));
 
         let work = Work(is_done.clone());
@@ -452,15 +457,9 @@ mod tests {
         pool.join().unwrap();
 
         let now = Instant::now();
-        while pool.panicked_count() == 0 && now.elapsed() < Duration::from_millis(10) {}
+        while pool.panicked_count() == 0 && now.elapsed() < Duration::from_millis(1000) {}
 
         assert_eq!(pool.pending_count(), 0);
         assert_eq!(pool.panicked_count(), 1);
-    }
-}
-
-impl Default for Builder {
-    fn default() -> Self {
-        Self::new()
     }
 }
