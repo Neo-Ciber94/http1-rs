@@ -81,16 +81,15 @@ fn chat(
         let websocket = pending.wait().expect("failed to upgrade websocket");
         let (mut tx, mut rx) = websocket.split().unwrap();
 
-        {
-            let message_json = serde::json::to_string(&ChatMessage {
+        // Notify a new user is on the chat
+        broadcast
+            .send(ChatMessage {
                 id: Uuid::new_v4(),
                 content: format!("{} joined", user.username),
                 username: String::from("server"),
             })
             .unwrap();
-            tx.send(message_json).unwrap();
-        }
-        
+
         // Wait for messages
         let _subscription = {
             let user = user.clone();
