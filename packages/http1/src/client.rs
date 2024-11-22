@@ -349,7 +349,6 @@ mod tests {
 
     use crate::{
         body::{chunked_body::ChunkedBody, http_body::HttpBody, Body},
-        common::find_open_port::find_open_port,
         headers,
         method::Method,
         response::Response,
@@ -361,18 +360,22 @@ mod tests {
 
     #[test]
     fn should_send_request_to_server_and_get_response() {
-        let port = find_open_port().unwrap();
-        let addr = format!("127.0.0.1:{port}");
+        let port = crate::common::find_open_port::find_open_port().unwrap();
+        let addr = format!("0.0.0.0:{port}");
 
         let server = Server::new(addr.clone());
         let handle = server.handle();
 
         let (tx, rx) = channel();
+        let (ready_tx, ready_rx) = channel();
 
         {
             std::thread::spawn(move || {
                 server
-                    .on_ready(|addr| println!("server running on: {addr}"))
+                    .on_ready(move |addr| {
+                        println!("server running on: {addr}");
+                        ready_tx.send(()).unwrap();
+                    })
                     .start(move |request| {
                         tx.send(request).unwrap();
                         Response::new(StatusCode::OK, "Bloom Into You".into())
@@ -381,9 +384,14 @@ mod tests {
             });
         }
 
+        // Wait for server to be ready
+        ready_rx
+            .recv()
+            .unwrap_or_else(|_| panic!("Server failed to start"));
+
         let client = Client::new();
         let res = client
-            .request(Method::POST, addr)
+            .request(Method::POST, format!("127.0.0.1:{port}"))
             .send(Body::from("Yagate Kimi ni Naru"))
             .unwrap();
 
@@ -406,17 +414,21 @@ mod tests {
 
     #[test]
     fn should_send_request_to_server_and_get_chunked_encoded_response() {
-        let port = find_open_port().unwrap();
-        let addr = format!("127.0.0.1:{port}");
+        let port = crate::common::find_open_port::find_open_port_in_range(3001..).unwrap();
+        let addr = format!("0.0.0.0:{port}");
 
         let server = Server::new(addr.clone());
         let handle = server.handle();
         let (tx, rx) = channel();
+        let (ready_tx, ready_rx) = channel();
 
         {
             std::thread::spawn(move || {
                 server
-                    .on_ready(|addr| println!("server running on: {addr}"))
+                    .on_ready(move |addr| {
+                        println!("server running on: {addr}");
+                        ready_tx.send(()).unwrap();
+                    })
                     .start(move |request| {
                         tx.send(request).unwrap();
                         let (body, sender) = ChunkedBody::new();
@@ -437,11 +449,16 @@ mod tests {
             });
         }
 
+        // Wait for server to be ready
+        ready_rx
+            .recv()
+            .unwrap_or_else(|_| panic!("Server failed to start"));
+
         let client = Client::builder()
             .read_timeout(Some(Duration::from_millis(5_000)))
             .build();
         let res = client
-            .request(Method::GET, format!("{addr}/message?text=hello"))
+            .request(Method::GET, format!("127.0.0.1:{port}/message?text=hello"))
             .send(())
             .unwrap();
 
