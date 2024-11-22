@@ -18,6 +18,7 @@ const DEFAULT_USER_AGENT: &str = "rust";
 pub enum RequestError {
     InvalidRequest(InvalidRequest),
     IO(std::io::Error),
+    FailedToConnect { addr: String, err: std::io::Error },
     Other(BoxError),
 }
 
@@ -28,6 +29,9 @@ impl Display for RequestError {
         match self {
             RequestError::InvalidRequest(error) => write!(f, "{error}"),
             RequestError::IO(error) => write!(f, "{error}"),
+            RequestError::FailedToConnect { addr, err } => {
+                write!(f, "failed to connect to `{addr}`: {err}")
+            }
             RequestError::Other(error) => write!(f, "{error}"),
         }
     }
@@ -308,7 +312,8 @@ impl<'a> RequestBuilder<'a> {
         request.headers_mut().extend(client.default_headers.clone());
 
         let addr = get_addr(request.uri())?;
-        let mut stream = TcpStream::connect(addr)?;
+        let mut stream =
+            TcpStream::connect(&addr).map_err(|err| RequestError::FailedToConnect { addr, err })?;
 
         stream.set_write_timeout(client.write_timeout)?;
         stream.set_read_timeout(client.read_timeout)?;
