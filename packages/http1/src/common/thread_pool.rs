@@ -228,21 +228,44 @@ impl Default for Builder {
     }
 }
 
+struct Watchdog<'a>(&'a Arc<State>);
+impl<'a> Drop for Watchdog<'a> {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            return;
+        }
+
+        let state = self.0;
+        state.monitoring.panicked_worker_count.increment();
+
+        if let Some(on_panic) = state.on_worker_panic {
+            if let Err(err) = std::panic::catch_unwind(on_panic) {
+                if cfg!(debug_assertions) {
+                    panic!("`ThreadPool` on_panic hook SHOULD NOT panic: {err:?}")
+                }
+            }
+        }
+
+        // Spawn a new worker if this thread is poisoned
+        spawn_worker(&state).expect("failed to spawn worker after previous one failed");
+    }
+}
+
+struct PendingTasksGuard(Arc<Monitoring>);
+impl Drop for PendingTasksGuard {
+    fn drop(&mut self) {
+        self.0.pending_tasks_count.decrement();
+    }
+}
+
+struct ActiveWorkerGuard(Arc<Monitoring>);
+impl Drop for ActiveWorkerGuard {
+    fn drop(&mut self) {
+        self.0.active_worker_count.decrement();
+    }
+}
+
 fn spawn_worker(state: &Arc<State>) -> std::io::Result<()> {
-    struct PendingTasksGuard(Arc<Monitoring>);
-    impl Drop for PendingTasksGuard {
-        fn drop(&mut self) {
-            self.0.pending_tasks_count.decrement();
-        }
-    }
-
-    struct ActiveWorkerGuard(Arc<Monitoring>);
-    impl Drop for ActiveWorkerGuard {
-        fn drop(&mut self) {
-            self.0.active_worker_count.decrement();
-        }
-    }
-
     let mut builder = std::thread::Builder::new();
 
     let worker_name = format!(
@@ -266,29 +289,22 @@ fn spawn_worker(state: &Arc<State>) -> std::io::Result<()> {
         let _guard_active_worker = ActiveWorkerGuard(state.monitoring.clone());
 
         loop {
+            let _watchdog = Watchdog(&state);
+
             match state.receiver.lock() {
-                Ok(rx) => match rx.try_recv() {
-                    Ok(task) => {
-                        let _pending_task_guard = PendingTasksGuard(state.monitoring.clone());
+                Ok(rx) => {
+                    match rx.try_recv() {
+                        Ok(task) => {
+                            let _pending_task_guard = PendingTasksGuard(state.monitoring.clone());
 
-                        // Execute the task
-                        task();
+                            // Execute the task
+                            task();
+                        }
+                        Err(TryRecvError::Empty) => {}
+                        Err(TryRecvError::Disconnected) => break,
                     }
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => break,
-                },
+                }
                 Err(_) => {
-                    state.monitoring.panicked_worker_count.increment();
-
-                    if let Some(on_panic) = state.on_worker_panic {
-                        // We sure ensure this do not panic because it will prevent other worker from spawning
-                        let _ = std::panic::catch_unwind(on_panic);
-                    }
-
-                    // Spawn a new worker if this thread is poisoned
-                    spawn_worker(&state).expect("failed to spawn worker after previous one failed");
-
-                    // Exits
                     break;
                 }
             }
