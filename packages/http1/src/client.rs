@@ -433,7 +433,7 @@ mod tests {
         }
 
         let client = Client::builder()
-            .read_timeout(Some(Duration::from_millis(10_000)))
+            .read_timeout(Some(Duration::from_millis(5_000)))
             .build();
         let res = client
             .request(Method::GET, format!("{addr}/message?text=hello"))
