@@ -26,7 +26,7 @@ fn main() -> std::io::Result<()> {
                 .middleware(auth_middleware)
                 .state(KeyValueDatabase::new("examples/chat_app/db.json").unwrap())
                 .state(broadcast)
-                .scope("/api", routes::api::routes())
+                .scope("/api", routes::routes())
                 .get(
                     "/*",
                     ServeDir::new("examples/chat_app/static").append_html_index(true),

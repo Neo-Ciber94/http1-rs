@@ -4,11 +4,9 @@ use std::{
     sync::{
         atomic::AtomicUsize,
         mpsc::{channel, Receiver, Sender, TryRecvError},
-        Arc, Mutex, TryLockError,
+        Arc, Mutex,
     },
 };
-
-use super::thread_spawner::ThreadSpawner;
 
 type Task = Box<dyn FnOnce() + Send + 'static>;
 
@@ -46,10 +44,10 @@ struct State {
     name: String,
     stack_size: Option<usize>,
     sender: Sender<Task>,
-    spawn_on_full: bool,
-    additional_tasks_spawner: ThreadSpawner,
+    receiver: Arc<Mutex<Receiver<Task>>>,
     on_worker_panic: Option<fn()>,
     monitoring: Arc<Monitoring>,
+    max_workers_count: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -86,6 +84,11 @@ impl ThreadPool {
         self.inner.monitoring.active_worker_count.get()
     }
 
+    /// Returns the max allowed number of workers
+    pub fn max_workers_count(&self) -> Option<usize> {
+        self.inner.max_workers_count
+    }
+
     /// Returns the number of tasks that still running.
     pub fn pending_count(&self) -> usize {
         self.inner.monitoring.pending_tasks_count.get()
@@ -96,30 +99,27 @@ impl ThreadPool {
         self.inner.monitoring.panicked_worker_count.get()
     }
 
-    /// Returns the number of tasks that were executed as an additional tasks.
-    pub fn additional_task_count(&self) -> usize {
-        self.inner.additional_tasks_spawner.pending_count()
-    }
-
     /// Executes the given task on an available worker.
-    ///
-    /// If no worker is available it will not be executed immediately, but if `spawn_on_full` is true
-    /// it will run the task on a new thread.
     pub fn execute<F: FnOnce() + Send + 'static>(&self, f: F) -> std::io::Result<()> {
-        // All workers are in use, we spawn a new thread
-        if self.inner.spawn_on_full && self.pending_count() >= self.worker_count() {
-            let name = self.inner.name.clone();
-            let stack_size = self.inner.stack_size;
-            let name = format!("{name}#additional");
+        let is_full = self.pending_count() >= self.worker_count();
 
-            return self
-                .inner
-                .additional_tasks_spawner
-                .spawn(Some(name), stack_size, f)
-                .map(|_| ());
+        if is_full {
+            match self.inner.max_workers_count {
+                Some(max_workers_count) => {
+                    if self.worker_count() < max_workers_count {
+                        let _ = spawn_worker(&self.inner);
+                    }
+                }
+                None => {
+                    let _ = spawn_worker(&self.inner);
+                }
+            }
         }
 
+        // Increment the count
         self.inner.monitoring.pending_tasks_count.increment();
+
+        // Spawn the new task
         let task = Box::new(f);
         self.inner
             .sender
@@ -130,12 +130,6 @@ impl ThreadPool {
     }
 
     pub fn join(&self) -> Result<(), TerminateError> {
-        // Wait for all additional tasks to finish
-        self.inner
-            .additional_tasks_spawner
-            .join()
-            .map_err(|_| TerminateError::Other("Failed to join additional tasks".into()))?;
-
         // Wait for all pending tasks to finish
         while self.inner.monitoring.pending_tasks_count.get() > 0 {
             std::thread::yield_now()
@@ -149,7 +143,7 @@ pub struct Builder {
     name: Option<String>,
     stack_size: Option<usize>,
     num_workers: usize,
-    spawn_on_full: bool,
+    max_workers_count: Option<usize>,
     on_worker_panic: Option<fn()>,
 }
 
@@ -159,7 +153,7 @@ impl Builder {
             name: None,
             stack_size: None,
             num_workers: 4,
-            spawn_on_full: false,
+            max_workers_count: None,
             on_worker_panic: None,
         }
     }
@@ -174,14 +168,14 @@ impl Builder {
         self
     }
 
-    pub fn spawn_on_full(mut self, spawn: bool) -> Self {
-        self.spawn_on_full = spawn;
-        self
-    }
-
     pub fn num_workers(mut self, num_workers: usize) -> Self {
         assert!(num_workers > 0, "Number of threads must be greater than 0");
         self.num_workers = num_workers;
+        self
+    }
+
+    pub fn max_workers_count(mut self, max_workers_count: Option<usize>) -> Self {
+        self.max_workers_count = max_workers_count;
         self
     }
 
@@ -194,8 +188,8 @@ impl Builder {
         let Self {
             name,
             stack_size,
-            num_workers: num_threads,
-            spawn_on_full,
+            num_workers,
+            max_workers_count,
             on_worker_panic,
         } = self;
 
@@ -213,22 +207,28 @@ impl Builder {
         let inner = Arc::new(State {
             name,
             sender,
-            spawn_on_full,
             stack_size,
             monitoring,
             on_worker_panic,
-            additional_tasks_spawner: Default::default(),
+            max_workers_count,
+            receiver: receiver.clone(),
         });
 
-        for _ in 0..num_threads {
-            spawn_worker(&inner, receiver.clone())?;
+        for _ in 0..num_workers {
+            spawn_worker(&inner)?;
         }
 
         Ok(ThreadPool { inner })
     }
 }
 
-fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std::io::Result<()> {
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn spawn_worker(state: &Arc<State>) -> std::io::Result<()> {
     struct PendingTasksGuard(Arc<Monitoring>);
     impl Drop for PendingTasksGuard {
         fn drop(&mut self) {
@@ -266,8 +266,8 @@ fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std
         let _guard_active_worker = ActiveWorkerGuard(state.monitoring.clone());
 
         loop {
-            match receiver.try_lock() {
-                Ok(lock) => match lock.try_recv() {
+            match state.receiver.lock() {
+                Ok(rx) => match rx.try_recv() {
                     Ok(task) => {
                         let _pending_task_guard = PendingTasksGuard(state.monitoring.clone());
 
@@ -277,7 +277,7 @@ fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std
                     Err(TryRecvError::Empty) => {}
                     Err(TryRecvError::Disconnected) => break,
                 },
-                Err(TryLockError::Poisoned(_)) => {
+                Err(_) => {
                     state.monitoring.panicked_worker_count.increment();
 
                     if let Some(on_panic) = state.on_worker_panic {
@@ -286,24 +286,16 @@ fn spawn_worker(state: &Arc<State>, receiver: Arc<Mutex<Receiver<Task>>>) -> std
                     }
 
                     // Spawn a new worker if this thread is poisoned
-                    spawn_worker(&state, receiver.clone())
-                        .expect("failed to spawn worker after previous one failed");
+                    spawn_worker(&state).expect("failed to spawn worker after previous one failed");
 
                     // Exits
                     break;
                 }
-                Err(TryLockError::WouldBlock) => {}
             }
         }
     })?;
 
     Ok(())
-}
-
-impl Default for Builder {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 #[cfg(test)]
@@ -368,7 +360,12 @@ mod tests {
 
     #[test]
     fn should_wait_before_push_more_tasks() {
-        let pool = ThreadPool::with_workers(2).unwrap();
+        let pool = ThreadPool::builder()
+            .num_workers(2)
+            .max_workers_count(Some(2))
+            .build()
+            .unwrap();
+
         let is_done = Arc::new(AtomicBool::new(false));
 
         let work = Work(is_done.clone());
@@ -398,11 +395,7 @@ mod tests {
 
     #[test]
     fn should_spawn_additional_threads_if_needed() {
-        let pool = ThreadPool::builder()
-            .num_workers(2)
-            .spawn_on_full(true)
-            .build()
-            .unwrap();
+        let pool = ThreadPool::builder().num_workers(2).build().unwrap();
 
         let is_done = Arc::new(AtomicBool::new(false));
 
@@ -416,7 +409,6 @@ mod tests {
 
         assert_eq!(pool.worker_count(), 2);
         assert_eq!(pool.pending_count(), 2);
-        assert_eq!(pool.additional_task_count(), 0);
 
         {
             for _ in 0..3 {
@@ -425,14 +417,12 @@ mod tests {
             }
         }
 
-        assert_eq!(pool.pending_count(), 2);
-        assert_eq!(pool.additional_task_count(), 3);
+        assert_eq!(pool.worker_count(), 5);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
         pool.join().unwrap();
 
         assert_eq!(pool.pending_count(), 0);
-        assert_eq!(pool.additional_task_count(), 0);
     }
 
     #[test]
