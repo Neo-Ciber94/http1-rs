@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader, Read, Write},
-    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use crate::error::BoxError;
@@ -41,20 +41,12 @@ where
 
         match self.0.as_mut() {
             Some(rx) => {
-                // Try read the next chunk, if ready sends it
-                match rx.try_recv() {
-                    Ok(chunk) => return send_chunk(chunk.as_ref()).map(Some),
-                    Err(TryRecvError::Disconnected) => {
-                        let _ = self.0.take(); // Drop the receiver if the sender was disconnected
-                        return Ok(Some(b"0\r\n\r\n".to_vec()));
-                    }
-                    Err(_) => {}
-                }
-
-                // Otherwise wait for the next chunk
                 match rx.recv() {
                     Ok(chunk) => send_chunk(chunk.as_ref()).map(Some),
-                    Err(err) => Err(err.into()),
+                    Err(_) => {
+                        let _ = self.0.take(); // Drop the receiver if the sender was disconnected
+                        Ok(Some(b"0\r\n\r\n".to_vec()))
+                    }
                 }
             }
             None => Ok(None),
