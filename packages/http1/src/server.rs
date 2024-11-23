@@ -63,15 +63,22 @@ impl Default for Config {
 type OnReady = Option<Box<dyn FnOnce(&SocketAddr) + Send>>;
 
 /// The server implementation.
-pub struct Server {
+pub struct Server<E = ThreadPool> {
     config: Config,
     on_ready: OnReady,
     handle: ServerHandle,
+    executor: E,
 }
 
-impl Server {
+impl Server<()> {
     /// Constructs a new server.
-    pub fn new() -> Server {
+    pub fn new() -> Server<ThreadPool> {
+        let executor = ThreadPool::new().expect("failed to initialize thread pool executor");
+        Self::with_executor(executor)
+    }
+
+    /// Constructs a new server with the given executor.
+    pub fn with_executor<E: Executor>(executor: E) -> Server<E> {
         let config = Config::default();
         let handle = ServerHandle {
             signal: ShutdownSignal::new(),
@@ -81,11 +88,12 @@ impl Server {
             config,
             handle,
             on_ready: None,
+            executor,
         }
     }
 }
 
-impl Server {
+impl<E> Server<E> {
     /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
@@ -114,13 +122,6 @@ impl Server {
         self
     }
 
-    /// Returns a handle to stop the server.
-    pub fn handle(&self) -> ServerHandle {
-        self.handle.clone()
-    }
-}
-
-impl Server {
     /// Adds a callback that will be executed right after the server starts.
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
@@ -130,7 +131,17 @@ impl Server {
         self
     }
 
-    /// Starts listening on the given address and executing the request with the given handler.
+    /// Returns a handle to stop the server.
+    pub fn handle(&self) -> ServerHandle {
+        self.handle.clone()
+    }
+}
+
+impl<E> Server<E>
+where
+    E: Executor,
+{
+    /// Starts listening on the given address and handle incoming request with the given request handler.
     pub fn listen<H, A: ToSocketAddrs>(self, addr: A, handler: H) -> std::io::Result<()>
     where
         H: RequestHandler + Send + Sync + 'static,
@@ -138,6 +149,7 @@ impl Server {
         let Self {
             config,
             handle,
+            executor,
             mut on_ready,
         } = self;
 
@@ -149,7 +161,6 @@ impl Server {
         }
 
         let signal = handle.signal;
-        let pool = ThreadPool::new()?;
         let handler = Arc::new(handler);
 
         loop {
@@ -162,12 +173,16 @@ impl Server {
                     let config = config.clone();
                     let handler = handler.clone();
 
-                    pool.execute(move || {
+                    let result = executor.execute(move || {
                         match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
                             Ok(_) => {}
                             Err(err) => log::error!("{err}"),
                         }
-                    })?;
+                    });
+
+                    if let Err(err) = result {
+                        return Err(err.into());
+                    }
                 }
                 Err(err) => return Err(err),
             }
@@ -177,7 +192,7 @@ impl Server {
     }
 }
 
-/// Allow to execute a task.
+/// Provides a mechanism for execute tasks.
 pub trait Executor {
     type Err: Into<std::io::Error>;
 
@@ -185,4 +200,29 @@ pub trait Executor {
     fn execute<F>(&self, f: F) -> Result<(), Self::Err>
     where
         F: FnOnce() + Send + 'static;
+}
+
+/// An executor that run the task in the same thread.
+pub struct BlockingExecutor;
+impl Executor for BlockingExecutor {
+    type Err = std::io::Error;
+
+    fn execute<F>(&self, f: F) -> Result<(), Self::Err>
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        f();
+        Ok(())
+    }
+}
+
+impl Executor for ThreadPool {
+    type Err = std::io::Error;
+
+    fn execute<F>(&self, f: F) -> Result<(), Self::Err>
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.execute(f)
+    }
 }
