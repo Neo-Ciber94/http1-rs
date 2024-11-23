@@ -1,5 +1,9 @@
-'use strict';
-import { getCurrentUser, getMessages } from "./api.js";
+"use strict";
+
+const messagesListEl = document.querySelector("#messages");
+const chatBoxFormEl = document.querySelector("#chatbox-form");
+const chatBoxTextAreaEl = document.querySelector("#chatbox-textarea");
+const chatMessageTemplate = document.querySelector("#chat-message").content;
 
 /**
  * @type {{id: string, username: string, content: string }[]}
@@ -11,16 +15,25 @@ let messages = [];
  */
 let currentUser = null;
 
-window.addEventListener("load", async () => {
-  await initialize();
-  chat();
-});
+/**
+ * Get all the chat messages
+ * @returns {Promise<{id: string, username: string, content: string}[]>}
+ */
+async function getMessages() {
+  const res = await fetch("/api/chat/messages");
+  return await res.json();
+}
 
-const messagesListEl = document.querySelector("#messages");
-const chatBoxFormEl = document.querySelector("#chatbox");
-const chatMessageTemplate = document.querySelector("#chat-message").content;
+/**
+ * Get the current user
+ * @returns {Promise<{username: string }>}
+ */
+async function getCurrentUser() {
+  const res = await fetch("/api/me");
+  return await res.json();
+}
 
-function render(newMessages) {
+function updateChat(newMessages) {
   messages = newMessages;
   messagesListEl.replaceChildren([]);
 
@@ -28,7 +41,9 @@ function render(newMessages) {
     /**
      * @type {HTMLElement}
      */
-    const userMessageEl = chatMessageTemplate.cloneNode(true).querySelector("li");
+    const userMessageEl = chatMessageTemplate
+      .cloneNode(true)
+      .querySelector("li");
 
     if (currentUser && currentUser.username === username) {
       userMessageEl.style.fontWeight = "bold";
@@ -46,16 +61,14 @@ function render(newMessages) {
   }
 }
 
-async function initialize() {
-  // Initialize chat messages
+window.addEventListener("load", async () => {
+  // Fetch chat messages
   const initialMessages = await getMessages();
   currentUser = await getCurrentUser();
   messages = [...initialMessages, ...messages];
-  render(messages);
-}
+  updateChat(messages);
 
-function chat() {
-  const abortController = new AbortController();
+  // Initialize web socket
   const ws = new WebSocket("/api/chat");
 
   ws.onopen = () => {
@@ -65,24 +78,15 @@ function chat() {
   ws.onmessage = (ev) => {
     console.log("Chat message received: ", ev.data);
     const msg = JSON.parse(ev.data);
-    render([...messages, msg]);
+    updateChat([...messages, msg]);
   };
 
   ws.onclose = () => {
     console.log("Chat closed");
-
-    // Try reconnect
-    // setTimeout(() => {
-    //   console.log("Reconnecting...");
-    //   abortController.abort();
-    //   chat();
-    // }, 1000);
   };
 
-  /**
-   * @param {Event} ev
-   */
-  function handleChatMessageSubmit(ev) {
+  // Listen for form submits
+  chatBoxFormEl.addEventListener("submit", (ev) => {
     ev.preventDefault();
 
     const form = new FormData(ev.currentTarget);
@@ -90,14 +94,20 @@ function chat() {
     const id = `local_${crypto.randomUUID()}`;
     const { username } = currentUser;
     const newMessage = { id, username, content };
-    render([...messages, newMessage]);
+    updateChat([...messages, newMessage]);
 
     // Send chat message
     ws.send(content);
     ev.currentTarget.reset();
-  }
-
-  chatBoxFormEl.addEventListener("submit", handleChatMessageSubmit, {
-    signal: abortController.signal,
   });
-}
+
+  // Submit on enter
+  chatBoxTextAreaEl.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") {
+      return;
+    }
+
+    ev.preventDefault();
+    chatBoxFormEl.submit();
+  });
+});
