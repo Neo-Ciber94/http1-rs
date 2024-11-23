@@ -1,5 +1,5 @@
 use std::{
-    net::{TcpListener, ToSocketAddrs},
+    net::{SocketAddr, TcpListener, ToSocketAddrs},
     sync::{atomic::AtomicBool, Arc},
 };
 
@@ -62,13 +62,13 @@ impl Default for Config {
     }
 }
 
-type OnReady<A> = Option<Box<dyn FnOnce(&A) + Send>>;
+type OnReady = Option<Box<dyn FnOnce(&SocketAddr) + Send>>;
 
 /// The server implementation.
 pub struct Server<A> {
     addr: A,
     config: Config,
-    on_ready: OnReady<A>,
+    on_ready: OnReady,
     handle: ServerHandle,
 }
 
@@ -128,7 +128,7 @@ impl<A: ToSocketAddrs> Server<A> {
     /// Adds a callback that will be executed right after the server starts.
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(&A) + Send + 'static,
+        F: FnOnce(&SocketAddr) + Send + 'static,
     {
         self.on_ready = Some(Box::new(f));
         self
@@ -155,10 +155,11 @@ impl<A: ToSocketAddrs> Server<A> {
             mut on_ready,
         } = self;
 
-        let listener = TcpListener::bind(&addr)?;
+        let listener = TcpListener::bind(addr)?;
+        let local_addr = listener.local_addr()?;
 
         if let Some(on_ready) = on_ready.take() {
-            on_ready(&addr)
+            on_ready(&local_addr)
         }
 
         let args = StartRuntime {
