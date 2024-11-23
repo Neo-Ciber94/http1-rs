@@ -246,8 +246,14 @@ impl<'a> Drop for Watchdog<'a> {
             }
         }
 
-        // Spawn a new worker if this thread is poisoned
-        spawn_worker(&state).expect("failed to spawn worker after previous one failed");
+        log::error!(
+            "thread `{:?}` panicked, spawning new worker",
+            std::thread::current()
+        );
+
+        if let Err(err) = spawn_worker(&state) {
+            log::error!("failed to spawn new thread: {err:?}")
+        }
     }
 }
 
@@ -443,7 +449,7 @@ mod tests {
 
     #[test]
     fn should_spawn_additional_worker_on_panic() {
-        let pool = ThreadPool::builder().num_workers(2).build().unwrap();
+        let pool = ThreadPool::builder().num_workers(3).build().unwrap();
         let is_done = Arc::new(AtomicBool::new(false));
 
         let work = Work(is_done.clone());
@@ -456,14 +462,13 @@ mod tests {
 
         pool.execute(|| panic!("Oh oh")).unwrap();
 
+        assert_eq!(pool.worker_count(), 3);
         assert_eq!(pool.pending_count(), 3);
-        assert_eq!(pool.panicked_count(), 0);
-
-        is_done.store(true, std::sync::atomic::Ordering::Release);
-        pool.join().unwrap();
 
         let now = Instant::now();
         while pool.panicked_count() == 0 && now.elapsed() < Duration::from_millis(1000) {}
+        is_done.store(true, std::sync::atomic::Ordering::Release);
+        pool.join().unwrap();
 
         assert_eq!(pool.pending_count(), 0);
         assert_eq!(pool.panicked_count(), 1);
