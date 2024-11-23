@@ -34,6 +34,10 @@ h1 {
   text-align: center;
 }
 
+.login-container {
+  max-width: 500px;
+}
+
 .login-container,
 #chatbox-form {
   background: white;
