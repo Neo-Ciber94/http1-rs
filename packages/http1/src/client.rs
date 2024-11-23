@@ -409,7 +409,7 @@ mod tests {
         assert_eq!(res.into_body().read_all_bytes().unwrap(), b"Bloom Into You");
 
         // Shutdown server
-        handle.signal.shutdown();
+        handle.shutdown();
     }
 
     #[test]
@@ -476,6 +476,6 @@ mod tests {
         );
 
         // Shutdown server
-        handle.signal.shutdown();
+        handle.shutdown();
     }
 }

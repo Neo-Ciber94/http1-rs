@@ -10,27 +10,34 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct ShutdownSignal(Arc<AtomicBool>);
+pub struct ServerHandle {
+    is_closed: Arc<AtomicBool>,
+    is_ready: Arc<AtomicBool>,
+}
 
-impl ShutdownSignal {
-    fn new() -> Self {
-        ShutdownSignal(Arc::default())
+impl ServerHandle {
+    /// Signal the server to stop accepting more connections.
+    pub fn shutdown(self) {
+        self.is_closed
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    /// Signal the server to stop.
-    pub fn shutdown(&self) {
-        self.0.store(true, std::sync::atomic::Ordering::Release);
+    /// Whether the server is stopped.
+    pub fn is_closed(&self) -> bool {
+        self.is_closed.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    /// Whether the server was signal to shutdown.
-    pub fn is_stopped(&self) -> bool {
-        self.0.load(std::sync::atomic::Ordering::Acquire)
+    /// Whether the server is ready to accept connections.
+    pub fn is_ready(&self) -> bool {
+        self.is_ready.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
-#[derive(Clone)]
-pub struct ServerHandle {
-    pub signal: ShutdownSignal,
+struct Guard(Arc<AtomicBool>);
+impl Drop for Guard {
+    fn drop(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 /// Server configuration.
@@ -60,14 +67,14 @@ impl Default for Config {
     }
 }
 
-type OnReady = Option<Box<dyn FnOnce(&SocketAddr) + Send>>;
+type OnReady = Box<dyn FnOnce(&SocketAddr) + Send>;
 
 /// The server implementation.
 pub struct Server<E = ThreadPool> {
-    config: Config,
-    on_ready: OnReady,
-    handle: ServerHandle,
     executor: E,
+    config: Config,
+    server_handle: ServerHandle,
+    on_ready: Option<OnReady>,
 }
 
 impl Server<()> {
@@ -80,15 +87,16 @@ impl Server<()> {
     /// Constructs a new server with the given executor.
     pub fn with_executor<E: Executor>(executor: E) -> Server<E> {
         let config = Config::default();
-        let handle = ServerHandle {
-            signal: ShutdownSignal::new(),
+        let server_handle = ServerHandle {
+            is_closed: Arc::new(AtomicBool::new(false)),
+            is_ready: Arc::new(AtomicBool::new(false)),
         };
 
         Server {
             config,
-            handle,
-            on_ready: None,
             executor,
+            server_handle,
+            on_ready: None,
         }
     }
 }
@@ -131,9 +139,9 @@ impl<E> Server<E> {
         self
     }
 
-    /// Returns a handle to stop the server.
+    /// Returns a handle to the server.
     pub fn handle(&self) -> ServerHandle {
-        self.handle.clone()
+        self.server_handle.clone()
     }
 }
 
@@ -146,9 +154,9 @@ where
     where
         H: RequestHandler + Send + Sync + 'static,
     {
-        let Self {
+        let Server {
             config,
-            handle,
+            server_handle,
             executor,
             mut on_ready,
         } = self;
@@ -160,31 +168,32 @@ where
             on_ready(&local_addr)
         }
 
-        let signal = handle.signal;
+        server_handle
+            .is_ready
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+
         let handler = Arc::new(handler);
+        let _guard = Guard(server_handle.is_ready.clone());
 
         loop {
-            if signal.is_stopped() {
+            if server_handle.is_closed() {
+                log::debug!("Closing server...");
                 break;
             }
 
-            match listener.accept() {
-                Ok((stream, _)) => {
-                    let config = config.clone();
-                    let handler = handler.clone();
+            let (stream, _) = listener.accept()?;
+            let config = config.clone();
+            let handler = handler.clone();
 
-                    let result = executor.execute(move || {
-                        match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
-                            Ok(_) => {}
-                            Err(err) => log::error!("{err}"),
-                        }
-                    });
-
-                    if let Err(err) = result {
-                        return Err(err.into());
-                    }
+            let result = executor.execute(move || {
+                match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
+                    Ok(..) => {}
+                    Err(err) => log::error!("{err}"),
                 }
-                Err(err) => return Err(err),
+            });
+
+            if let Err(err) = result {
+                return Err(err.into());
             }
         }
 
