@@ -24,7 +24,7 @@ fn main() -> std::io::Result<()> {
         .scope("/api", crate::routes::api::api_routes())
         .scope("/", crate::routes::pages::page_routes());
 
-    Server::new(addr)
+    Server::new()
         .on_ready(|addr| log::info!("Listening on http://{addr}"))
-        .start(app)
+        .listen(addr, app)
 }

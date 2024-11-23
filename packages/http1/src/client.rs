@@ -363,7 +363,7 @@ mod tests {
         let port = crate::common::find_open_port::find_open_port().unwrap();
         let addr = format!("0.0.0.0:{port}");
 
-        let server = Server::new(addr.clone());
+        let server = Server::new();
         let handle = server.handle();
 
         let (tx, rx) = channel();
@@ -376,7 +376,7 @@ mod tests {
                         println!("server running on: {addr}");
                         ready_tx.send(()).unwrap();
                     })
-                    .start(move |request| {
+                    .listen(addr.clone(), move |request| {
                         tx.send(request).unwrap();
                         Response::new(StatusCode::OK, "Bloom Into You".into())
                     })
@@ -417,7 +417,7 @@ mod tests {
         let port = crate::common::find_open_port::find_open_port_in_range(3001..).unwrap();
         let addr = format!("0.0.0.0:{port}");
 
-        let server = Server::new(addr.clone());
+        let server = Server::new();
         let handle = server.handle();
         let (tx, rx) = channel();
         let (ready_tx, ready_rx) = channel();
@@ -429,7 +429,7 @@ mod tests {
                         println!("server running on: {addr}");
                         ready_tx.send(()).unwrap();
                     })
-                    .start(move |request| {
+                    .listen(addr.clone(), move |request| {
                         tx.send(request).unwrap();
                         let (body, sender) = ChunkedBody::new();
 

@@ -4,11 +4,9 @@ use std::{
 };
 
 use crate::{
+    common::thread_pool::ThreadPool,
     handler::RequestHandler,
-    runtime::{
-        runtime::{Runtime, StartRuntime},
-        DefaultRuntime,
-    },
+    protocol::{connection::Connection, h1::handle_incoming},
 };
 
 #[derive(Clone)]
@@ -65,23 +63,21 @@ impl Default for Config {
 type OnReady = Option<Box<dyn FnOnce(&SocketAddr) + Send>>;
 
 /// The server implementation.
-pub struct Server<A> {
-    addr: A,
+pub struct Server {
     config: Config,
     on_ready: OnReady,
     handle: ServerHandle,
 }
 
-impl Server<()> {
+impl Server {
     /// Constructs a new server.
-    pub fn new<A: ToSocketAddrs>(addr: A) -> Server<A> {
+    pub fn new() -> Server {
         let config = Config::default();
         let handle = ServerHandle {
             signal: ShutdownSignal::new(),
         };
 
         Server {
-            addr,
             config,
             handle,
             on_ready: None,
@@ -89,7 +85,7 @@ impl Server<()> {
     }
 }
 
-impl<A> Server<A> {
+impl Server {
     /// Whether if include the `Date` header.
     pub fn include_date_header(mut self, include: bool) -> Self {
         self.config.include_date_header = include;
@@ -124,7 +120,7 @@ impl<A> Server<A> {
     }
 }
 
-impl<A: ToSocketAddrs> Server<A> {
+impl Server {
     /// Adds a callback that will be executed right after the server starts.
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
@@ -134,22 +130,12 @@ impl<A: ToSocketAddrs> Server<A> {
         self
     }
 
-    /// Starts listening for requests using the default http1 `Runtime`.
-    pub fn start<H>(self, handler: H) -> std::io::Result<()>
+    /// Starts listening on the given address and executing the request with the given handler.
+    pub fn listen<H, A: ToSocketAddrs>(self, addr: A, handler: H) -> std::io::Result<()>
     where
-        H: RequestHandler + Send + Sync + 'static,
-    {
-        self.start_with(DefaultRuntime::default(), handler)
-    }
-
-    /// Starts listening for requests using the given `Runtime`.
-    pub fn start_with<R, H>(self, runtime: R, handler: H) -> std::io::Result<R::Output>
-    where
-        R: Runtime,
         H: RequestHandler + Send + Sync + 'static,
     {
         let Self {
-            addr,
             config,
             handle,
             mut on_ready,
@@ -162,12 +148,41 @@ impl<A: ToSocketAddrs> Server<A> {
             on_ready(&local_addr)
         }
 
-        let args = StartRuntime {
-            listener,
-            config,
-            handle,
-        };
+        let signal = handle.signal;
+        let pool = ThreadPool::new()?;
+        let handler = Arc::new(handler);
 
-        runtime.start(args, handler)
+        loop {
+            if signal.is_stopped() {
+                break;
+            }
+
+            match listener.accept() {
+                Ok((stream, _)) => {
+                    let config = config.clone();
+                    let handler = handler.clone();
+
+                    pool.execute(move || {
+                        match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
+                            Ok(_) => {}
+                            Err(err) => log::error!("{err}"),
+                        }
+                    })?;
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(())
     }
+}
+
+/// Allow to execute a task.
+pub trait Executor {
+    type Err: Into<std::io::Error>;
+
+    /// Execute a task.
+    fn execute<F>(&self, f: F) -> Result<(), Self::Err>
+    where
+        F: FnOnce() + Send + 'static;
 }

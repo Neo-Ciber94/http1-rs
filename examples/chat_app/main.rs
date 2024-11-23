@@ -27,31 +27,31 @@ mod models;
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    let server = Server::new("localhost:5678");
+    let server = Server::new();
     let broadcast = Broadcast::<ChatMessage>::new();
+
+    let app = App::new()
+        .middleware(Logging)
+        .middleware(auth_middleware)
+        .state(KeyValueDatabase::new("examples/chat_app/db.json").unwrap())
+        .state(broadcast)
+        .scope(
+            "/api",
+            Scope::new()
+                .post("/login", login)
+                .get("/me", me)
+                .get("/logout", logout)
+                .get("/chat", chat)
+                .get("/chat/messages", messages),
+        )
+        .get(
+            "/*",
+            ServeDir::new("examples/chat_app/static").append_html_index(true),
+        );
 
     server
         .on_ready(|addr| log::debug!("Listening on http://localhost:{}", addr.port()))
-        .start(
-            App::new()
-                .middleware(Logging)
-                .middleware(auth_middleware)
-                .state(KeyValueDatabase::new("examples/chat_app/db.json").unwrap())
-                .state(broadcast)
-                .scope(
-                    "/api",
-                    Scope::new()
-                        .post("/login", login)
-                        .get("/me", me)
-                        .get("/logout", logout)
-                        .get("/chat", chat)
-                        .get("/chat/messages", messages),
-                )
-                .get(
-                    "/*",
-                    ServeDir::new("examples/chat_app/static").append_html_index(true),
-                ),
-        )
+        .listen("localhost:5678", app)
 }
 
 fn auth_middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {

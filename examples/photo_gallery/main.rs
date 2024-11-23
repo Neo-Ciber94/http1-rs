@@ -48,11 +48,11 @@ pub fn main() -> std::io::Result<()> {
         .get("/upload", upload_page)
         .post("/api/upload", upload);
 
-    Server::new("localhost:5000")
+    Server::new()
         .include_conn_info(true)
         .max_body_size(Some(MAX_BODY_SIZE))
         .on_ready(|addr| log::info!("Listening on: http://{addr}"))
-        .start(app)
+        .listen("localhost:5000", app)
 }
 
 fn gallery_page(
