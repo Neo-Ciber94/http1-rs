@@ -31,7 +31,7 @@ pub struct App {
 impl App {
     pub fn new() -> App {
         App {
-            scope: Scope::new(),
+            scope: Scope::root(),
             middleware: Vec::new(),
             app_state: Arc::new(AppState::default()),
         }
@@ -237,15 +237,25 @@ pub struct Scope {
     path_to_route: HashMap<String, RouteId>,
     route_to_methods: HashMap<RouteId, HashMap<Method, BoxedHandler>>,
     fallbacks: Router<BoxedHandler>,
+    is_root: bool,
 }
 
 impl Scope {
+    pub(crate) fn root() -> Self {
+        Scope {
+            is_root: true,
+            ..Default::default()
+        }
+    }
+
     pub fn new() -> Self {
         Default::default()
     }
 
     fn add_route(&mut self, route: &str, method: MethodRoute, handler: BoxedHandler) {
-        log::debug!("Adding route: {method} => {route}");
+        if self.is_root {
+            log::debug!("Adding route: {method} => {route}");
+        }
 
         match self.path_to_route.get(route) {
             Some(route_id) => {
