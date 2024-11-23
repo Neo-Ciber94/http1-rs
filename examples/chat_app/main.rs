@@ -31,7 +31,7 @@ fn main() -> std::io::Result<()> {
     let broadcast = Broadcast::<ChatMessage>::new();
 
     server
-        .on_ready(|addr| log::debug!("Listening on http://{addr}"))
+        .on_ready(|addr| log::debug!("Listening on http://localhost:{}", addr.port()))
         .start(
             App::new()
                 .middleware(Logging)
