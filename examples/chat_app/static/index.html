@@ -12,16 +12,18 @@
     </template>
 
     <h1>Chat</h1>
-    <ul id="messages">
-      <li>Loading...</li>
-    </ul>
+    <a href="/api/logout" class="logout-btn">Logout</a>
 
-    <a href="/api/logout">Logout</a>
+    <div class="messages-container">
+      <ul id="messages">
+        <li>Loading...</li>
+      </ul>
 
-    <form id="chatbox-form">
-      <textarea name="chatbox-textarea"></textarea>
-      <button>Submit</button>
-    </form>
+      <form id="chatbox-form">
+        <textarea name="chatbox-textarea"></textarea>
+        <button>Submit</button>
+      </form>
+    </div>
 
     <script type="module" src="/main.js"></script>
   </body>

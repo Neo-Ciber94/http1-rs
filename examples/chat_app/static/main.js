@@ -2,7 +2,7 @@
 
 const messagesListEl = document.querySelector("#messages");
 const chatBoxFormEl = document.querySelector("#chatbox-form");
-const chatBoxTextAreaEl = document.querySelector("#chatbox-textarea");
+const chatBoxTextAreaEl = document.querySelector("#chatbox-form textarea");
 const chatMessageTemplate = document.querySelector("#chat-message").content;
 
 /**
@@ -33,6 +33,10 @@ async function getCurrentUser() {
   return await res.json();
 }
 
+function scrollToBottom() {
+  messagesListEl.scrollTop = messagesListEl.scrollHeight;
+}
+
 function updateChat(newMessages) {
   messages = newMessages;
   messagesListEl.replaceChildren([]);
@@ -47,9 +51,9 @@ function updateChat(newMessages) {
 
     if (currentUser && currentUser.username === username) {
       userMessageEl.style.fontWeight = "bold";
+      userMessageEl.classList.add("my-chat-message");
     }
 
-    userMessageEl.dataList = `user/${id}`;
     userMessageEl.innerText = `${username}: ${content || "<empty>"}`;
     messagesListEl.append(userMessageEl);
   }
@@ -59,6 +63,8 @@ function updateChat(newMessages) {
     li.textContent = "No messages";
     messagesListEl.append(li);
   }
+
+  scrollToBottom();
 }
 
 window.addEventListener("load", async () => {
@@ -85,12 +91,7 @@ window.addEventListener("load", async () => {
     console.log("Chat closed");
   };
 
-  // Listen for form submits
-  chatBoxFormEl.addEventListener("submit", (ev) => {
-    ev.preventDefault();
-
-    const form = new FormData(ev.currentTarget);
-    const content = form.get("content");
+  function pushMessage(content) {
     const id = `local_${crypto.randomUUID()}`;
     const { username } = currentUser;
     const newMessage = { id, username, content };
@@ -99,15 +100,27 @@ window.addEventListener("load", async () => {
     // Send chat message
     ws.send(content);
     ev.currentTarget.reset();
+  }
+
+  // Listen for form submits
+  chatBoxFormEl.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+
+    const form = new FormData(ev.currentTarget);
+    const content = form.get("chatbox-textarea");
+    pushMessage(content);
   });
 
   // Submit on enter
   chatBoxTextAreaEl.addEventListener("keydown", (ev) => {
+    console.log(ev);
     if (ev.key !== "Enter") {
       return;
     }
 
     ev.preventDefault();
-    chatBoxFormEl.submit();
+    const content = ev.currentTarget.value;
+    ev.currentTarget.value = "";
+    pushMessage(content);
   });
 });
