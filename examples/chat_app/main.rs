@@ -35,9 +35,11 @@ fn main() -> std::io::Result<()> {
 }
 
 fn auth_middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
+    const PAGES: &[&str] = &["/login", "/"];
+
     let path = req.uri().path_and_query().path();
 
-    if path.starts_with("/api") {
+    if path.starts_with("/api") || !PAGES.contains(&path) {
         return next.call(req);
     }
 

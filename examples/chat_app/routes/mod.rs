@@ -85,7 +85,7 @@ fn chat(
         broadcast
             .send(ChatMessage {
                 id: Uuid::new_v4(),
-                content: format!("{} joined", user.username),
+                content: format!("`{}` joined", user.username),
                 username: String::from("server"),
             })
             .unwrap();

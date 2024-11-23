@@ -1,0 +1,162 @@
+/* Global styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  display: flex;
+  flex-direction: column; /* Stack elements vertically */
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 20px;
+  position: relative; /* For positioning the logout button */
+}
+
+h1 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Login Page Styles */
+.login-container {
+  background-color: #fff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-container form {
+  display: flex;
+  flex-direction: column;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+button {
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Chat Page Styles */
+.chat-container {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 600px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+ul#messages {
+  list-style-type: none;
+  padding: 15px;
+  margin-bottom: 20px;
+  overflow-y: auto;
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+ul#messages li {
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #e9ecef;
+  border-radius: 20px;
+  max-width: 80%;
+  word-wrap: break-word;
+  position: relative;
+}
+
+/* User message bubbles */
+ul#messages li.user-message {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end; /* Align user messages to the right */
+  border-radius: 20px 20px 0 20px; /* Rounded bubble shape */
+}
+
+/* Bot or other messages */
+ul#messages li.bot-message {
+  background-color: #f1f1f1;
+  color: #333;
+  align-self: flex-start; /* Align other messages to the left */
+  border-radius: 20px 20px 20px 0; /* Rounded bubble shape */
+}
+
+/* Chatbox Form */
+form#chatbox-form {
+  display: flex;
+  flex-direction: column;
+}
+
+textarea {
+  width: 100%; /* Full width */
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 16px;
+  resize: vertical;
+  min-height: 100px;
+}
+
+button {
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Logout Button Styles */
+a {
+  position: absolute; /* Positioning it absolutely */
+  top: 20px; /* 20px from the top */
+  right: 20px; /* 20px from the right */
+  color: #ff4444;
+  font-weight: bold;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+a:hover {
+  color: #cc0000;
+}
