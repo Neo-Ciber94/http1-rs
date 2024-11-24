@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
+use crate::extensions::Extensions;
+
 use super::{
-    common::any_map::AnyMap,
     headers::{HeaderName, HeaderValue, Headers},
     method::Method,
     uri::{
@@ -18,7 +19,7 @@ pub struct Parts {
     pub method: Method,
     pub version: Version,
     pub uri: Uri,
-    pub extensions: AnyMap,
+    pub extensions: Extensions,
 }
 
 /// Represents an HTTP request.
@@ -36,23 +37,27 @@ impl<T> Request<T> {
     ///
     /// # Parameters
     /// - `method`: The HTTP method of the request (e.g., `GET`, `POST`).
-    /// - `version`: The HTTP version used (e.g., `HTTP/1.1`).
     /// - `uri`: The URL of the request.
     /// - `body`: The content of the request body.
     ///
     /// # Returns
     /// A new `Request` instance with empty headers.
-    pub fn new(method: Method, version: Version, uri: Uri, body: T) -> Self {
+    pub fn new(method: Method, uri: Uri, body: T) -> Self {
         Request {
             body,
             parts: Parts {
                 method,
-                version,
                 uri,
+                version: Version::Http1_1,
                 headers: Headers::default(),
-                extensions: AnyMap::new(),
+                extensions: Extensions::new(),
             },
         }
+    }
+
+    /// Creates a request from the given parts and body.
+    pub fn from_parts(parts: Parts, body: T) -> Self {
+        Request { body, parts }
     }
 
     /// Returns a reference to the HTTP method of the request.
@@ -91,12 +96,12 @@ impl<T> Request<T> {
     }
 
     /// Returns this request extensions.
-    pub fn extensions(&self) -> &AnyMap {
+    pub fn extensions(&self) -> &Extensions {
         &self.parts.extensions
     }
 
     /// Returns a mutable reference to the request extensions.
-    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.parts.extensions
     }
 
@@ -110,6 +115,16 @@ impl<T> Request<T> {
         &mut self.body
     }
 
+    /// Returns a reference to the request parts.
+    pub fn parts(&self) -> &Parts {
+        &self.parts
+    }
+
+    /// Returns a mutable reference to the request parts.
+    pub fn parts_mut(&mut self) -> &mut Parts {
+        &mut self.parts
+    }
+
     /// Returns the body
     pub fn into_body(self) -> T {
         self.body
@@ -119,6 +134,12 @@ impl<T> Request<T> {
     pub fn into_parts(self) -> (T, Parts) {
         let Self { body, parts } = self;
         (body, parts)
+    }
+
+    /// Separates the request and the body.
+    pub fn drop_body(self) -> (Request<()>, T) {
+        let Request { body, parts } = self;
+        (Request::from_parts(parts, ()), body)
     }
 }
 
@@ -229,7 +250,7 @@ impl Builder {
     }
 
     /// Returns a mutable reference to the extensions.
-    pub fn extensions_mut(&mut self) -> Option<&mut AnyMap> {
+    pub fn extensions_mut(&mut self) -> Option<&mut Extensions> {
         self.inner.as_mut().ok().map(|parts| &mut parts.extensions)
     }
 

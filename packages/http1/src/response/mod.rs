@@ -1,7 +1,8 @@
 pub mod sse;
 
+use crate::extensions::Extensions;
+
 use super::{
-    common::any_map::AnyMap,
     headers::{HeaderName, HeaderValue, Headers},
     status::StatusCode,
     version::Version,
@@ -16,7 +17,7 @@ pub struct Response<T> {
     status: StatusCode,
     version: Version,
     headers: Headers,
-    extensions: AnyMap,
+    extensions: Extensions,
     body: T,
 }
 
@@ -85,12 +86,12 @@ impl<T> Response<T> {
     }
 
     /// Returns a reference to the response body.
-    pub fn extensions(&self) -> &AnyMap {
+    pub fn extensions(&self) -> &Extensions {
         &self.extensions
     }
 
     /// Returns a mutable reference to the response extensions.
-    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.extensions
     }
 
@@ -154,7 +155,7 @@ pub struct Builder {
     status: StatusCode,
     headers: Headers,
     version: Version,
-    extensions: AnyMap,
+    extensions: Extensions,
 }
 
 impl Builder {
@@ -207,12 +208,12 @@ impl Builder {
     }
 
     /// Returns a reference to the extensions being set in the `Builder`.
-    pub fn extensions(&self) -> &AnyMap {
+    pub fn extensions(&self) -> &Extensions {
         &self.extensions
     }
 
     /// Returns a mutable reference to the extensions being set in the `Builder`.
-    pub fn extensions_mut(&mut self) -> &mut AnyMap {
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
         &mut self.extensions
     }
 
