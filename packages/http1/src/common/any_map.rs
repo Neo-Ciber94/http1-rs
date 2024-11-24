@@ -72,7 +72,7 @@ impl AnyMap {
 
     pub fn extend_from_cloneable(&mut self, other: CloneableAnyMap) {
         for (key, value) in other.0 {
-            self.0.insert(key, value.into_any_box());
+            self.0.insert(key, value.into_inner().into_any());
         }
     }
 }
@@ -84,38 +84,47 @@ impl Debug for AnyMap {
 }
 
 #[doc(hidden)]
-pub trait CloneBox: Any + Send + Sync {
-    fn clone_box(&self) -> Box<dyn DynClone + Send + Sync>;
-    fn into_any_box(self: Box<Self>) -> Box<dyn Any + Send + Sync>;
+pub trait CloneBox: Send + Sync {
+    fn clone_box(&self) -> Box<dyn CloneBox + Send + Sync>;
+    fn into_any(self: Box<Self>) -> Box<dyn Any + Send + Sync>;
 }
-
-#[doc(hidden)]
-pub trait DynClone: CloneBox {}
 
 impl<T> CloneBox for T
 where
-    T: Any + DynClone + Clone + Send + Sync,
+    T: Any + Clone + Send + Sync,
 {
-    fn clone_box(&self) -> Box<dyn DynClone + Send + Sync> {
+    fn clone_box(&self) -> Box<dyn CloneBox + Send + Sync> {
         Box::new(self.clone())
     }
 
-    fn into_any_box(self: Box<Self>) -> Box<dyn Any + Send + Sync> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any + Send + Sync> {
         self
     }
 }
 
-impl DynClone for Box<dyn DynClone + '_> {}
+struct CloneableBox(Box<dyn CloneBox + Send + Sync>);
+impl CloneableBox {
+    pub fn new<T>(value: T) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        CloneableBox(Box::new(value))
+    }
 
-impl Clone for Box<dyn DynClone + '_> {
+    pub fn into_inner(self) -> Box<dyn CloneBox + Send + Sync> {
+        self.0
+    }
+}
+
+impl Clone for CloneableBox {
     fn clone(&self) -> Self {
-        (**self).clone_box()
+        Self(self.0.clone_box())
     }
 }
 
 /// A map that holds data of any type that can be cloned.
 #[derive(Default)]
-pub struct CloneableAnyMap(HashMap<TypeId, Box<dyn DynClone + Send + Sync>>);
+pub struct CloneableAnyMap(HashMap<TypeId, CloneableBox>);
 
 impl CloneableAnyMap {
     pub fn new() -> Self {
@@ -132,39 +141,39 @@ impl CloneableAnyMap {
 
     pub fn insert<T>(&mut self, value: T) -> Option<T>
     where
-        T: DynClone + Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
     {
         self.0
-            .insert(TypeId::of::<T>(), Box::new(value))
-            .and_then(|x| x.into_any_box().downcast().ok())
+            .insert(TypeId::of::<T>(), CloneableBox::new(value))
+            .and_then(|x| x.into_inner().into_any().downcast().ok())
             .map(|x| *x)
     }
 
     pub fn contains<T>(&self) -> bool
     where
-        T: DynClone + Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
     {
         self.0.contains_key(&TypeId::of::<T>())
     }
 
     pub fn get<T>(&self) -> Option<T>
     where
-        T: DynClone + Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
     {
         self.0
             .get(&TypeId::of::<T>())
-            .map(|x| x.clone_box())
-            .and_then(|x| x.into_any_box().downcast().ok())
+            .map(|x| x.0.clone_box())
+            .and_then(|x| x.into_any().downcast().ok())
             .map(|x| *x)
     }
 
     pub fn remove<T>(&mut self) -> Option<T>
     where
-        T: DynClone + Send + Sync + 'static,
+        T: Clone + Send + Sync + 'static,
     {
         self.0
             .remove(&TypeId::of::<T>())
-            .and_then(|x| x.into_any_box().downcast().ok())
+            .and_then(|x| x.into_inner().into_any().downcast().ok())
             .map(|x| *x)
     }
 
@@ -175,90 +184,97 @@ impl CloneableAnyMap {
 
 impl Clone for CloneableAnyMap {
     fn clone(&self) -> Self {
-        let mut map = HashMap::with_capacity(self.len());
-        for (k, v) in &self.0 {
-            map.insert(*k, v.clone_box());
-        }
-        CloneableAnyMap(map)
+        CloneableAnyMap(self.0.clone())
     }
 }
 
-mod s {
-    use std::{
-        any::{Any, TypeId},
-        collections::HashMap,
-    };
+#[cfg(test)]
+mod tests {
+    use crate::common::any_map::CloneableAnyMap;
 
-    trait BoxClone {
-        fn clone_box(&self) -> Box<dyn BoxClone + Send + Sync>;
-        fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    use super::AnyMap;
+
+    #[test]
+    fn test_any_map() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct Sorcerer {
+            name: &'static str,
+        }
+
+        let mut map = AnyMap::new();
+
+        map.insert(Sorcerer {
+            name: "Satoru Gojo",
+        });
+        map.insert(String::from("Infinite Void"));
+        map.insert(2018_u32);
+        map.insert((true, String::from("Nobara")));
+
+        assert_eq!(map.len(), 4);
+        assert!(map.contains::<Sorcerer>());
+        assert!(!map.contains::<f32>());
+
+        assert_eq!(
+            map.get::<Sorcerer>().unwrap(),
+            &Sorcerer {
+                name: "Satoru Gojo"
+            }
+        );
+        assert_eq!(map.get::<u32>().unwrap(), &2018);
+        assert_eq!(map.get::<String>().unwrap(), "Infinite Void");
+        assert_eq!(
+            map.get::<(bool, String)>().unwrap(),
+            &(true, String::from("Nobara"))
+        );
+        assert!(map.get::<Vec<u8>>().is_none());
     }
 
-    impl<T> BoxClone for T
-    where
-        T: Any + Send + Sync + Clone,
-    {
-        fn clone_box(&self) -> Box<dyn BoxClone + Send + Sync> {
-            Box::new(self.clone())
+    #[test]
+    fn test_cloneable_any_map() {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct Sorcerer {
+            name: &'static str,
         }
 
-        fn into_any(self: Box<Self>) -> Box<dyn Any> {
-            self
-        }
+        let mut map = CloneableAnyMap::new();
+
+        map.insert(Sorcerer {
+            name: "Megumi Fushiguro",
+        });
+        map.insert(String::from("Chimera Shadow Garden"));
+        map.insert(2001_u32);
+
+        assert_eq!(map.len(), 3);
+        assert!(map.contains::<Sorcerer>());
+        assert!(!map.contains::<f32>());
+
+        assert_eq!(
+            map.get::<Sorcerer>().unwrap(),
+            Sorcerer {
+                name: "Megumi Fushiguro"
+            }
+        );
+        assert_eq!(map.get::<u32>().unwrap(), 2001_u32);
+        assert_eq!(map.get::<String>().unwrap(), "Chimera Shadow Garden");
+        assert!(map.get::<Vec<u8>>().is_none());
     }
 
-    struct CloneBox(Box<dyn BoxClone + Send + Sync>);
-    impl CloneBox {
-        pub fn new<T>(value: T) -> Self
-        where
-            T: Clone + Send + Sync + 'static,
-        {
-            CloneBox(Box::new(value))
-        }
-    }
+    #[test]
+    fn should_extend_any_map_from_cloneable_any_map() {
+        let mut src = CloneableAnyMap::new();
+        src.insert(String::from("Maki Zenin"));
+        src.insert(90_040_i32);
+        src.insert((true, false, false));
 
-    impl Clone for CloneBox {
-        fn clone(&self) -> Self {
-            CloneBox(self.0.clone_box())
-        }
-    }
+        let mut map = AnyMap::new();
+        map.extend_from_cloneable(src);
 
-    fn test() {
-        let mut items: Vec<Box<dyn Any>> = vec![];
-
-        let x = CloneBox::new(12);
-        items.push(x.0.into_any());
-    }
-
-    struct CloneAnyMap(HashMap<TypeId, CloneBox>);
-    impl CloneAnyMap {
-        pub fn insert<T>(&mut self, value: T) -> Option<T>
-        where
-            T: Clone + Send + Sync + 'static,
-        {
-            self.0
-                .insert(TypeId::of::<T>(), CloneBox::new(value))
-                .map(|x| x.0.into_any())
-                .and_then(|x| x.downcast().ok())
-                .and_then(|x| *x)
-        }
-
-        pub fn get<T>(&self) -> Option<T>
-        where
-            T: Clone + Send + Sync + 'static,
-        {
-            self.0
-                .get(&TypeId::of::<T>())
-                .map(|x| x.0.clone_box())
-                .map(|x| x.into_any())
-                .and_then(|x| x.downcast().ok())
-                .map(|x| *x)
-        }
-    }
-
-    impl Clone for CloneAnyMap {
-        fn clone(&self) -> Self {
-            Self(self.0.clone())
-        }
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get::<String>().unwrap(), "Maki Zenin");
+        assert_eq!(map.get::<i32>().unwrap(), &90_040_i32);
+        assert_eq!(
+            map.get::<(bool, bool, bool)>().unwrap(),
+            &(true, false, false)
+        );
     }
 }
