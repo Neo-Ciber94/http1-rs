@@ -188,6 +188,18 @@ impl Clone for CloneableAnyMap {
     }
 }
 
+impl From<CloneableAnyMap> for AnyMap {
+    fn from(value: CloneableAnyMap) -> Self {
+        let mut this = HashMap::with_capacity(value.len());
+
+        for (k, v) in value.0 {
+            this.insert(k, v.0.into_any());
+        }
+
+        AnyMap(this)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::common::any_map::CloneableAnyMap;
