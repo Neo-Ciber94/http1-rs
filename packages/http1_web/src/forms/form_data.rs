@@ -959,7 +959,7 @@ mod tests {
             ..Default::default()
         });
 
-        req.extensions_mut().insert(Arc::new(app_state));
+        req.extensions_mut().extend((*app_state).clone());
 
         let mut form_data = FormData::from_request(req).unwrap();
 
