@@ -84,38 +84,20 @@ impl Debug for AnyMap {
 }
 
 #[doc(hidden)]
-pub trait CloneableAny: Any + Send + Sync {
-    fn clone_box(&self) -> Box<dyn CloneableAny + Send + Sync>;
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
+pub trait CloneBox: Any + Send + Sync {
+    fn clone_box(&self) -> Box<dyn DynClone + Send + Sync>;
     fn into_any_box(self: Box<Self>) -> Box<dyn Any + Send + Sync>;
 }
 
-// impl dyn CloneableAny + Send + Sync {
-//     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
-//         self.as_any().downcast_ref::<T>()
-//     }
+#[doc(hidden)]
+pub trait DynClone: CloneBox {}
 
-//     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
-//         self.as_any_mut().downcast_mut::<T>()
-//     }
-// }
-
-impl<T> CloneableAny for T
+impl<T> CloneBox for T
 where
-    T: Any + Clone + Send + Sync,
+    T: Any + DynClone + Clone + Send + Sync,
 {
-    fn clone_box(&self) -> Box<dyn CloneableAny + Send + Sync> {
+    fn clone_box(&self) -> Box<dyn DynClone + Send + Sync> {
         Box::new(self.clone())
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 
     fn into_any_box(self: Box<Self>) -> Box<dyn Any + Send + Sync> {
@@ -123,8 +105,17 @@ where
     }
 }
 
+impl DynClone for Box<dyn DynClone + '_> {}
+
+impl Clone for Box<dyn DynClone + '_> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
+/// A map that holds data of any type that can be cloned.
 #[derive(Default)]
-pub struct CloneableAnyMap(HashMap<TypeId, Box<dyn CloneableAny + Send + Sync>>);
+pub struct CloneableAnyMap(HashMap<TypeId, Box<dyn DynClone + Send + Sync>>);
 
 impl CloneableAnyMap {
     pub fn new() -> Self {
@@ -141,7 +132,7 @@ impl CloneableAnyMap {
 
     pub fn insert<T>(&mut self, value: T) -> Option<T>
     where
-        T: Clone + Send + Sync + 'static,
+        T: DynClone + Send + Sync + 'static,
     {
         self.0
             .insert(TypeId::of::<T>(), Box::new(value))
@@ -156,20 +147,20 @@ impl CloneableAnyMap {
         self.0.contains_key(&TypeId::of::<T>())
     }
 
-    // pub fn get<T>(&self) -> Option<T>
-    // where
-    //     T: Clone + Send + Sync + 'static,
-    // {
-    //     self.0
-    //         .get(&TypeId::of::<T>())
-    //         .map(|x| x.clone_box())
-    //         .and_then(|x| x.into_any().downcast().ok())
-    //         .map(|x| *x)
-    // }
+    pub fn get<T>(&self) -> Option<T>
+    where
+        T: DynClone + Send + Sync + 'static,
+    {
+        self.0
+            .get(&TypeId::of::<T>())
+            .map(|x| x.clone_box())
+            .and_then(|x| x.into_any_box().downcast().ok())
+            .map(|x| *x)
+    }
 
     pub fn remove<T>(&mut self) -> Option<T>
     where
-        T: Clone + Send + Sync + 'static,
+        T: DynClone + Send + Sync + 'static,
     {
         self.0
             .remove(&TypeId::of::<T>())
@@ -182,13 +173,12 @@ impl CloneableAnyMap {
     }
 }
 
-// impl Clone for CloneableAnyMap {
-//     fn clone(&self) -> Self {
-//         let mut map = HashMap::with_capacity(self.len());
-//         for (k, v) in &self.0 {
-//             map.insert(*k, v.clone_box());
-//         }
-//         CloneableAnyMap(map)
-//     }
-// }
-
+impl Clone for CloneableAnyMap {
+    fn clone(&self) -> Self {
+        let mut map = HashMap::with_capacity(self.len());
+        for (k, v) in &self.0 {
+            map.insert(*k, v.clone_box());
+        }
+        CloneableAnyMap(map)
+    }
+}
