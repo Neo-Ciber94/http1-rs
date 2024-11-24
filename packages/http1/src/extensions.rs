@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::common::any_map::AnyMap;
+use crate::common::any_map::{AnyMap, CloneableAnyMap};
 
 /// Request extensions.
 #[derive(Default)]
@@ -14,8 +14,8 @@ impl Extensions {
         Default::default()
     }
 
-    pub fn extend(&mut self, other: Extensions) {
-        self.0.extend(other.0);
+    pub fn extend<U: Into<AnyMap>>(&mut self, other: U) {
+        self.0.extend(other.into());
     }
 }
 
@@ -38,3 +38,15 @@ impl Debug for Extensions {
         f.debug_struct("Extensions").finish_non_exhaustive()
     }
 }
+
+impl From<AnyMap> for Extensions {
+    fn from(value: AnyMap) -> Self {
+        Extensions(value)
+    }
+}
+
+// impl From<CloneableAnyMap> for Extensions {
+//     fn from(value: CloneableAnyMap) -> Self {
+//         Extensions(value.into())
+//     }
+// }
