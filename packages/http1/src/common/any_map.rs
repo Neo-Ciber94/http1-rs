@@ -142,7 +142,7 @@ impl CloneableAnyMap {
 
     pub fn contains<T>(&self) -> bool
     where
-        T: Clone + Send + Sync + 'static,
+        T: DynClone + Send + Sync + 'static,
     {
         self.0.contains_key(&TypeId::of::<T>())
     }
@@ -180,5 +180,85 @@ impl Clone for CloneableAnyMap {
             map.insert(*k, v.clone_box());
         }
         CloneableAnyMap(map)
+    }
+}
+
+mod s {
+    use std::{
+        any::{Any, TypeId},
+        collections::HashMap,
+    };
+
+    trait BoxClone {
+        fn clone_box(&self) -> Box<dyn BoxClone + Send + Sync>;
+        fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    }
+
+    impl<T> BoxClone for T
+    where
+        T: Any + Send + Sync + Clone,
+    {
+        fn clone_box(&self) -> Box<dyn BoxClone + Send + Sync> {
+            Box::new(self.clone())
+        }
+
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+    }
+
+    struct CloneBox(Box<dyn BoxClone + Send + Sync>);
+    impl CloneBox {
+        pub fn new<T>(value: T) -> Self
+        where
+            T: Clone + Send + Sync + 'static,
+        {
+            CloneBox(Box::new(value))
+        }
+    }
+
+    impl Clone for CloneBox {
+        fn clone(&self) -> Self {
+            CloneBox(self.0.clone_box())
+        }
+    }
+
+    fn test() {
+        let mut items: Vec<Box<dyn Any>> = vec![];
+
+        let x = CloneBox::new(12);
+        items.push(x.0.into_any());
+    }
+
+    struct CloneAnyMap(HashMap<TypeId, CloneBox>);
+    impl CloneAnyMap {
+        pub fn insert<T>(&mut self, value: T) -> Option<T>
+        where
+            T: Clone + Send + Sync + 'static,
+        {
+            self.0
+                .insert(TypeId::of::<T>(), CloneBox::new(value))
+                .map(|x| x.0.into_any())
+                .and_then(|x| x.downcast().ok())
+                .and_then(|x| *x)
+        }
+
+        pub fn get<T>(&self) -> Option<T>
+        where
+            T: Clone + Send + Sync + 'static,
+        {
+            self.0
+                .get(&TypeId::of::<T>())
+                .map(|x| x.0.clone_box())
+                .map(|x| x.into_any())
+                .and_then(|x| x.downcast().ok())
+                .map(|x| *x)
+        }
+    }
+
+    impl Clone for CloneAnyMap {
+        fn clone(&self) -> Self {
+            Self(self.0.clone())
+        }
     }
 }
