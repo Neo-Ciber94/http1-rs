@@ -3,9 +3,11 @@ use std::{convert::Infallible, fmt::Display};
 use http1::{
     body::{http_body::HttpBody, Body},
     error::BoxError,
+    extensions::Extensions,
     headers::Headers,
     method::Method,
-    request::Request,
+    payload::Payload,
+    request::{Parts, Request},
     response::Response,
     status::StatusCode,
     uri::{authority::Authority, path_query::PathAndQuery, scheme::Scheme, uri::Uri},
@@ -16,35 +18,109 @@ use crate::{routing::params::ParamsMap, IntoResponse};
 
 pub trait FromRequest: Sized {
     type Rejection: IntoResponse;
-    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection>;
-}
-
-pub trait FromRequestRef: Sized {
-    type Rejection: IntoResponse;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection>;
-}
-
-impl<T> FromRequest for T
-where
-    T: FromRequestRef,
-{
-    type Rejection = T::Rejection;
-    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
-        T::from_request_ref(&req)
-    }
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection>;
 }
 
 impl FromRequest for Request<Body> {
     type Rejection = Infallible;
-    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
-        Ok(req)
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        let parts = Parts {
+            extensions: std::mem::take(extensions),
+            headers: req.headers().clone(),
+            method: req.method().clone(),
+            uri: req.uri().clone(),
+            version: req.version().clone(),
+        };
+
+        Ok(Request::from_parts(
+            parts,
+            payload.take().unwrap_or_default(),
+        ))
+    }
+}
+
+impl FromRequest for Request<Payload> {
+    type Rejection = Infallible;
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        let parts = Parts {
+            extensions: std::mem::take(extensions),
+            headers: req.headers().clone(),
+            method: req.method().clone(),
+            uri: req.uri().clone(),
+            version: req.version().clone(),
+        };
+
+        Ok(Request::from_parts(parts, std::mem::take(payload)))
+    }
+}
+
+impl FromRequest for Request<()> {
+    type Rejection = Infallible;
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        _payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        let parts = Parts {
+            extensions: std::mem::take(extensions),
+            headers: req.headers().clone(),
+            method: req.method().clone(),
+            uri: req.uri().clone(),
+            version: req.version().clone(),
+        };
+
+        Ok(Request::from_parts(parts, ()))
     }
 }
 
 impl FromRequest for Body {
     type Rejection = Infallible;
-    fn from_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
-        Ok(req.into_body())
+
+    fn from_request(
+        _req: &Request<()>,
+        _extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(payload.take().unwrap_or_default())
+    }
+}
+
+impl FromRequest for Payload {
+    type Rejection = Infallible;
+
+    fn from_request(
+        _req: &Request<()>,
+        _extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(std::mem::take(payload))
+    }
+}
+
+impl FromRequest for Extensions {
+    type Rejection = Infallible;
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(std::mem::take(extensions))
     }
 }
 
@@ -68,25 +144,44 @@ impl IntoResponse for InvalidBodyError {
 impl FromRequest for Vec<u8> {
     type Rejection = InvalidBodyError;
 
-    fn from_request(mut req: Request<Body>) -> Result<Self, Self::Rejection> {
-        req.body_mut().read_all_bytes().map_err(InvalidBodyError)
+    fn from_request(
+        _req: &Request<()>,
+        _extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        payload
+            .take()
+            .unwrap_or_default()
+            .read_all_bytes()
+            .map_err(InvalidBodyError)
     }
 }
 
 impl FromRequest for String {
     type Rejection = InvalidBodyError;
 
-    fn from_request(mut req: Request<Body>) -> Result<Self, Self::Rejection> {
-        req.body_mut()
+    fn from_request(
+        _req: &Request<()>,
+        _extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        payload
+            .take()
+            .unwrap_or_default()
             .read_all_bytes()
             .and_then(|bytes| Ok(String::from_utf8(bytes)?))
             .map_err(InvalidBodyError)
     }
 }
 
-impl FromRequestRef for () {
+impl FromRequest for () {
     type Rejection = Infallible;
-    fn from_request_ref(_: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        _req: &Request<()>,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(())
     }
 }
@@ -108,26 +203,38 @@ impl IntoResponse for ParamsNotFound {
     }
 }
 
-impl FromRequestRef for ParamsMap {
+impl FromRequest for ParamsMap {
     type Rejection = ParamsNotFound;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
-        req.extensions()
-            .get::<ParamsMap>()
-            .cloned()
-            .ok_or(ParamsNotFound)
+
+    fn from_request(
+        _req: &Request<()>,
+        extensions: &mut Extensions,
+        _payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        extensions.get::<ParamsMap>().cloned().ok_or(ParamsNotFound)
     }
 }
 
-impl FromRequestRef for Uri {
+impl FromRequest for Uri {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(req.uri().clone())
     }
 }
 
-impl FromRequestRef for PathAndQuery {
+impl FromRequest for PathAndQuery {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(req.uri().path_and_query().clone())
     }
 }
@@ -149,9 +256,14 @@ impl IntoResponse for SchemeNotFound {
     }
 }
 
-impl FromRequestRef for Scheme {
+impl FromRequest for Scheme {
     type Rejection = SchemeNotFound;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         req.uri().scheme().cloned().ok_or(SchemeNotFound)
     }
 }
@@ -173,75 +285,118 @@ impl IntoResponse for AuthorityNotFound {
     }
 }
 
-impl FromRequestRef for Authority {
+impl FromRequest for Authority {
     type Rejection = AuthorityNotFound;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         req.uri().authority().cloned().ok_or(AuthorityNotFound)
     }
 }
 
-impl FromRequestRef for Headers {
+impl FromRequest for Headers {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(req.headers().clone())
     }
 }
 
-impl FromRequestRef for Version {
+impl FromRequest for Version {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(*req.version())
     }
 }
 
-impl FromRequestRef for Method {
+impl FromRequest for Method {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
         Ok(req.method().clone())
     }
 }
 
-impl<T: FromRequestRef> FromRequestRef for Option<T> {
+impl<T: FromRequest> FromRequest for Option<T> {
     type Rejection = Infallible;
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
-        Ok(T::from_request_ref(req).ok())
+
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut Extensions,
+        payload: &mut Payload,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(T::from_request(req, extensions, payload).ok())
     }
 }
 
-macro_rules! impl_from_request_tuple {
-    ([$($T:ident),*], $last:ident) => {
+macro_rules! impl_tuple_from_request {
+    ($($T:ident),*) => {
         #[allow(non_snake_case, unused_variables)]
-        impl<$($T,)* $last> crate::from_request::FromRequest for ($($T,)* $last,)
-            where
-                $($T: crate::from_request::FromRequestRef,)*
-                $last: crate::from_request::FromRequest {
+        impl <$($T),*> FromRequest for ($($T),*,) where $($T: FromRequest),* {
             type Rejection = Response<Body>;
-            fn from_request(req: http1::request::Request<Body>) -> Result<Self, Self::Rejection> {
+
+            fn from_request(
+                req: &Request<()>,
+                extensions: &mut Extensions,
+                payload: &mut Payload,
+            ) -> Result<Self, Self::Rejection> {
                 $(
-                    let $T = match <$T as crate::from_request::FromRequestRef>::from_request_ref(&req) {
+                    let $T = match <$T as crate::from_request::FromRequest>::from_request(&req, extensions, payload) {
                         Ok(x) => x,
                         Err(err) => return Err(err.into_response())
                     };
                 )*
 
-                let last = match <$last as crate::from_request::FromRequest>::from_request(req) {
-                    Ok(x) => x,
-                    Err(err) => return Err(err.into_response())
-                };
-
-                Ok(($($T,)* last,))
+                Ok(($($T),*,))
             }
         }
     };
 }
 
-impl_from_request_tuple! { [], T1 }
-impl_from_request_tuple! { [T1], T2 }
-impl_from_request_tuple! { [T1, T2], T3 }
-impl_from_request_tuple! { [T1, T2, T3], T4 }
-impl_from_request_tuple! { [T1, T2, T3, T4], T5 }
-impl_from_request_tuple! { [T1, T2, T3, T4, T5], T6 }
-impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6], T7 }
-impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7], T8 }
-impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7, T8], T9 }
-impl_from_request_tuple! { [T1, T2, T3, T4, T5, T6, T7, T8, T9], T10 }
+impl_tuple_from_request!(A);
+impl_tuple_from_request!(A, B);
+impl_tuple_from_request!(A, B, C);
+impl_tuple_from_request!(A, B, C, D);
+impl_tuple_from_request!(A, B, C, D, E);
+impl_tuple_from_request!(A, B, C, D, E, F);
+impl_tuple_from_request!(A, B, C, D, E, F, G);
+impl_tuple_from_request!(A, B, C, D, E, F, G, H);
+impl_tuple_from_request!(A, B, C, D, E, F, G, H, I);
+impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J);
+impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J, K);
+impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J, K, L);
+
+pub(crate) fn split_request(req: Request<Body>) -> (Request<()>, Extensions, Payload) {
+    let (body, mut parts) = req.into_parts();
+    let payload = Payload::Data(body);
+    let extensions = std::mem::take(&mut parts.extensions);
+
+    let req = Request::from_parts(parts, ());
+    (req, extensions, payload)
+}
+
+pub(crate) fn join_request(
+    mut req: Request<()>,
+    extensions: Extensions,
+    mut payload: Payload,
+) -> Request<Body> {
+    let body = payload.take().unwrap_or_default();
+    *req.extensions_mut() = extensions;
+    req.map_body(move |_| body)
+}

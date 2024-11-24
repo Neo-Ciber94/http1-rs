@@ -5,7 +5,7 @@ use http1::{
     uri::path_query::{QueryMap, QueryValue},
 };
 
-use crate::{from_request::FromRequestRef, IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 use serde::{
     de::{Deserialize, Deserializer, Error},
     string::{DeserializeFromStr, DeserializeOnlyString},
@@ -235,11 +235,13 @@ impl IntoResponse for InvalidQueryError {
     }
 }
 
-impl<T: Deserialize> FromRequestRef for Query<T> {
+impl<T: Deserialize> FromRequest for Query<T> {
     type Rejection = InvalidQueryError;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let query_map = req.uri().path_and_query().query_map();
         let deserializer = QueryDeserializer(query_map);

@@ -83,7 +83,9 @@ impl<T: Deserialize> FromRequest for Form<T> {
     type Rejection = RejectFormError;
 
     fn from_request(
-        mut req: http1::request::Request<http1::body::Body>,
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let headers = req.headers();
         let content_type = headers
@@ -96,8 +98,9 @@ impl<T: Deserialize> FromRequest for Form<T> {
                     return Err(RejectFormError::InvalidContentType(mime.to_owned()));
                 }
 
-                let bytes = req
-                    .body_mut()
+                let bytes = payload
+                    .take()
+                    .unwrap_or_default()
                     .read_all_bytes()
                     .map_err(RejectFormError::FailedReadForm)?;
 

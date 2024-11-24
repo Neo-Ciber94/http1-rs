@@ -82,6 +82,12 @@ impl Debug for Body {
     }
 }
 
+impl Default for Body {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl From<Vec<u8>> for Body {
     fn from(value: Vec<u8>) -> Self {
         Body::new(Bytes::new(value))

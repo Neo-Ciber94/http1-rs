@@ -3,11 +3,11 @@ use std::{
     time::Duration,
 };
 
-use http1::{body::Body, headers, request::Request, status::StatusCode};
+use http1::{body::Body, headers, payload::Payload, request::Request, status::StatusCode};
 
 use crate::{
     cookies::{Cookie, Cookies},
-    from_request::FromRequestRef,
+    from_request::FromRequest,
     middleware::Middleware,
     ErrorResponse, ErrorStatusCode, IntoResponse,
 };
@@ -92,7 +92,7 @@ impl<S: SessionStore> SessionProvider<S> {
             ErrorResponse::from(ErrorStatusCode::InternalServerError)
         })?;
 
-        let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+        let cookies = Cookies::from_headers(req.headers()).unwrap_or_default();
 
         let mut is_new_session = false;
         let session_id = match cookies.get(&self.cookie_name) {

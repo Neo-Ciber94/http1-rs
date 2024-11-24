@@ -10,7 +10,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse, RequestExt};
+use crate::{from_request::FromRequest, state::State, IntoResponse, RequestExt};
 
 use super::{WebSocket, WebSocketConfig};
 
@@ -129,7 +129,9 @@ impl FromRequest for WebSocketUpgrade {
     type Rejection = WebSocketUpgradeError;
 
     fn from_request(
-        mut req: http1::request::Request<http1::body::Body>,
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         // Parsing the websocket according to:
         // https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
@@ -189,16 +191,16 @@ impl FromRequest for WebSocketUpgrade {
             );
         }
 
-        let pending = req
-            .extensions_mut()
-            .remove::<PendingUpgrade>()
-            .ok_or_else(|| {
-                WebSocketUpgradeError::Other(
-                    String::from("Failed to get connection upgrade stream").into(),
-                )
-            })?;
+        let pending = extensions.remove::<PendingUpgrade>().ok_or_else(|| {
+            WebSocketUpgradeError::Other(
+                String::from("Failed to get connection upgrade stream").into(),
+            )
+        })?;
 
-        let config = req.state::<WebSocketConfig>();
+        let config = extensions
+            .get::<State<WebSocketConfig>>()
+            .cloned()
+            .map(|x| x.into_inner());
 
         Ok(WebSocketUpgrade {
             key,

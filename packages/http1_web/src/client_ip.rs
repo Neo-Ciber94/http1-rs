@@ -5,7 +5,7 @@ use std::{
 
 use http1::headers::{self, Headers};
 
-use crate::{conn_info::ConnectionInfo, from_request::FromRequestRef, ErrorStatusCode};
+use crate::{conn_info::ConnectionInfo, from_request::FromRequest, ErrorStatusCode};
 
 #[derive(Debug)]
 enum Inner {
@@ -35,16 +35,18 @@ impl ClientIp {
     }
 }
 
-impl FromRequestRef for ClientIp {
+impl FromRequest for ClientIp {
     type Rejection = ErrorStatusCode;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         match get_ip_from_headers(req.headers()) {
             Some(inner) => Ok(ClientIp(inner)),
             None => {
-                if let Ok(conn) = ConnectionInfo::<SocketAddr>::from_request_ref(req) {
+                if let Ok(conn) = ConnectionInfo::<SocketAddr>::from_request(req, extensions, payload) {
                     return Ok(ClientIp(Inner::Ip(conn.ip())));
                 }
 

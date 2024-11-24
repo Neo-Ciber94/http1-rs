@@ -7,7 +7,7 @@ use std::{
 use datetime::DateTime;
 use http1::{body::Body, error::BoxError, request::Request, status::StatusCode};
 
-use crate::{from_request::FromRequestRef, IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 
 use serde::{de::Deserialize, impl_serde_enum_str, impl_serde_struct, ser::Serialize};
 
@@ -187,13 +187,14 @@ impl IntoResponse for SessionError {
     }
 }
 
-impl FromRequestRef for Session {
+impl FromRequest for Session {
     type Rejection = SessionError;
 
-    fn from_request_ref(req: &Request<Body>) -> Result<Self, Self::Rejection> {
-        req.extensions()
-            .get::<Session>()
-            .cloned()
-            .ok_or(SessionError)
+    fn from_request(
+        req: &Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
+    ) -> Result<Self, Self::Rejection> {
+        extensions.get::<Session>().cloned().ok_or(SessionError)
     }
 }

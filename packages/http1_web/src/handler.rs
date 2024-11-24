@@ -45,12 +45,16 @@ impl BoxedHandler {
         R: IntoResponse,
     {
         BoxedHandler {
-            inner: Arc::new(move |req| match Args::from_request(req) {
-                Ok(args) => {
-                    let result = handler.call(args);
-                    result.into_response()
+            inner: Arc::new(move |req| {
+                let (req, mut extensions, mut payload) = crate::from_request::split_request(req);
+
+                match Args::from_request(&req, &mut extensions, &mut payload) {
+                    Ok(args) => {
+                        let result = handler.call(args);
+                        result.into_response()
+                    }
+                    Err(err) => err.into_response(),
                 }
-                Err(err) => err.into_response(),
             }),
 
             #[cfg(debug_assertions)]

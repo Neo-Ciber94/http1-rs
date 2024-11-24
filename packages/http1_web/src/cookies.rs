@@ -10,7 +10,7 @@ use http1::{
 
 use datetime::DateTime;
 
-use crate::{from_request::FromRequestRef, IntoResponse, IntoResponseParts};
+use crate::{from_request::FromRequest, IntoResponse, IntoResponseParts};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SameSite {
@@ -380,6 +380,25 @@ impl Cookies {
         Default::default()
     }
 
+    pub fn from_headers(headers: &Headers) -> Result<Self, Infallible> {
+        let values = headers.get_all(headers::COOKIE);
+        let mut cookies = Cookies::new();
+
+        for header_value in values {
+            let raw = header_value.as_str();
+            match Cookie::from_str(raw) {
+                Ok(cookie) => {
+                    cookies.set(cookie);
+                }
+                Err(err) => {
+                    log::warn!("Failed to parse cookie: `{raw}`: {err}");
+                }
+            }
+        }
+
+        Ok(cookies)
+    }
+
     pub fn len(&self) -> usize {
         self.cookies.len()
     }
@@ -499,26 +518,15 @@ impl IntoResponse for Cookies {
     }
 }
 
-impl FromRequestRef for Cookies {
+impl FromRequest for Cookies {
     type Rejection = Infallible;
 
-    fn from_request_ref(req: &http1::request::Request<Body>) -> Result<Self, Self::Rejection> {
-        let values = req.headers().get_all(headers::COOKIE);
-        let mut cookies = Cookies::new();
-
-        for header_value in values {
-            let raw = header_value.as_str();
-            match Cookie::from_str(raw) {
-                Ok(cookie) => {
-                    cookies.set(cookie);
-                }
-                Err(err) => {
-                    log::warn!("Failed to parse cookie: `{raw}`: {err}");
-                }
-            }
-        }
-
-        Ok(cookies)
+    fn from_request(
+        req: &http1::request::Request<()>,
+        _extensions: &mut http1::extensions::Extensions,
+        _payload: &mut http1::payload::Payload,
+    ) -> Result<Self, Self::Rejection> {
+        Cookies::from_headers(req.headers())
     }
 }
 

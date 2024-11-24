@@ -22,6 +22,18 @@ pub struct Parts {
     pub extensions: Extensions,
 }
 
+impl Default for Parts {
+    fn default() -> Self {
+        Self {
+            headers: Default::default(),
+            method: Method::GET,
+            version: Default::default(),
+            uri: Uri::new(None, None, PathAndQuery::new(String::from("/"), None, None)),
+            extensions: Default::default(),
+        }
+    }
+}
+
 /// Represents an HTTP request.
 ///
 /// This struct holds the HTTP method, version, URL, headers, and body of the request.
@@ -140,6 +152,17 @@ impl<T> Request<T> {
     pub fn drop_body(self) -> (Request<()>, T) {
         let Request { body, parts } = self;
         (Request::from_parts(parts, ()), body)
+    }
+
+    /// Maps this request body to other type.
+    pub fn map_body<F, U>(self, f: F) -> Request<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Request {
+            body: f(self.body),
+            parts: self.parts,
+        }
     }
 }
 

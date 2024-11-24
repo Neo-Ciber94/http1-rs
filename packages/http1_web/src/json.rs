@@ -17,11 +17,17 @@ pub struct Json<T>(pub T);
 
 #[doc(hidden)]
 #[derive(Debug)]
-pub struct InvalidJsonError(BoxError);
+pub enum InvalidJsonError {
+    NoBody,
+    Other(BoxError),
+}
 
 impl Display for InvalidJsonError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to parse json: {}", self.0)
+        match self {
+            InvalidJsonError::NoBody => write!(f, "request body was already taken"),
+            InvalidJsonError::Other(error) => write!(f, "failed to parse json: {error:?}"),
+        }
     }
 }
 
@@ -30,7 +36,10 @@ impl std::error::Error for InvalidJsonError {}
 impl IntoResponse for InvalidJsonError {
     fn into_response(self) -> Response<Body> {
         log::error!("{self}");
-        StatusCode::UNPROCESSABLE_CONTENT.into_response()
+        match self {
+            InvalidJsonError::NoBody => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            InvalidJsonError::Other(..) => StatusCode::UNPROCESSABLE_CONTENT.into_response(),
+        }
     }
 }
 
@@ -38,10 +47,19 @@ impl<T: Deserialize> FromRequest for Json<T> {
     type Rejection = InvalidJsonError;
 
     fn from_request(
-        mut req: http1::request::Request<http1::body::Body>,
+        _req: &http1::request::Request<()>,
+        _extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let bytes = req.body_mut().read_all_bytes().map_err(InvalidJsonError)?;
-        let value = serde::json::from_bytes::<T>(bytes).map_err(|e| InvalidJsonError(e.into()))?;
+        if payload.is_empty() {
+            return Err(InvalidJsonError::NoBody);
+        }
+
+        let bytes = payload
+            .read_all_bytes()
+            .map_err(|x| InvalidJsonError::Other(x.into()))?;
+        let value =
+            serde::json::from_bytes::<T>(bytes).map_err(|e| InvalidJsonError::Other(e.into()))?;
         Ok(Json(value))
     }
 }

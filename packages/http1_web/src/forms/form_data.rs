@@ -9,6 +9,7 @@ use std::{
 use http1::{
     body::{body_reader::BodyReader, Body},
     error::BoxError,
+    extensions::Extensions,
     headers::{self, HeaderValue},
     request::Request,
     status::StatusCode,
@@ -507,15 +508,16 @@ impl FromRequest for FormData {
     type Rejection = FormDataError;
 
     fn from_request(
-        req: http1::request::Request<http1::body::Body>,
+        req: &Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        fn get_form_data_config(req: &Request<Body>) -> FormDataConfig {
-            match req.state::<FormDataConfig>() {
-                Some(config) => config,
+        fn get_form_data_config(exts: &Extensions) -> FormDataConfig {
+            match exts.get::<crate::state::State<FormDataConfig>>() {
+                Some(crate::state::State(config)) => config.clone(),
                 None => {
                     let mut config = FormDataConfig::default();
-                    if let Some(max_body_size) = req
-                        .extensions()
+                    if let Some(max_body_size) = exts
                         .get::<http1::server::Config>()
                         .and_then(|b| b.max_body_size)
                     {
@@ -527,14 +529,14 @@ impl FromRequest for FormData {
             }
         }
 
-        let config = get_form_data_config(&req);
+        let config = get_form_data_config(&extensions);
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)
             .ok_or(FormDataError::NoContentType)?;
 
         let boundary = get_multipart_and_boundary(content_type)?;
-        let body = req.into_body();
+        let body = payload.take().unwrap_or_default();
         Ok(FormData::with_config(boundary, body, config))
     }
 }
@@ -674,7 +676,7 @@ impl TestForm {
 mod tests {
     use std::sync::Arc;
 
-    use http1::{body::Body, headers, request::Request};
+    use http1::{body::Body, extensions::Extensions, headers, payload::Payload, request::Request};
 
     use crate::{forms::form_data::TestForm, from_request::FromRequest, state::AppState};
 
@@ -703,10 +705,15 @@ mod tests {
                 headers::CONTENT_TYPE,
                 format!("multipart/form-data;boundary={boundary}"),
             )
-            .body(Body::new(s))
+            .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(s)),
+        )
+        .unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -752,10 +759,15 @@ mod tests {
                 headers::CONTENT_TYPE,
                 format!("multipart/form-data;boundary={boundary}"),
             )
-            .body(Body::new(s))
+            .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(s)),
+        )
+        .unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -806,10 +818,15 @@ mod tests {
                 headers::CONTENT_TYPE,
                 format!("multipart/form-data; boundary={boundary}"),
             )
-            .body(Body::new(s))
+            .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(s)),
+        )
+        .unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -871,10 +888,15 @@ mod tests {
                 headers::CONTENT_TYPE,
                 format!("multipart/form-data;boundary={boundary}"),
             )
-            .body(Body::new(content))
+            .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(content)),
+        )
+        .unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -915,10 +937,15 @@ mod tests {
                     boundary = form.boundary
                 ),
             )
-            .body(Body::new(form_data))
+            .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(form_data)),
+        )
+        .unwrap();
 
         let field = form_data.next_field().unwrap().unwrap();
         assert_eq!(field.name(), "binary_field");
@@ -949,7 +976,7 @@ mod tests {
                     boundary = form.boundary
                 ),
             )
-            .body(Body::new(form_data))
+            .body(())
             .unwrap();
 
         let mut app_state = AppState::default();
@@ -961,7 +988,12 @@ mod tests {
 
         req.extensions_mut().extend((*app_state).clone());
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(form_data)),
+        )
+        .unwrap();
 
         let field = form_data.next_field().unwrap().unwrap();
         assert_eq!(field.name(), "binary_field");
@@ -988,7 +1020,7 @@ mod tests {
                     boundary = form.boundary
                 ),
             )
-            .body(Body::new(form_data))
+            .body(())
             .unwrap();
 
         let mut app_state = AppState::default();
@@ -999,7 +1031,12 @@ mod tests {
 
         req.extensions_mut().insert(Arc::new(app_state));
 
-        let mut form_data = FormData::from_request(req).unwrap();
+        let mut form_data = FormData::from_request(
+            &req,
+            &mut Extensions::new(),
+            &mut Payload::Data(Body::new(form_data)),
+        )
+        .unwrap();
 
         let field1 = form_data.next_field();
         assert!(field1.is_ok());

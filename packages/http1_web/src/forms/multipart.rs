@@ -103,9 +103,12 @@ impl<T: Deserialize> FromRequest for Multipart<T> {
     type Rejection = MultipartError;
 
     fn from_request(
-        req: http1::request::Request<http1::body::Body>,
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let map = FormMap::from_request(req).map_err(MultipartError::FormError)?;
+        let map =
+            FormMap::from_request(req, extensions, payload).map_err(MultipartError::FormError)?;
         let deserializer = MultipartDeserializer(map);
 
         T::deserialize(deserializer)

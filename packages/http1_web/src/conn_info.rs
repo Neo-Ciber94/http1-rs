@@ -1,4 +1,4 @@
-use crate::{from_request::FromRequestRef, ErrorStatusCode, IntoResponse};
+use crate::{from_request::FromRequest, ErrorStatusCode, IntoResponse};
 use http1::{body::Body, protocol::connection::Connected, response::Response};
 use std::{
     net::SocketAddr,
@@ -29,11 +29,13 @@ impl<T> DerefMut for ConnectionInfo<T> {
     }
 }
 
-impl<T: FromConnectionInfo> FromRequestRef for ConnectionInfo<T> {
+impl<T: FromConnectionInfo> FromRequest for ConnectionInfo<T> {
     type Rejection = Response<Body>;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         match req.extensions().get::<Connected>() {
             Some(conn) => {

@@ -85,9 +85,11 @@ impl FromRequest for FormMap {
     type Rejection = FormDataError;
 
     fn from_request(
-        req: http1::request::Request<http1::body::Body>,
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let mut form_data = FormData::from_request(req)?;
+        let mut form_data = FormData::from_request(req, extensions, payload)?;
         let mut map = HashMap::new();
 
         loop {

@@ -6,10 +6,10 @@ use std::{
 
 use http1::{common::any_map::CloneableAnyMap, status::StatusCode};
 
-use crate::{from_request::FromRequestRef, IntoResponse};
+use crate::{from_request::FromRequest, IntoResponse};
 
 /// A state to share within requests.
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct State<T>(pub T);
 
 impl<T> State<T> {
@@ -21,6 +21,12 @@ impl<T> State<T> {
     /// Returns the inner value.
     pub fn into_inner(self) -> T {
         self.0
+    }
+}
+
+impl<T: Clone> State<T> {
+    fn cloned(&self) -> Self {
+        State(self.0.clone())
     }
 }
 
@@ -76,13 +82,15 @@ impl<T> IntoResponse for AppStateError<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
+impl<T: Clone + Send + Sync + 'static> FromRequest for State<T> {
     type Rejection = AppStateError<T>;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        req.extensions()
+        extensions
             .get::<T>()
             .cloned()
             .map(State)

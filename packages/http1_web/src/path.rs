@@ -1,6 +1,6 @@
 use http1::{error::BoxError, status::StatusCode};
 
-use crate::{from_request::FromRequestRef, routing::params::ParamsMap, IntoResponse};
+use crate::{from_request::FromRequest, routing::params::ParamsMap, IntoResponse};
 use serde::{
     de::{Deserialize, Deserializer},
     string::{DeserializeFromStr, DeserializeOnlyString},
@@ -50,11 +50,13 @@ impl IntoResponse for PathRejectionError {
 
 impl std::error::Error for PathRejectionError {}
 
-impl<T: Deserialize> FromRequestRef for Path<T> {
+impl<T: Deserialize> FromRequest for Path<T> {
     type Rejection = PathRejectionError;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let params_map = req
             .extensions()

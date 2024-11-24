@@ -1,6 +1,6 @@
 use std::{convert::Infallible, fmt::Display, ops::Deref};
 
-use crate::from_request::FromRequestRef;
+use crate::from_request::FromRequest;
 
 use super::route::Route;
 
@@ -28,14 +28,15 @@ impl Deref for RouteInfo {
     }
 }
 
-impl FromRequestRef for RouteInfo {
+impl FromRequest for RouteInfo {
     type Rejection = Infallible;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        Ok(req
-            .extensions()
+        Ok(extensions
             .get::<RouteInfo>()
             .cloned()
             .expect("failed to get request RouteInfo"))
