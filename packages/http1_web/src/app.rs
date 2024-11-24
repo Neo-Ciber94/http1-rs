@@ -187,7 +187,7 @@ impl RequestHandler for App {
         }
 
         req.extensions_mut().insert(mtch.params.clone());
-        req.extensions_mut().insert(self.app_state.clone());
+        req.extensions_mut().extend((**self.app_state).clone());
 
         // Handle the request
         let res = if middlewares.is_empty() {
@@ -493,7 +493,11 @@ impl Debug for Scope {
 
 #[cfg(test)]
 mod tests {
-    use http1::body::http_body::HttpBody;
+    use std::{str::FromStr, sync::Mutex};
+
+    use http1::{body::http_body::HttpBody, uri::uri::Uri};
+
+    use crate::state::State;
 
     use super::*;
 
@@ -838,5 +842,33 @@ mod tests {
         assert!(entries.iter().any(|x| x == "/api/posts/featured/:post*")); // Named catch-all
         assert!(entries.iter().any(|x| x == "/api/items/:item_id")); // Parameterized route
         assert!(entries.iter().any(|x| x == "/api/items/:item_id/details/*")); // Parameterized route with catch-all
+    }
+
+    #[test]
+    fn should_get_state() {
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct HitPoints(u32);
+
+        let s = Arc::new(Mutex::new(None));
+
+        let app = {
+            let s = Arc::clone(&s);
+
+            App::new()
+                .state(HitPoints(10))
+                .get("/", move |state: State<HitPoints>| {
+                    let mut lock = s.lock().unwrap();
+                    *lock = Some(state);
+                })
+        };
+
+        app.handle(Request::new(
+            Method::GET,
+            Uri::from_str("/").unwrap(),
+            Body::empty(),
+        ));
+
+        let state = s.lock().unwrap().take().unwrap();
+        assert_eq!(state.0, HitPoints(10))
     }
 }

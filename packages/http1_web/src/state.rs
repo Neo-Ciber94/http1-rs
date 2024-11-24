@@ -2,10 +2,9 @@ use std::{
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    sync::Arc,
 };
 
-use http1::{common::any_map::AnyMap, status::StatusCode};
+use http1::{common::any_map::CloneableAnyMap, status::StatusCode};
 
 use crate::{from_request::FromRequestRef, IntoResponse};
 
@@ -34,7 +33,7 @@ impl<T> Deref for State<T> {
 }
 
 #[derive(Default)]
-pub struct AppState(AnyMap);
+pub struct AppState(CloneableAnyMap);
 
 impl Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -43,7 +42,7 @@ impl Debug for AppState {
 }
 
 impl Deref for AppState {
-    type Target = AnyMap;
+    type Target = CloneableAnyMap;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -84,8 +83,7 @@ impl<T: Clone + Send + Sync + 'static> FromRequestRef for State<T> {
         req: &http1::request::Request<http1::body::Body>,
     ) -> Result<Self, Self::Rejection> {
         req.extensions()
-            .get::<Arc<AppState>>()
-            .and_then(|x| x.get::<T>())
+            .get::<T>()
             .cloned()
             .map(State)
             .ok_or(AppStateError(PhantomData))

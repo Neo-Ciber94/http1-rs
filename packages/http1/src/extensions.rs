@@ -45,8 +45,8 @@ impl From<AnyMap> for Extensions {
     }
 }
 
-// impl From<CloneableAnyMap> for Extensions {
-//     fn from(value: CloneableAnyMap) -> Self {
-//         Extensions(value.into())
-//     }
-// }
+impl From<CloneableAnyMap> for Extensions {
+    fn from(value: CloneableAnyMap) -> Self {
+        Extensions(value.into())
+    }
+}
