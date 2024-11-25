@@ -32,9 +32,9 @@ impl FromRequest for RouteInfo {
     type Rejection = Infallible;
 
     fn from_request(
-        req: &http1::request::Request<()>,
+        _req: &http1::request::Request<()>,
         extensions: &mut http1::extensions::Extensions,
-        payload: &mut http1::payload::Payload,
+        _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(extensions
             .get::<RouteInfo>()

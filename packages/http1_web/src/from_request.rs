@@ -116,9 +116,9 @@ impl FromRequest for Extensions {
     type Rejection = Infallible;
 
     fn from_request(
-        req: &Request<()>,
+        _req: &Request<()>,
         extensions: &mut Extensions,
-        payload: &mut Payload,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(std::mem::take(extensions))
     }
@@ -220,8 +220,8 @@ impl FromRequest for Uri {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(req.uri().clone())
     }
@@ -232,8 +232,8 @@ impl FromRequest for PathAndQuery {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(req.uri().path_and_query().clone())
     }
@@ -261,8 +261,8 @@ impl FromRequest for Scheme {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         req.uri().scheme().cloned().ok_or(SchemeNotFound)
     }
@@ -290,8 +290,8 @@ impl FromRequest for Authority {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         req.uri().authority().cloned().ok_or(AuthorityNotFound)
     }
@@ -302,8 +302,8 @@ impl FromRequest for Headers {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(req.headers().clone())
     }
@@ -314,8 +314,8 @@ impl FromRequest for Version {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(*req.version())
     }
@@ -326,8 +326,8 @@ impl FromRequest for Method {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut Extensions,
-        payload: &mut Payload,
+        _extensions: &mut Extensions,
+        _payload: &mut Payload,
     ) -> Result<Self, Self::Rejection> {
         Ok(req.method().clone())
     }

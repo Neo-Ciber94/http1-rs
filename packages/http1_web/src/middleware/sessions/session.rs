@@ -191,9 +191,9 @@ impl FromRequest for Session {
     type Rejection = SessionError;
 
     fn from_request(
-        req: &Request<()>,
+        _req: &Request<()>,
         extensions: &mut http1::extensions::Extensions,
-        payload: &mut http1::payload::Payload,
+        _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         extensions.get::<Session>().cloned().ok_or(SessionError)
     }
