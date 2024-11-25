@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use http1_web::{
     cookies::Cookies,
-    from_request::FromRequestRef,
+    from_request::FromRequest,
     html::{self, element::HTMLElement, IntoChildren},
     ErrorStatusCode,
 };
@@ -145,13 +145,15 @@ fn Alert(AlertProps { message, kind }: AlertProps) {
     });
 }
 
-impl FromRequestRef for AlertProps {
+impl FromRequest for AlertProps {
     type Rejection = ErrorStatusCode;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let cookies = Cookies::from_request_ref(req).unwrap_or_default();
+        let cookies = Cookies::from_headers(req.headers()).unwrap_or_default();
         match cookies.get(COOKIE_FLASH_MESSAGE) {
             Some(cookie) => match serde::json::from_str::<AlertProps>(cookie.value()) {
                 Ok(alert) => Ok(alert),

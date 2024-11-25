@@ -1,5 +1,5 @@
 use http1::common::uuid::Uuid;
-use http1_web::{cookies::Cookies, from_request::FromRequestRef, ErrorStatusCode, RequestExt};
+use http1_web::{cookies::Cookies, from_request::FromRequest, ErrorStatusCode};
 use serde::impl_serde_struct;
 
 use crate::constants;
@@ -26,13 +26,15 @@ impl_serde_struct!(ChatUser => {
     username: String
 });
 
-impl FromRequestRef for ChatUser {
+impl FromRequest for ChatUser {
     type Rejection = ErrorStatusCode;
 
-    fn from_request_ref(
-        req: &http1::request::Request<http1::body::Body>,
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let cookies = req.extract::<Cookies>().unwrap_or_default();
+        let cookies = Cookies::from_request(req, extensions, payload).unwrap_or_default();
 
         let Some(cookie) = cookies.get(constants::COOKIE_AUTH_SESSION) else {
             return Err(ErrorStatusCode::Unauthorized);

@@ -24,12 +24,6 @@ impl<T> State<T> {
     }
 }
 
-impl<T: Clone> State<T> {
-    fn cloned(&self) -> Self {
-        State(self.0.clone())
-    }
-}
-
 impl<T> Deref for State<T> {
     type Target = T;
 
@@ -86,9 +80,9 @@ impl<T: Clone + Send + Sync + 'static> FromRequest for State<T> {
     type Rejection = AppStateError<T>;
 
     fn from_request(
-        req: &http1::request::Request<()>,
+        _req: &http1::request::Request<()>,
         extensions: &mut http1::extensions::Extensions,
-        payload: &mut http1::payload::Payload,
+        _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         extensions
             .get::<T>()

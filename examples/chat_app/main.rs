@@ -54,7 +54,7 @@ fn main() -> std::io::Result<()> {
         .listen("localhost:5678", app)
 }
 
-fn auth_middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
+fn auth_middleware(mut req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
     // Pages to check for auth
     const PAGES: &[&str] = &["/login", "/"];
 
@@ -64,9 +64,8 @@ fn auth_middleware(req: Request<Body>, next: &BoxedHandler) -> Response<Body> {
         return next.call(req);
     }
 
-    let is_authenticated = http1_web::guard!(req.extract::<Option<ChatUser>>()).is_some();
     let to_login = path == "/login";
-    log::debug!("is_authenticated? {is_authenticated}, path: {path}");
+    let is_authenticated = http1_web::guard!(req.extract::<Option<ChatUser>>()).is_some();
 
     if is_authenticated && to_login {
         Redirect::see_other("/").into_response()

@@ -9,9 +9,6 @@ use crate::{
 
 /// Request extension methods.
 pub trait RequestExt {
-    /// Get a request extension from its state.
-    fn state<S: Send + Sync + Clone + 'static>(&self) -> Option<S>;
-
     /// Get a value that implements `FromRequestRef`.
     fn extract<U>(&mut self) -> Result<U, U::Rejection>
     where
@@ -19,10 +16,6 @@ pub trait RequestExt {
 }
 
 impl RequestExt for Request<Body> {
-    fn state<S: Send + Sync + Clone + 'static>(&self) -> Option<S> {
-        todo!()
-    }
-
     fn extract<U>(&mut self) -> Result<U, U::Rejection>
     where
         U: FromRequest,
