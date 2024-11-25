@@ -173,7 +173,7 @@ mod tests {
     fn should_create_method_route_for_all_methods() {
         assert_eq!(MethodRoute::from_method(&Method::GET), MethodRoute::GET);
         assert_eq!(MethodRoute::from_method(&Method::POST), MethodRoute::POST);
-        assert_eq!(MethodRoute::from_method(&&Method::PUT), MethodRoute::PUT);
+        assert_eq!(MethodRoute::from_method(&Method::PUT), MethodRoute::PUT);
         assert_eq!(
             MethodRoute::from_method(&Method::DELETE),
             MethodRoute::DELETE

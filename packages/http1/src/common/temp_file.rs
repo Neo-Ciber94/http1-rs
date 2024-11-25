@@ -112,7 +112,7 @@ mod tests {
         assert!(p.is_file());
 
         drop(temp_file);
-        assert!(p.exists() == false);
+        assert!(!p.exists());
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
 
         let p = temp_file.path().to_path_buf();
         drop(temp_file);
-        assert!(p.exists() == false);
+        assert!(!p.exists());
     }
 
     #[test]
@@ -138,6 +138,6 @@ mod tests {
         let p = temp_file.path().to_path_buf();
 
         drop(temp_file);
-        assert!(p.exists() == false);
+        assert!(!p.exists());
     }
 }

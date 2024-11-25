@@ -662,8 +662,8 @@ mod tests {
 
     #[test]
     fn should_deserialize_bool() {
-        assert_eq!(from_str::<bool>("true").unwrap(), true);
-        assert_eq!(from_str::<bool>("false").unwrap(), false);
+        assert!(from_str::<bool>("true").unwrap());
+        assert!(!from_str::<bool>("false").unwrap());
     }
 
     #[test]
@@ -757,14 +757,14 @@ mod tests {
         // Positive decimal numbers
         assert_eq!(
             from_str::<f64>("123456789.987654321").unwrap(),
-            123456789.987654321
+            123_456_789.987_654_33
         );
         assert_eq!(from_str::<f64>("0.0000001").unwrap(), 0.0000001);
 
         // Negative decimal numbers
         assert_eq!(
             from_str::<f64>("-987654321.123456789").unwrap(),
-            -987654321.123456789
+            -987_654_321.123_456_8
         );
         assert_eq!(from_str::<f64>("-0.0000001").unwrap(), -0.0000001);
 
@@ -1082,16 +1082,16 @@ mod tests {
 
         assert_eq!(value.name, "Yatora Yaguchi");
         assert_eq!(value.age, 18);
-        assert_eq!(value.likes_art, true);
+        assert!(value.likes_art);
         assert_eq!(value.friends.len(), 2);
 
         // Check the friends
         assert_eq!(value.friends[0].name, "Ryuji Ayukawa");
         assert_eq!(value.friends[0].age, 18);
-        assert_eq!(value.friends[0].likes_art, false);
+        assert!(!value.friends[0].likes_art);
         assert_eq!(value.friends[1].name, "Maru Mori");
         assert_eq!(value.friends[1].age, 21);
-        assert_eq!(value.friends[1].likes_art, true);
+        assert!(value.friends[1].likes_art);
     }
 
     #[test]

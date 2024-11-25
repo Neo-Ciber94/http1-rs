@@ -247,7 +247,7 @@ mod tests {
         let mut hyphened_str = String::new();
         uuid.as_hyphened(&mut hyphened_str).unwrap();
         assert!(
-            hyphened_str.len() > 0,
+            !hyphened_str.is_empty(),
             "new_v4 should create a non-empty UUID string"
         );
     }

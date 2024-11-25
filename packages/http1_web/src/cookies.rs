@@ -550,8 +550,8 @@ mod tests {
             .secure(true)
             .build();
 
-        assert_eq!(cookie.is_http_only(), true);
-        assert_eq!(cookie.is_secure(), true);
+        assert!(cookie.is_http_only());
+        assert!(cookie.is_secure());
         assert_eq!(cookie.to_string(), "session_id=abc123; HttpOnly; Secure");
     }
 
@@ -603,7 +603,7 @@ mod tests {
             .partitioned(true)
             .build();
 
-        assert_eq!(cookie.is_partitioned(), true);
+        assert!(cookie.is_partitioned());
         assert_eq!(cookie.to_string(), "session_id=abc123; Partitioned");
     }
 
