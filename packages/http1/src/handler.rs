@@ -8,7 +8,10 @@ pub trait RequestHandler {
     fn handle(&self, req: Request<Body>) -> Response<Body>;
 }
 
-impl<F: Fn(Request<Body>) -> Response<Body>> RequestHandler for F {
+impl<F> RequestHandler for F
+where
+    F: Fn(Request<Body>) -> Response<Body>,
+{
     fn handle(&self, req: Request<Body>) -> Response<Body> {
         (self)(req)
     }
