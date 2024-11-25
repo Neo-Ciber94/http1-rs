@@ -44,6 +44,16 @@ impl StatusCode {
     pub fn is_server_error(&self) -> bool {
         self.0 >= 500
     }
+
+    /// Whether if this status code is between 200-299.
+    pub fn is_success(&self) -> bool {
+        self.0 >= 200 && self.0 < 300
+    }
+
+    /// Whether if this status code is between 400-599.
+    pub fn is_error(&self) -> bool {
+        self.is_client_error() || self.is_server_error()
+    }
 }
 
 impl Default for StatusCode {
