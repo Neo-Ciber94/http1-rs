@@ -1,3 +1,5 @@
+mod pre_render;
+
 use std::{
     collections::HashMap,
     fmt::Debug,
