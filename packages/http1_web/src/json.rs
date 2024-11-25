@@ -57,7 +57,7 @@ impl<T: Deserialize> FromRequest for Json<T> {
 
         let bytes = payload
             .read_all_bytes()
-            .map_err(|x| InvalidJsonError::Other(x))?;
+            .map_err(InvalidJsonError::Other)?;
         let value =
             serde::json::from_bytes::<T>(bytes).map_err(|e| InvalidJsonError::Other(e.into()))?;
         Ok(Json(value))
