@@ -46,9 +46,7 @@ impl BoxedHandler {
     {
         BoxedHandler {
             inner: Arc::new(move |req| {
-                let (req, mut extensions, mut payload) = crate::from_request::split_request(req);
-
-                match Args::from_request(&req, &mut extensions, &mut payload) {
+                match Args::from_request_raw(req) {
                     Ok(args) => {
                         let result = handler.call(args);
                         result.into_response()

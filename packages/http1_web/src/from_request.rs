@@ -16,13 +16,29 @@ use http1::{
 
 use crate::{routing::params::ParamsMap, IntoResponse};
 
+/// Allow to create a type from an incoming request.
 pub trait FromRequest: Sized {
     type Rejection: IntoResponse;
+
+    /// Creates this value from the request parts.
+    ///
+    /// # Parameters
+    /// - `req`: The request (without the body or extensions)
+    /// - `extensions`: The request extensions
+    /// - `payload`: The body
     fn from_request(
         req: &Request<()>,
         extensions: &mut Extensions,
         payload: &mut Payload,
     ) -> Result<Self, Self::Rejection>;
+
+    /// Creates this value from the entire request.
+    fn from_request_raw(req: Request<Body>) -> Result<Self, Self::Rejection> {
+        let (body, mut parts) = req.into_parts();
+        let mut extensions = std::mem::take(&mut parts.extensions);
+        let req = Request::from_parts(parts, ());
+        Self::from_request(&req, &mut extensions, &mut Payload::Data(body))
+    }
 }
 
 impl FromRequest for Request<Body> {
