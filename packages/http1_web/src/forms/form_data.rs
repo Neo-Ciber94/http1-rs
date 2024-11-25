@@ -968,7 +968,7 @@ mod tests {
 
         let form_data = form.to_bytes();
 
-        let mut req = Request::builder()
+        let req = Request::builder()
             .append_header(
                 headers::CONTENT_TYPE,
                 format!(
@@ -980,17 +980,18 @@ mod tests {
             .unwrap();
 
         let mut app_state = AppState::default();
-        app_state.insert(FormDataConfig {
+        app_state.insert(crate::state::State(FormDataConfig {
             max_body_size: 200,
             buffer_size: 16,
             ..Default::default()
-        });
+        }));
 
-        req.extensions_mut().extend((*app_state).clone());
+        let mut extensions = Extensions::new();
+        extensions.extend((*app_state).clone());
 
         let mut form_data = FormData::from_request(
             &req,
-            &mut Extensions::new(),
+            &mut extensions,
             &mut Payload::Data(Body::new(form_data)),
         )
         .unwrap();

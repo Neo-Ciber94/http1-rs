@@ -17,7 +17,7 @@ use crate::{
         method_route::MethodRoute, params::ParamsMap, route::Route, route_info::RouteInfo, Match,
         Router,
     },
-    state::AppState,
+    state::{AppState, State},
     IntoResponse,
 };
 
@@ -58,8 +58,8 @@ impl App {
         U: Clone + Send + Sync + 'static,
     {
         Arc::get_mut(&mut self.app_state)
-            .expect("Failed to get data map")
-            .insert(value);
+            .expect("Failed to get app state")
+            .insert(State::new(value));
         self
     }
 

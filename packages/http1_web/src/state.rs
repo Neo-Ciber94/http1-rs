@@ -85,9 +85,8 @@ impl<T: Clone + Send + Sync + 'static> FromRequest for State<T> {
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         extensions
-            .get::<T>()
+            .get::<State<T>>()
             .cloned()
-            .map(State)
             .ok_or(AppStateError(PhantomData))
     }
 }
