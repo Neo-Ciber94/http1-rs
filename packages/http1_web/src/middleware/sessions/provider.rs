@@ -3,11 +3,10 @@ use std::{
     time::Duration,
 };
 
-use http1::{body::Body, headers, payload::Payload, request::Request, status::StatusCode};
+use http1::{body::Body, headers, request::Request, status::StatusCode};
 
 use crate::{
     cookies::{Cookie, Cookies},
-    from_request::FromRequest,
     middleware::Middleware,
     ErrorResponse, ErrorStatusCode, IntoResponse,
 };

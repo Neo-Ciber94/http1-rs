@@ -1,11 +1,6 @@
 use http1::{body::Body, payload::Payload, request::Request};
 
-use crate::{
-    cookies::{Cookie, Cookies},
-    from_request::FromRequest,
-    middleware::Middleware,
-    state::State,
-};
+use crate::from_request::FromRequest;
 
 /// Request extension methods.
 pub trait RequestExt {

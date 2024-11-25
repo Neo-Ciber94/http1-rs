@@ -10,7 +10,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, state::State, IntoResponse, RequestExt};
+use crate::{from_request::FromRequest, state::State, IntoResponse};
 
 use super::{WebSocket, WebSocketConfig};
 

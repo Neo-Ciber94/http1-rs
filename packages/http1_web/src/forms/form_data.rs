@@ -15,7 +15,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse, RequestExt};
+use crate::{from_request::FromRequest, IntoResponse};
 
 use super::{
     form_field::{Disk, FormField, Memory, TempDisk},
@@ -529,7 +529,7 @@ impl FromRequest for FormData {
             }
         }
 
-        let config = get_form_data_config(&extensions);
+        let config = get_form_data_config(extensions);
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)

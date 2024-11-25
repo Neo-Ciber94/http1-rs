@@ -38,7 +38,7 @@ impl FromRequest for Request<Body> {
             headers: req.headers().clone(),
             method: req.method().clone(),
             uri: req.uri().clone(),
-            version: req.version().clone(),
+            version: *req.version(),
         };
 
         Ok(Request::from_parts(
@@ -61,7 +61,7 @@ impl FromRequest for Request<Payload> {
             headers: req.headers().clone(),
             method: req.method().clone(),
             uri: req.uri().clone(),
-            version: req.version().clone(),
+            version: *req.version(),
         };
 
         Ok(Request::from_parts(parts, std::mem::take(payload)))
@@ -81,7 +81,7 @@ impl FromRequest for Request<()> {
             headers: req.headers().clone(),
             method: req.method().clone(),
             uri: req.uri().clone(),
-            version: req.version().clone(),
+            version: *req.version(),
         };
 
         Ok(Request::from_parts(parts, ()))
