@@ -131,7 +131,7 @@ impl FromRequest for WebSocketUpgrade {
     fn from_request(
         req: &http1::request::Request<()>,
         extensions: &mut http1::extensions::Extensions,
-        payload: &mut http1::payload::Payload,
+        _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         // Parsing the websocket according to:
         // https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
