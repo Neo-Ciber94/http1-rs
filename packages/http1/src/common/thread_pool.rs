@@ -251,7 +251,7 @@ impl<'a> Drop for Watchdog<'a> {
             std::thread::current()
         );
 
-        if let Err(err) = spawn_worker(&state) {
+        if let Err(err) = spawn_worker(state) {
             log::error!("failed to spawn new thread: {err:?}")
         }
     }
