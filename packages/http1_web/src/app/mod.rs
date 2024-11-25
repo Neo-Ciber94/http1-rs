@@ -1,4 +1,5 @@
 mod pre_render;
+pub use pre_render::pre_render;
 
 use std::{
     collections::HashMap,
@@ -170,6 +171,11 @@ impl App {
         R: IntoResponse,
     {
         self.route(MethodRoute::any(), route, handler)
+    }
+
+    /// Return an iterator over all the routes.
+    pub fn routes(&self) -> impl Iterator<Item = &Route> {
+        self.scope.method_router.entries().map(|(r, _)| r)
     }
 }
 
