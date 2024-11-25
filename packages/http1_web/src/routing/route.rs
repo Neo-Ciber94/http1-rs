@@ -74,8 +74,14 @@ impl Display for RouteSegment {
 pub struct Route(Vec<RouteSegment>);
 
 impl Route {
+    /// Returns an iterator over the route segments.
     pub fn iter(&self) -> std::slice::Iter<'_, RouteSegment> {
         self.0.iter()
+    }
+
+    /// Returns `true` if all the route segments are static.
+    pub fn is_static(&self) -> bool {
+        self.iter().all(|s| matches!(s, RouteSegment::Static(_)))
     }
 }
 
