@@ -688,11 +688,11 @@ mod tests {
 
         let mut s = String::new();
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"text_field\"\r\n\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"text_field\"\r\n\r\n");
         s.push_str("This is the text content\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n".to_string());
-        s.push_str(&"Content-Type: text/plain\r\n\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n");
+        s.push_str("Content-Type: text/plain\r\n\r\n");
         s.push_str("This is the content of the file\r\n");
         s.push_str(&format!("--{boundary}--\r\n"));
 
@@ -737,11 +737,11 @@ mod tests {
 
         let mut s = String::new();
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n".to_string());
-        s.push_str(&"Content-Type: text/plain\r\n\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"file_field\"; filename=\"file.txt\"\r\n");
+        s.push_str("Content-Type: text/plain\r\n\r\n");
         s.push_str("This is the content of the file\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"text_field\"\r\n\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"text_field\"\r\n\r\n");
         s.push_str("This is the text content\r\n");
 
         s.push_str(&format!("--{boundary}--\r\n"));
@@ -787,15 +787,15 @@ mod tests {
 
         let mut s = String::new();
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"uploads[]\"; filename=\"somebinary.dat\"\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"uploads[]\"; filename=\"somebinary.dat\"\r\n");
         s.push_str("Content-Type: application/octet-stream\r\n\r\n");
         s.push_str("some binary data...maybe the bits of a image..\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"uploads[]\"; filename=\"sometext.txt\"\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"uploads[]\"; filename=\"sometext.txt\"\r\n");
         s.push_str("Content-Type: text/plain\r\n\r\n");
         s.push_str("hello how are you\r\n");
         s.push_str(&format!("--{boundary}\r\n"));
-        s.push_str(&"Content-Disposition: form-data; name=\"input1\"\r\n\r\n".to_string());
+        s.push_str("Content-Disposition: form-data; name=\"input1\"\r\n\r\n");
         s.push_str("value1\r\n");
         s.push_str(&format!("--{boundary}--\r\n"));
 
