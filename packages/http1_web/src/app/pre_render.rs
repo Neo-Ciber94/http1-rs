@@ -140,10 +140,7 @@ pub fn pre_render(
             .build(),
     );
 
-    let routes = included_routes
-        .difference(&exclude)
-        .map(|x| x.to_owned())
-        .collect::<Vec<_>>();
+    let routes = included_routes.difference(&exclude);
 
     std::thread::scope(|s| {
         for route in routes {
