@@ -129,7 +129,16 @@ pub fn pre_render(
     log::info!("Starting temporal server for prerendering");
     let pre_render_id = Uuid::new_v4().to_string();
     app.add_middleware(ExtensionsProvider::new().insert(PreRenderId(pre_render_id.clone())));
-    std::thread::spawn(move || server.listen(addr, app).expect("server failed"));
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<()>();
+
+    std::thread::spawn(move || {
+        server
+        .on_ready(move |_| {
+            ready_tx.send(()).unwrap();
+            log::info!("Pre-rendering server had started");
+        })
+        .listen(addr, app).expect("server failed")
+    });
 
     // Pre-render the routes
     log::info!("Prerendering routes: {included_routes:?}");
@@ -137,6 +146,10 @@ pub fn pre_render(
     let pre_render_count = Arc::new(AtomicUsize::new(0));
     let exclude: HashSet<String> = config.exclude.unwrap_or_default();
     let routes = included_routes.difference(&exclude);
+
+    // Wait for the server to start
+    std::thread::sleep(Duration::from_millis(100));
+    ready_rx.recv_timeout(Duration::from_millis(1000)).expect("server startup timeout");
 
     pre_render_routes(
         routes,
@@ -176,7 +189,7 @@ fn pre_render_routes<'a>(
 
             s.spawn(move || {
                 let base_url = format!("http://127.0.0.1:{port}");
-                let url = format!("{base_url}/{route}");
+                let url = format!("{base_url}{route}");
                 let dst_dir = target_dir.to_path_buf();
                 let dst_file = dst_dir.join(&route);
 

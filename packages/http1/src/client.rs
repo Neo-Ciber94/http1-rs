@@ -312,6 +312,7 @@ impl<'a> RequestBuilder<'a> {
         request.headers_mut().extend(client.default_headers.clone());
 
         let addr = get_addr(request.uri())?;
+        dbg!(&addr);
         let mut stream =
             TcpStream::connect(&addr).map_err(|err| RequestError::FailedToConnect { addr, err })?;
 
@@ -333,6 +334,7 @@ fn get_addr(uri: &Uri) -> std::io::Result<String> {
 
     Ok(match uri.scheme() {
         Some(scheme) => match authority.port() {
+            // FIXME: scheme is not needed?
             Some(port) => format!("{scheme}://{}:{port}", authority.host()),
             None => format!("{scheme}://{}", authority.host()),
         },

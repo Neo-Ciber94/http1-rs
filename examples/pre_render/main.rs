@@ -6,9 +6,11 @@ use http1_web::{
 };
 
 fn main() {
+    log::set_logger(log::ConsoleLogger);
+
     http1_web::app::pre_render(
         app(),
-        "/examples/pre_render/static/pages",
+        "examples/pre_render/static/pages",
         PreRenderConfig::default(),
     )
     .expect("failed to pre render");
@@ -21,7 +23,7 @@ fn main() {
 
 fn app() -> App {
     App::new()
-        .get("/*", ServeDir::new("/examples/pre_render/static/pages"))
+        .get("/*", ServeDir::new("examples/pre_render/static/pages"))
         .get("/", || {
             html::html(|| {
                 html::body(|| {
