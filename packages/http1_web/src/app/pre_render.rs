@@ -86,16 +86,17 @@ pub fn pre_render(
     destination_dir: impl AsRef<Path>,
     config: PreRenderConfig,
 ) -> std::io::Result<()> {
-    let path = destination_dir.as_ref();
+    let cwd = std::env::current_dir()?;
+    let target_dir = cwd.join(destination_dir.as_ref());
 
-    if path.exists() && !path.is_dir() {
+    if target_dir.exists() && !target_dir.is_dir() {
         return Err(std::io::Error::other(format!(
-            "{path:?} is not a directory"
+            "{target_dir:?} is not a directory"
         )));
     }
 
-    if !path.exists() {
-        std::fs::create_dir_all(path)?;
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir)?;
     }
 
     let included_routes = match config.include {
@@ -130,17 +131,40 @@ pub fn pre_render(
     // Pre-render the routes
     log::info!("Prerendering routes: {included_routes:?}");
 
-    let exclude = config.exclude.unwrap_or_default();
     let pre_render_count = Arc::new(AtomicUsize::new(0));
+    let exclude: HashSet<String> = config.exclude.unwrap_or_default();
+    let routes = included_routes.difference(&exclude);
 
+    pre_render_routes(
+        routes,
+        pre_render_id,
+        Arc::clone(&pre_render_count),
+        port,
+        &target_dir,
+    );
+
+    log::info!(
+        "{} routes were pre-rendered, written to {target_dir:?}",
+        pre_render_count.load(std::sync::atomic::Ordering::Relaxed)
+    );
+
+    server_handle.shutdown();
+    Ok(())
+}
+
+fn pre_render_routes<'a>(
+    routes: impl IntoIterator<Item = &'a String>,
+    pre_render_id: String,
+    pre_render_count: Arc<AtomicUsize>,
+    port: u16,
+    target_dir: &Path,
+) {
     let client = Arc::new(
         Client::builder()
             .insert_default_header((*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
             .read_timeout(Some(Duration::from_millis(5000)))
             .build(),
     );
-
-    let routes = included_routes.difference(&exclude);
 
     std::thread::scope(|s| {
         for route in routes {
@@ -150,7 +174,7 @@ pub fn pre_render(
             s.spawn(move || {
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}/{route}");
-                let dst_dir = path.to_path_buf();
+                let dst_dir = target_dir.to_path_buf();
                 let dst_file = dst_dir.join(&route);
 
                 if let Some(parent) = dst_file.ancestors().next() {
@@ -193,12 +217,4 @@ pub fn pre_render(
             });
         }
     });
-
-    log::info!(
-        "{} routes were pre-rendered, written to {path:?}",
-        pre_render_count.load(std::sync::atomic::Ordering::Relaxed)
-    );
-
-    server_handle.shutdown();
-    Ok(())
 }
