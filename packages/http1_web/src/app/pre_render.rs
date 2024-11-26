@@ -1,10 +1,9 @@
 use std::{
-    cell::LazyCell,
     collections::HashSet,
     convert::Infallible,
     fs::OpenOptions,
     path::Path,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{atomic::AtomicUsize, Arc, LazyLock},
     time::Duration,
 };
 
@@ -17,8 +16,8 @@ use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvide
 
 use super::App;
 
-const HEADER_PRE_RENDER: LazyCell<HeaderName> =
-    LazyCell::new(|| HeaderName::from_static("Pre-Render"));
+static HEADER_PRE_RENDER: LazyLock<HeaderName> =
+    LazyLock::new(|| HeaderName::from_static("Pre-Render"));
 
 #[derive(Debug, Default)]
 pub struct PreRenderConfig {
@@ -136,7 +135,7 @@ pub fn pre_render(
 
     let client = Arc::new(
         Client::builder()
-            .insert_default_header((&*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
+            .insert_default_header((*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
             .read_timeout(Some(Duration::from_millis(5000)))
             .build(),
     );
