@@ -8,8 +8,7 @@ use std::{
 };
 
 use http1::{
-    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName,
-    server::Server,
+    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName, method::Method, server::Server
 };
 
 use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider};
@@ -103,7 +102,11 @@ pub fn pre_render(
         Some(r) => r,
         None => app
             .routes()
-            .filter_map(|r| {
+            .filter_map(|(r, method)| {
+                if method != Method::GET {
+                    return None;
+                }
+                
                 if r.is_static() {
                     return Some(r.to_string());
                 }

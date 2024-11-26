@@ -192,8 +192,15 @@ impl App {
     }
 
     /// Return an iterator over all the routes.
-    pub fn routes(&self) -> impl Iterator<Item = &Route> {
-        self.scope.method_router.entries().map(|(r, _)| r)
+    pub fn routes(&self) -> impl Iterator<Item = (Route, &Method)> {
+        self.scope.method_router.entries().flat_map(|(r, id)| {
+            self.scope
+                .route_to_methods
+                .get(id)
+                .expect("failed to get route methods")
+                .keys()
+                .map(|method| (r.clone(), method))
+        })
     }
 }
 
