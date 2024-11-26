@@ -3,6 +3,7 @@ pub mod logging;
 pub mod redirection;
 pub mod sessions;
 pub mod timeout;
+pub mod extensions;
 
 use http1::{body::Body, request::Request, response::Response};
 use std::sync::Arc;

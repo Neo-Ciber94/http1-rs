@@ -48,11 +48,30 @@ impl Default for App {
 }
 
 impl App {
-    pub fn middleware<M>(mut self, middleware: M) -> Self
+    pub fn add_middleware<M>(&mut self, middleware: M)
     where
         M: Middleware + Send + Sync + 'static,
     {
         self.middleware.push(BoxedMiddleware::new(middleware));
+    }
+
+    pub fn add_route<H, Args, R>(&mut self, method: MethodRoute, route: &str, handler: H)
+    where
+        Args: FromRequest,
+        H: Handler<Args, Output = R> + Sync + Send + 'static,
+        R: IntoResponse,
+    {
+        self.scope
+            .add_route(route, method, BoxedHandler::new(handler));
+    }
+}
+
+impl App {
+    pub fn middleware<M>(mut self, middleware: M) -> Self
+    where
+        M: Middleware + Send + Sync + 'static,
+    {
+        self.add_middleware(middleware);
         self
     }
 
@@ -77,8 +96,7 @@ impl App {
         H: Handler<Args, Output = R> + Sync + Send + 'static,
         R: IntoResponse,
     {
-        self.scope
-            .add_route(route, method, BoxedHandler::new(handler));
+        self.add_route(method, route, handler);
         self
     }
 

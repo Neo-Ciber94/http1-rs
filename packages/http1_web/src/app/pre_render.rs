@@ -1,5 +1,7 @@
 use std::{
+    cell::LazyCell,
     collections::HashSet,
+    convert::Infallible,
     fs::OpenOptions,
     path::Path,
     sync::{atomic::AtomicUsize, Arc},
@@ -14,7 +16,12 @@ use http1::{
     server::Server,
 };
 
+use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider};
+
 use super::App;
+
+const HEADER_PRE_RENDER: LazyCell<HeaderName> =
+    LazyCell::new(|| HeaderName::from_static("Pre-Render"));
 
 #[derive(Debug, Default)]
 pub struct PreRenderConfig {
@@ -45,8 +52,40 @@ impl PreRenderConfig {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PreRenderId(String);
+
+#[derive(Debug, Clone)]
+pub struct PreRendering(bool);
+impl PreRendering {
+    pub fn is_pre_rendering(&self) -> bool {
+        self.0
+    }
+}
+
+impl FromRequest for PreRendering {
+    type Rejection = Infallible;
+
+    fn from_request(
+        req: &http1::request::Request<()>,
+        extensions: &mut http1::extensions::Extensions,
+        _payload: &mut http1::payload::Payload,
+    ) -> Result<Self, Self::Rejection> {
+        match extensions.get::<PreRenderId>().cloned() {
+            Some(PreRenderId(id)) => {
+                let is_pre_rendering = req
+                    .headers()
+                    .get(HEADER_PRE_RENDER.as_str())
+                    .is_some_and(|x| x.as_str() == id.as_str());
+                Ok(PreRendering(is_pre_rendering))
+            }
+            None => Ok(PreRendering(false)),
+        }
+    }
+}
+
 pub fn pre_render(
-    app: Arc<App>,
+    mut app: App,
     destination_dir: impl AsRef<Path>,
     config: PreRenderConfig,
 ) -> std::io::Result<()> {
@@ -87,6 +126,8 @@ pub fn pre_render(
     let server_handle = server.handle();
 
     log::info!("Starting temporal server for prerendering");
+    let pre_render_id = Uuid::new_v4().to_string();
+    app.add_middleware(ExtensionsProvider::new().insert(PreRenderId(pre_render_id.clone())));
     std::thread::spawn(move || server.listen(addr, app).expect("server failed"));
 
     // Pre-render the routes
@@ -95,13 +136,9 @@ pub fn pre_render(
     let exclude = config.exclude.unwrap_or_default();
     let pre_render_count = Arc::new(AtomicUsize::new(0));
 
-    let pre_render_id = Uuid::new_v4().to_string();
     let client = Arc::new(
         Client::builder()
-            .insert_default_header(
-                HeaderName::from_static("Route-Pre-Render"),
-                pre_render_id.clone(),
-            )
+            .insert_default_header((&*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
             .read_timeout(Some(Duration::from_millis(5000)))
             .build(),
     );
@@ -120,6 +157,15 @@ pub fn pre_render(
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}/{route}");
                 let dst_dir = path.to_path_buf();
+                let dst_file = dst_dir.join(&route);
+
+                if let Some(parent) = dst_file.ancestors().next() {
+                    if !parent.exists() {
+                        std::fs::create_dir_all(parent).unwrap_or_else(|_| {
+                            panic!("failed to create parent dir for: `{route}`")
+                        });
+                    }
+                }
 
                 match client.get(url.as_str()).send(()) {
                     Ok(res) => {
@@ -132,7 +178,6 @@ pub fn pre_render(
                             return;
                         }
 
-                        let dst_file = dst_dir.join(route);
                         let mut dst = OpenOptions::new()
                             .create(true)
                             .truncate(true)
@@ -149,7 +194,7 @@ pub fn pre_render(
                         pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
                     }
-                    Err(err) => log::error!("Failed to pre-render `{url}`: {err}"),
+                    Err(err) => panic!("Failed to pre-render `{url}`: {err}"),
                 }
             });
         }
