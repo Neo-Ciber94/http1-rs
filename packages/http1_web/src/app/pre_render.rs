@@ -9,10 +9,7 @@ use std::{
 };
 
 use http1::{
-    body::{body_reader::BodyReader, http_body::HttpBody},
-    client::Client,
-    common::uuid::Uuid,
-    headers::HeaderName,
+    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName,
     server::Server,
 };
 
@@ -53,8 +50,9 @@ impl PreRenderConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct PreRenderId(String);
+struct PreRenderId(String);
 
+/// Allow to check if the current route is being pre-rended.
 #[derive(Debug, Clone)]
 pub struct PreRendering(bool);
 impl PreRendering {

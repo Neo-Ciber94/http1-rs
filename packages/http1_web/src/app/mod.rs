@@ -1,5 +1,5 @@
 mod pre_render;
-pub use pre_render::pre_render;
+pub use pre_render::*;
 
 use std::{
     collections::HashMap,
