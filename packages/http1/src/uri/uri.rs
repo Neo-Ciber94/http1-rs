@@ -46,10 +46,15 @@ impl ToSocketAddrs for Uri {
 
     fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
         match self.authority() {
-            Some(authority) => match authority.port() {
-                Some(port) => (authority.host(), port).to_socket_addrs(),
-                None => authority.host().to_socket_addrs(),
-            },
+            Some(authority) => {
+                let is_https = self.scheme.as_ref().is_some_and(|s| *s == Scheme::Https);
+                let host = authority.host();
+                let port = authority
+                    .port()
+                    .unwrap_or_else(|| if is_https { 443 } else { 80 });
+
+                (host, port).to_socket_addrs()
+            }
             None => Err(std::io::Error::other(format!(
                 "uri has no authority: {self}"
             ))),
