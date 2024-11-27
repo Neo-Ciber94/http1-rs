@@ -1,4 +1,9 @@
-use std::{fmt::Display, net::TcpStream, time::Duration};
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    net::{SocketAddr, TcpStream, ToSocketAddrs},
+    time::Duration,
+};
 
 use serde::ser::Serialize;
 
@@ -18,7 +23,10 @@ const DEFAULT_USER_AGENT: &str = "rust";
 pub enum RequestError {
     InvalidRequest(InvalidRequest),
     IO(std::io::Error),
-    FailedToConnect { addr: String, err: std::io::Error },
+    FailedToConnect {
+        addr: SocketAddr,
+        err: std::io::Error,
+    },
     Other(BoxError),
 }
 
@@ -311,8 +319,11 @@ impl<'a> RequestBuilder<'a> {
 
         request.headers_mut().extend(client.default_headers.clone());
 
-        let addr = get_addr(request.uri())?;
-        dbg!(&addr);
+        let mut socket_addrs = request.uri().to_socket_addrs()?;
+        let addr = socket_addrs.next().ok_or_else(|| {
+            std::io::Error::other(format!("failed to resolve uri: {}", request.uri()))
+        })?;
+
         let mut stream =
             TcpStream::connect(&addr).map_err(|err| RequestError::FailedToConnect { addr, err })?;
 
@@ -325,24 +336,6 @@ impl<'a> RequestBuilder<'a> {
 
         Ok(response)
     }
-}
-
-fn get_addr(uri: &Uri) -> std::io::Result<String> {
-    let authority = uri
-        .authority()
-        .ok_or_else(|| std::io::Error::other("missing hostname in url"))?;
-
-    Ok(match uri.scheme() {
-        Some(scheme) => match authority.port() {
-            // FIXME: scheme is not needed?
-            Some(port) => format!("{scheme}://{}:{port}", authority.host()),
-            None => format!("{scheme}://{}", authority.host()),
-        },
-        None => match authority.port() {
-            Some(port) => format!("{}:{port}", authority.host()),
-            None => authority.host().to_owned(),
-        },
-    })
 }
 
 #[cfg(test)]
@@ -393,7 +386,7 @@ mod tests {
 
         let client = Client::new();
         let res = client
-            .request(Method::POST, format!("127.0.0.1:{port}"))
+            .request(Method::POST, format!("http://127.0.0.1:{port}"))
             .send(Body::from("Yagate Kimi ni Naru"))
             .unwrap();
 
@@ -460,7 +453,10 @@ mod tests {
             .read_timeout(Some(Duration::from_millis(5_000)))
             .build();
         let res = client
-            .request(Method::GET, format!("127.0.0.1:{port}/message?text=hello"))
+            .request(
+                Method::GET,
+                format!("http://127.0.0.1:{port}/message?text=hello"),
+            )
             .send(())
             .unwrap();
 
@@ -479,5 +475,15 @@ mod tests {
 
         // Shutdown server
         handle.shutdown();
+    }
+
+    #[test]
+    fn should_get_example_com() {
+        let client = Client::new();
+        let result = client.get("https://example.com/").send(()).unwrap();
+        let bytes = result.into_body().read_all_bytes().unwrap();
+        let text = String::from_utf8(bytes).unwrap();
+
+        assert!(text.contains("This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission."))
     }
 }

@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fmt::Display, str::FromStr};
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    net::{SocketAddr, ToSocketAddrs},
+    str::FromStr,
+};
 
 use super::{authority::Authority, path_query::PathAndQuery, scheme::Scheme};
 
@@ -33,6 +38,22 @@ impl Uri {
 
     pub fn path_and_query(&self) -> &PathAndQuery {
         &self.path_query
+    }
+}
+
+impl ToSocketAddrs for Uri {
+    type Iter = std::vec::IntoIter<SocketAddr>;
+
+    fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
+        match self.authority() {
+            Some(authority) => match authority.port() {
+                Some(port) => (authority.host(), port).to_socket_addrs(),
+                None => authority.host().to_socket_addrs(),
+            },
+            None => Err(std::io::Error::other(format!(
+                "uri has no authority: {self}"
+            ))),
+        }
     }
 }
 
