@@ -8,7 +8,8 @@ use std::{
 };
 
 use http1::{
-    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName, method::Method, server::Server
+    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName,
+    method::Method, server::Server,
 };
 
 use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider};
@@ -133,11 +134,12 @@ pub fn pre_render(
 
     std::thread::spawn(move || {
         server
-        .on_ready(move |_| {
-            ready_tx.send(()).unwrap();
-            log::info!("Pre-rendering server had started");
-        })
-        .listen(addr, app).expect("server failed")
+            .on_ready(move |_| {
+                ready_tx.send(()).unwrap();
+                log::info!("Pre-rendering server had started");
+            })
+            .listen(addr, app)
+            .expect("server failed")
     });
 
     // Pre-render the routes
@@ -149,7 +151,9 @@ pub fn pre_render(
 
     // Wait for the server to start
     std::thread::sleep(Duration::from_millis(100));
-    ready_rx.recv_timeout(Duration::from_millis(1000)).expect("server startup timeout");
+    ready_rx
+        .recv_timeout(Duration::from_millis(1000))
+        .expect("server startup timeout");
 
     pre_render_routes(
         routes,
@@ -191,7 +195,7 @@ fn pre_render_routes<'a>(
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}{route}");
                 let dst_dir = target_dir.to_path_buf();
-                let dst_file = dst_dir.join(&route);
+                let dst_file = dst_dir.join(route);
 
                 if let Some(parent) = dst_file.ancestors().next() {
                     if !parent.exists() {

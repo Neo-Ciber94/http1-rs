@@ -53,9 +53,7 @@ impl ToSocketAddrs for Uri {
             Some(authority) => {
                 let is_https = self.scheme.as_ref().is_some_and(|s| *s == Scheme::Https);
                 let host = authority.host();
-                let port = authority
-                    .port()
-                    .unwrap_or_else(|| if is_https { 443 } else { 80 });
+                let port = authority.port().unwrap_or(if is_https { 443 } else { 80 });
 
                 (host, port).to_socket_addrs()
             }

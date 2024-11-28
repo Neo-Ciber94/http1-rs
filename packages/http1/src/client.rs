@@ -340,9 +340,7 @@ fn get_addr(request: &Request<Body>) -> Result<(String, u16), RequestError> {
 
     let is_https = request.uri().scheme().is_some_and(|s| *s == Scheme::Https);
     let host = authority.host().to_owned();
-    let port: u16 = authority
-        .port()
-        .unwrap_or_else(|| if is_https { 443 } else { 80 });
+    let port: u16 = authority.port().unwrap_or(if is_https { 443 } else { 80 });
 
     Ok((host, port))
 }
