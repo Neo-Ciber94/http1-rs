@@ -16,6 +16,7 @@ pub struct Uri {
 }
 
 impl Uri {
+    /// Constructs a new `Uri`.
     pub fn new(
         scheme: Option<Scheme>,
         authority: Option<Authority>,
@@ -28,14 +29,17 @@ impl Uri {
         }
     }
 
+    /// Returns the scheme.
     pub fn scheme(&self) -> Option<&Scheme> {
         self.scheme.as_ref()
     }
 
+    /// Returns the authority.
     pub fn authority(&self) -> Option<&Authority> {
         self.authority.as_ref()
     }
 
+    /// Returns the path and query.
     pub fn path_and_query(&self) -> &PathAndQuery {
         &self.path_query
     }
