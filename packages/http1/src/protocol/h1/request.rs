@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader, Read, Write},
     str::FromStr,
 };
 
@@ -170,6 +170,19 @@ fn parse_header_line(buf: &str) -> Option<(&str, Vec<String>)> {
     Some((name, values))
 }
 
+struct DebugWriter<W: Write>(W);
+
+impl<W: Write> Write for DebugWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        println!("DebugWriter: {:?}", String::from_utf8_lossy(&buf));
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+}
+
 pub fn write_request<W: std::io::Write>(
     mut writer: W,
     request: Request<Body>,
@@ -185,6 +198,8 @@ pub fn write_request<W: std::io::Write>(
         },
     ) = request.into_parts();
 
+    let mut writer = DebugWriter(writer);
+
     if !headers.contains_key(headers::CONTENT_LENGTH) {
         if let Some(size) = body.size_hint() {
             headers.append(headers::CONTENT_LENGTH, size.to_string());
@@ -192,7 +207,8 @@ pub fn write_request<W: std::io::Write>(
     }
 
     // Write request line: <method> <path> <version>
-    let line = format!("{method} {uri} {version}\r\n");
+    let path_query = uri.path_and_query();
+    let line = format!("{method} {path_query} {version}\r\n");
     writer.write_all(line.as_bytes())?;
 
     // Write headers
