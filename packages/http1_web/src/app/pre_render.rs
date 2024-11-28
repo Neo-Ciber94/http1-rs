@@ -1,9 +1,21 @@
 use std::{
-    collections::HashSet, convert::Infallible, fs::OpenOptions, path::Path, str::FromStr, sync::{atomic::AtomicUsize, Arc, LazyLock}, time::Duration
+    collections::HashSet,
+    convert::Infallible,
+    fs::OpenOptions,
+    path::Path,
+    str::FromStr,
+    sync::{atomic::AtomicUsize, Arc, LazyLock},
+    time::Duration,
 };
 
 use http1::{
-    body::{body_reader::BodyReader, Body}, client::Client, common::uuid::Uuid, headers::{self, HeaderName}, method::Method, response::Response, server::Server
+    body::{body_reader::BodyReader, Body},
+    client::Client,
+    common::uuid::Uuid,
+    headers::{self, HeaderName},
+    method::Method,
+    response::Response,
+    server::Server,
 };
 
 use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider, mime::Mime};
@@ -189,8 +201,15 @@ fn pre_render_routes<'a>(
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}{route}");
 
-                let response = client.get(url.as_str()).send(()).unwrap_or_else(|err|  panic!("Failed to pre-render `{url}`: {err}"));
-                assert!(response.status().is_success(), "Failed to pre-render `{url}`, returned {} status code", response.status());
+                let response = client
+                    .get(url.as_str())
+                    .send(())
+                    .unwrap_or_else(|err| panic!("Failed to pre-render `{url}`: {err}"));
+                assert!(
+                    response.status().is_success(),
+                    "Failed to pre-render `{url}`, returned {} status code",
+                    response.status()
+                );
 
                 write_response_to_fs(response, &url, &target_dir, route);
                 pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -199,25 +218,32 @@ fn pre_render_routes<'a>(
     });
 }
 
-fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path,mut route: &str) {
+fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path, mut route: &str) {
     if route == "/" {
         route = "/index"
     }
 
-    let mut dst_file = target_dir.join(if route.starts_with("/") { &route[1..]} else { route });
+    let mut dst_file = target_dir.join(if route.starts_with("/") {
+        &route[1..]
+    } else {
+        route
+    });
 
     if let Some(parent) = dst_file.ancestors().skip(1).next() {
         if !parent.exists() {
-            std::fs::create_dir_all(parent).unwrap_or_else(|_| {
-                panic!("failed to create parent dir for: `{route}`")
-            });
+            std::fs::create_dir_all(parent)
+                .unwrap_or_else(|_| panic!("failed to create parent dir for: `{route}`"));
         }
     }
 
     let has_extensions = dst_file.extension().is_some();
 
     if !has_extensions {
-        if let Some(mime) = response.headers().get(headers::CONTENT_TYPE).and_then(|s| Mime::from_str(s.as_str()).ok()) {
+        if let Some(mime) = response
+            .headers()
+            .get(headers::CONTENT_TYPE)
+            .and_then(|s| Mime::from_str(s.as_str()).ok())
+        {
             if let Some(ext) = mime.extension() {
                 dst_file.set_extension(ext);
             }
@@ -234,10 +260,8 @@ fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path,m
     let body = response.into_body();
     let mut src = BodyReader::new(body);
 
-    std::io::copy(&mut src, &mut dst).unwrap_or_else(|_| {
-        panic!("failed to write response contents from `{url}`")
-    });
-
+    std::io::copy(&mut src, &mut dst)
+        .unwrap_or_else(|_| panic!("failed to write response contents from `{url}`"));
 
     log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
     panic!("adios");
