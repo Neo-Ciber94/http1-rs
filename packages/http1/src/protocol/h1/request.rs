@@ -1,5 +1,5 @@
 use std::{
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, Read},
     str::FromStr,
 };
 
@@ -170,7 +170,10 @@ fn parse_header_line(buf: &str) -> Option<(&str, Vec<String>)> {
     Some((name, values))
 }
 
-pub fn write_request<W: std::io::Write>(mut writer: W, request: Request<Body>) -> std::io::Result<()> {
+pub fn write_request<W: std::io::Write>(
+    mut writer: W,
+    request: Request<Body>,
+) -> std::io::Result<()> {
     let (
         mut body,
         Parts {
