@@ -97,6 +97,11 @@ impl<T> Request<T> {
         &self.parts.uri
     }
 
+    /// Returns a mutable reference to the URL of the request.
+    pub fn uri_mut(&mut self) -> &mut Uri {
+        &mut self.parts.uri
+    }
+
     /// Returns a reference to the headers of the request.
     pub fn headers(&self) -> &Headers {
         &self.parts.headers
