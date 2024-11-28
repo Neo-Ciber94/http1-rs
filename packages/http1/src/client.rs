@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    fmt::Display,
-    net::{SocketAddr, TcpStream, ToSocketAddrs},
-    time::Duration,
-};
+use std::{borrow::Cow, fmt::Display, net::TcpStream, time::Duration};
 
 use serde::ser::Serialize;
 
@@ -14,7 +9,10 @@ use crate::{
     method::Method,
     request::{InvalidRequest, Request},
     response::Response,
-    uri::uri::{InvalidUri, Uri},
+    uri::{
+        scheme::Scheme,
+        uri::{InvalidUri, Uri},
+    },
 };
 
 const DEFAULT_USER_AGENT: &str = "rust";
@@ -23,10 +21,7 @@ const DEFAULT_USER_AGENT: &str = "rust";
 pub enum RequestError {
     InvalidRequest(InvalidRequest),
     IO(std::io::Error),
-    FailedToConnect {
-        addr: SocketAddr,
-        err: std::io::Error,
-    },
+    FailedToConnect { addr: String, err: std::io::Error },
     Other(BoxError),
 }
 
@@ -305,24 +300,23 @@ impl<'a> RequestBuilder<'a> {
     /// Sends a request with the given body.
     pub fn send(self, body: impl Into<Body>) -> Result<Response<Body>, RequestError> {
         let Self { request, client } = self;
-        let mut request = request.body(body.into())?;
 
         let user_agent = client
             .user_agent
             .as_deref()
-            .unwrap_or(DEFAULT_USER_AGENT)
-            .to_string();
+            .map(|s| Cow::Owned(s.to_owned()))
+            .unwrap_or_else(|| Cow::Borrowed(DEFAULT_USER_AGENT));
 
-        request
-            .headers_mut()
-            .append(headers::USER_AGENT, user_agent);
+        let mut request = request
+            .insert_header(headers::USER_AGENT, user_agent)
+            .insert_header(headers::ACCEPT, "*/*")
+            .body(body.into())?;
 
+        let (host, port) = get_addr(&request)?;
+        let addr = format!("{host}:{port}");
+
+        request.headers_mut().insert(headers::HOST, host.clone());
         request.headers_mut().extend(client.default_headers.clone());
-
-        let mut socket_addrs = request.uri().to_socket_addrs()?;
-        let addr = socket_addrs.next().ok_or_else(|| {
-            std::io::Error::other(format!("failed to resolve uri: {}", request.uri()))
-        })?;
 
         let mut stream =
             TcpStream::connect(&addr).map_err(|err| RequestError::FailedToConnect { addr, err })?;
@@ -336,6 +330,21 @@ impl<'a> RequestBuilder<'a> {
 
         Ok(response)
     }
+}
+
+fn get_addr(request: &Request<Body>) -> Result<(String, u16), RequestError> {
+    let authority = request
+        .uri()
+        .authority()
+        .ok_or_else(|| RequestError::Other(String::from("missing authority").into()))?;
+
+    let is_https = request.uri().scheme().is_some_and(|s| *s == Scheme::Https);
+    let host = authority.host().to_owned();
+    let port: u16 = authority
+        .port()
+        .unwrap_or_else(|| if is_https { 443 } else { 80 });
+
+    Ok((host, port))
 }
 
 #[cfg(test)]
@@ -480,10 +489,10 @@ mod tests {
     #[test]
     fn should_get_example_com() {
         let client = Client::new();
-        let result = client.get("https://example.com/").send(()).unwrap();
+        let result = client.get("http://example.com").send(()).unwrap();
         let bytes = result.into_body().read_all_bytes().unwrap();
         let text = String::from_utf8(bytes).unwrap();
 
-        assert!(text.contains("This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission."))
+        assert!(text.contains("<h1>Example Domain</h1>"))
     }
 }
