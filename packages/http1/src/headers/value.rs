@@ -62,3 +62,9 @@ impl From<&'static str> for HeaderValue {
         HeaderValue::from_static(value)
     }
 }
+
+impl From<Cow<'static, str>> for HeaderValue {
+    fn from(value: Cow<'static, str>) -> Self {
+        HeaderValue(value)
+    }
+}
