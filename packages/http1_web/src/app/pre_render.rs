@@ -195,7 +195,7 @@ fn pre_render_routes<'a>(
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}{route}");
                 let dst_dir = target_dir.to_path_buf();
-                let dst_file = dst_dir.join(route);
+                let mut dst_file = dst_dir.join(if route.starts_with("/") { &route[1..]} else { route });
 
                 if let Some(parent) = dst_file.ancestors().next() {
                     if !parent.exists() {
@@ -216,6 +216,8 @@ fn pre_render_routes<'a>(
                             return;
                         }
 
+                        dbg!(&dst_file);
+                        dst_file.set_extension(".html");
                         let mut dst = OpenOptions::new()
                             .create(true)
                             .truncate(true)
@@ -231,6 +233,7 @@ fn pre_render_routes<'a>(
 
                         pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
+                        panic!("adios");
                     }
                     Err(err) => panic!("Failed to pre-render `{url}`: {err}"),
                 }
