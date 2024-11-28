@@ -1,18 +1,12 @@
 use std::{
-    collections::HashSet,
-    convert::Infallible,
-    fs::OpenOptions,
-    path::Path,
-    sync::{atomic::AtomicUsize, Arc, LazyLock},
-    time::Duration,
+    collections::HashSet, convert::Infallible, fs::OpenOptions, path::Path, str::FromStr, sync::{atomic::AtomicUsize, Arc, LazyLock}, time::Duration
 };
 
 use http1::{
-    body::body_reader::BodyReader, client::Client, common::uuid::Uuid, headers::HeaderName,
-    method::Method, server::Server,
+    body::{body_reader::BodyReader, Body}, client::Client, common::uuid::Uuid, headers::{self, HeaderName}, method::Method, response::Response, server::Server
 };
 
-use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider};
+use crate::{from_request::FromRequest, middleware::extensions::ExtensionsProvider, mime::Mime};
 
 use super::App;
 
@@ -194,50 +188,57 @@ fn pre_render_routes<'a>(
             s.spawn(move || {
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}{route}");
-                let dst_dir = target_dir.to_path_buf();
-                let mut dst_file = dst_dir.join(if route.starts_with("/") { &route[1..]} else { route });
 
-                if let Some(parent) = dst_file.ancestors().next() {
-                    if !parent.exists() {
-                        std::fs::create_dir_all(parent).unwrap_or_else(|_| {
-                            panic!("failed to create parent dir for: `{route}`")
-                        });
-                    }
-                }
+                let response = client.get(url.as_str()).send(()).unwrap_or_else(|err|  panic!("Failed to pre-render `{url}`: {err}"));
+                assert!(response.status().is_success(), "Failed to pre-render `{url}`, returned {} status code", response.status());
 
-                match client.get(url.as_str()).send(()) {
-                    Ok(res) => {
-                        if !res.status().is_success() {
-                            log::error!(
-                                "Failed to pre-render `{url}`, returned {} status code",
-                                res.status()
-                            );
-
-                            return;
-                        }
-
-                        dbg!(&dst_file);
-                        dst_file.set_extension(".html");
-                        let mut dst = OpenOptions::new()
-                            .create(true)
-                            .truncate(true)
-                            .write(true)
-                            .open(&dst_file)
-                            .expect("failed to create file");
-
-                        let body = res.into_body();
-                        let mut src = BodyReader::new(body);
-                        std::io::copy(&mut src, &mut dst).unwrap_or_else(|_| {
-                            panic!("failed to write response contents from `{url}`")
-                        });
-
-                        pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
-                        panic!("adios");
-                    }
-                    Err(err) => panic!("Failed to pre-render `{url}`: {err}"),
-                }
+                write_response_to_fs(response, &url, &target_dir, route);
+                pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             });
         }
     });
+}
+
+fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path,mut route: &str) {
+    if route == "/" {
+        route = "/index"
+    }
+
+    let mut dst_file = target_dir.join(if route.starts_with("/") { &route[1..]} else { route });
+
+    if let Some(parent) = dst_file.ancestors().skip(1).next() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent).unwrap_or_else(|_| {
+                panic!("failed to create parent dir for: `{route}`")
+            });
+        }
+    }
+
+    let has_extensions = dst_file.extension().is_some();
+
+    if !has_extensions {
+        if let Some(mime) = response.headers().get(headers::CONTENT_TYPE).and_then(|s| Mime::from_str(s.as_str()).ok()) {
+            if let Some(ext) = mime.extension() {
+                dst_file.set_extension(ext);
+            }
+        }
+    }
+
+    let mut dst = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&dst_file)
+        .expect("failed to create file");
+
+    let body = response.into_body();
+    let mut src = BodyReader::new(body);
+
+    std::io::copy(&mut src, &mut dst).unwrap_or_else(|_| {
+        panic!("failed to write response contents from `{url}`")
+    });
+
+
+    log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
+    panic!("adios");
 }
