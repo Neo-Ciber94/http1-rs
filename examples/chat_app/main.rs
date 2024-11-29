@@ -46,7 +46,7 @@ fn main() -> std::io::Result<()> {
         )
         .get(
             "/*",
-            ServeDir::new("examples/chat_app/static").append_html_index(true),
+            ServeDir::new("examples/chat_app/static").resolve_index_html(),
         );
 
     server

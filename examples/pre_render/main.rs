@@ -25,7 +25,7 @@ fn main() {
 fn app() -> App {
     App::new().get(
         "/*",
-        ServeDir::new("examples/pre_render/static/pages").append_html_index(true),
+        ServeDir::new("examples/pre_render/static/pages").resolve_index_to_any(),
     )
 }
 
@@ -47,6 +47,11 @@ fn pages() -> Scope {
                     html::a(|| {
                         html::attr("href", "/c");
                         html::content("Page C");
+                    });
+
+                    html::a(|| {
+                        html::attr("href", "/data");
+                        html::content("JSON");
                     });
                 });
             })

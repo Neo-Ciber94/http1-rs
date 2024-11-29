@@ -34,13 +34,13 @@ impl Handler<Request<Body>> for DefaultServeDirFallback {
 type OnResponseHandler = Arc<Mutex<dyn FnMut(&mut Response<Body>) + Send>>;
 
 /// A handler to serve static files from a path.
-pub struct ServeDir<F = DefaultServeDirFallback> {
+pub struct ServeDir<F = DefaultServeDirFallback, R = ResolveIndexHtml> {
     root: PathBuf,
-    append_index_html: bool,
     list_directory: bool,
     use_cache_headers: bool,
     fallback: F,
     on_response: Option<OnResponseHandler>,
+    resolve_index: Option<R>,
 }
 
 impl ServeDir<()> {
@@ -58,7 +58,7 @@ impl<F> ServeDir<F> {
     pub fn with_fallback<A: Handler<Request<Body>, Output = Response<Body>>>(
         dir: impl AsRef<Path>,
         fallback: A,
-    ) -> ServeDir<A> {
+    ) -> ServeDir<A, ResolveIndexHtml> {
         let cwd = std::env::current_dir().expect("unable to get current directory");
         let path = dir.as_ref();
         let root = cwd.join(path);
@@ -67,21 +67,37 @@ impl<F> ServeDir<F> {
 
         ServeDir {
             root,
-            append_index_html: false,
             list_directory: false,
             use_cache_headers: false,
             on_response: None,
             fallback,
+            resolve_index: None,
         }
     }
 
-    /// Whether if try to append `/index.html` or /<path>.html when request a directory, defaults to false.
-    ///
-    /// # Example
-    /// - `/hello` will try to match `/hello.html` and `/hello/index.html` and send those html files any exists.
-    pub fn append_html_index(mut self, index_html: bool) -> Self {
-        self.append_index_html = index_html;
-        self
+    /// Whether if resolve requests to `/<path>` to `/<path>.html` when required.
+    pub fn resolve_index_html(self) -> Self {
+        self.resolve_index_with(ResolveIndexHtml)
+    }
+
+    /// Whether if resolve requests to `/<path>` to `/<path>.<extension>` when required.
+    pub fn resolve_index_to_any(self) -> ServeDir<F, ResolveAnyIndex> {
+        self.resolve_index_with(ResolveAnyIndex)
+    }
+
+    /// Resolve index file using the given `ResolveIndex`.
+    pub fn resolve_index_with<U>(self, resolve_index: U) -> ServeDir<F, U>
+    where
+        U: ResolveIndex,
+    {
+        ServeDir {
+            root: self.root,
+            fallback: self.fallback,
+            list_directory: self.list_directory,
+            on_response: self.on_response,
+            resolve_index: Some(resolve_index),
+            use_cache_headers: self.use_cache_headers,
+        }
     }
 
     /// Enables directory listing. By default is `false`.
@@ -110,16 +126,16 @@ impl Debug for ServeDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ServeDir")
             .field("root", &self.root)
-            .field("append_index_html", &self.append_index_html)
             .field("list_directory", &self.list_directory)
             .field("use_cache_headers", &self.use_cache_headers)
             .finish_non_exhaustive()
     }
 }
 
-impl<F> Handler<Request<Body>> for ServeDir<F>
+impl<F, R> Handler<Request<Body>> for ServeDir<F, R>
 where
     F: Handler<Request<Body>, Output = Response<Body>>,
+    R: ResolveIndex,
 {
     type Output = Response<Body>;
 
@@ -134,24 +150,10 @@ where
         let route = get_route(route_info, req_path);
         let mut serve_path = self.root.join(&route);
 
-        if self.append_index_html {
-            // Try to match /index.html
-            if serve_path.is_dir() {
-                let index_html = serve_path.join("index.html");
-
-                if index_html.exists() {
-                    serve_path = index_html;
-                }
-            }
-
-            // Try to match /<path>.html
-            if !serve_path.exists() {
-                let mut html_file = serve_path.clone();
-                html_file.set_extension("html");
-
-                if html_file.exists() {
-                    serve_path = html_file;
-                }
+        if let Some(index) = &self.resolve_index {
+            serve_path = match index.resolve_index(&req, serve_path) {
+                Ok(p) => p,
+                Err(err) => return err.into_response(),
             }
         }
 
@@ -352,13 +354,18 @@ where
     })
 }
 
-trait ResolveIndex {
-    fn resolve_index(req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf>;
+/**
+ * Resolve the location of a file.
+ */
+pub trait ResolveIndex {
+    /// Returns the path for a file.
+    fn resolve_index(&self, req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf>;
 }
 
-struct ResolveIndexHtml;
+/// Resolves request to `/<path>` to `/index.html` or `/<path>.html` when required.
+pub struct ResolveIndexHtml;
 impl ResolveIndex for ResolveIndexHtml {
-    fn resolve_index(_req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
+    fn resolve_index(&self, _req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
         // Try to match /index.html
         if serve_path.is_dir() {
             let index_html = serve_path.join("index.html");
@@ -382,7 +389,8 @@ impl ResolveIndex for ResolveIndexHtml {
     }
 }
 
-struct ResolveAnyIndex;
+/// Attempt to resolve request to `/<path>` to a matching file in the file system.
+pub struct ResolveAnyIndex;
 impl ResolveAnyIndex {
     fn resolve_any(serve_path: PathBuf) -> std::io::Result<PathBuf> {
         // We use this ones for a fast look up
@@ -400,10 +408,40 @@ impl ResolveAnyIndex {
             }
         }
 
-        // Try to find a file that matches /index.{ext}
-        if serve_path.is_dir() {
-            let read_dir = std::fs::read_dir(&serve_path)?;
-            // TODO: Iterate files
+        // Try to find the first file that matches `/index.{any-extension}`
+        let target_dir = if serve_path.is_dir() {
+            Some(serve_path.as_path())
+        } else {
+            serve_path.ancestors().skip(1).next()
+        };
+
+        if target_dir.is_none() {
+            return Ok(serve_path);
+        }
+
+        if let Some(path) = target_dir {
+            let read_dir = std::fs::read_dir(path)?;
+
+            for entry in read_dir {
+                if let Ok(entry) = entry {
+                    let file_path = entry.path();
+
+                    if serve_path.is_dir() {
+                        let is_index_file = file_path
+                            .file_stem()
+                            .is_some_and(|s| s.to_string_lossy() == "index");
+
+                        if is_index_file && file_path.is_file() && file_path.extension().is_some() {
+                            return Ok(file_path);
+                        }
+                    } else if let Some(f) = serve_path.file_name() {
+                        let is_match = file_path.file_stem().is_some_and(|s| s == f);
+                        if is_match && file_path.is_file() && file_path.extension().is_some() {
+                            return Ok(file_path);
+                        }
+                    }
+                }
+            }
         }
 
         Ok(serve_path)
@@ -425,6 +463,7 @@ impl ResolveAnyIndex {
         // Try to match /index.{ext}
         if serve_path.is_dir() {
             let index_file = serve_path.join(format!("index.{ext}"));
+            dbg!(&index_file);
 
             if index_file.exists() {
                 return Some(index_file);
@@ -433,41 +472,35 @@ impl ResolveAnyIndex {
 
         // Try to match /<path>.{ext}
         if !serve_path.exists() {
-            let mut html_file = serve_path.to_path_buf().clone();
-            html_file.set_extension(ext);
+            let mut index_file = serve_path.to_path_buf().clone();
+            index_file.set_extension(ext);
 
-            if html_file.exists() {
-                return Some(html_file);
+            dbg!(&index_file);
+            if index_file.exists() {
+                return Some(index_file);
             }
         }
 
         None
     }
 }
+
 impl ResolveIndex for ResolveAnyIndex {
-    fn resolve_index(req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
-        match req.headers().get(headers::ACCEPT) {
-            Some(value) => {
-                let accepts_any = value
-                    .as_str()
-                    .split(",")
-                    .map(|s| s.trim())
-                    .any(|s| s == "*/*");
+    fn resolve_index(&self, req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
+        let mut accept_header = req.headers().get_all(headers::ACCEPT).peekable();
 
-                if accepts_any {
-                    return ResolveAnyIndex::resolve_any(serve_path);
-                }
-
-                let types = value
-                    .as_str()
-                    .split(",")
-                    .map(|s| s.trim())
-                    .filter_map(|s| Mime::from_str(s).ok())
-                    .collect::<Vec<Mime>>();
-
-                ResolveAnyIndex::resolve_from_types(serve_path, &types)
-            }
-            None => ResolveAnyIndex::resolve_any(serve_path),
+        if accept_header.peek().is_none() {
+            return ResolveAnyIndex::resolve_any(serve_path);
         }
+
+        let types = accept_header
+            .filter_map(|x| Mime::from_str(x.as_str()).ok())
+            .collect::<Vec<_>>();
+
+        if types.iter().any(|x| x.ty() == "*" && x.subtype() == "*") {
+            return ResolveAnyIndex::resolve_any(serve_path);
+        }
+
+        ResolveAnyIndex::resolve_from_types(serve_path, &types)
     }
 }
