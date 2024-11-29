@@ -275,7 +275,7 @@ declare_mime_types! {
     // Application types
     APPLICATION_OCTET_STREAM => ["bin", "application", "octet-stream", None],
     APPLICATION_JSON => ["json", "application", "json", None],
-    APPLICATION_JSON_UTF8 => ["json", "application", "json", Some("charset=UTF-8")],
+    APPLICATION_JSON_UTF8 => ["json", "application", "json", Some("charset=utf-8")],
     APPLICATION_JAVASCRIPT => ["js", "application", "javascript", None],
     APPLICATION_XML => ["xml", "application", "xml", None],
     APPLICATION_PDF => ["pdf", "application", "pdf", None],
@@ -475,6 +475,29 @@ mod tests {
         let mime = Mime::from_extension("7z").unwrap();
         assert_eq!(mime.ty(), "application");
         assert_eq!(mime.subtype(), "x-7z-compressed");
+    }
+
+    #[test]
+    fn should_parse_from_str() {
+        assert_eq!(
+            Mime::from_str("application/json").unwrap(),
+            Mime::APPLICATION_JSON
+        );
+        assert_eq!(
+            Mime::from_str("application/json;charset=utf-8").unwrap(),
+            Mime::APPLICATION_JSON_UTF8
+        );
+        assert_eq!(Mime::from_str("text/plain").unwrap(), Mime::TEXT_PLAIN);
+        assert_eq!(Mime::from_str("*/*").unwrap(), Mime::ANY);
+        assert_eq!(Mime::from_str("image/*").unwrap(), Mime::ANY_IMAGE);
+        assert_eq!(
+            Mime::from_str("funny/meme").unwrap(),
+            Mime::new("funny", "meme", None)
+        );
+
+        assert!(Mime::from_str("image").is_err());
+        assert!(Mime::from_str("video").is_err());
+        assert!(Mime::from_str("unknown").is_err());
     }
 
     #[test]

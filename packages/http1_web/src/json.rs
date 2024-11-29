@@ -8,7 +8,7 @@ use http1::{
     status::StatusCode,
 };
 
-use crate::{from_request::FromRequest, IntoResponse};
+use crate::{from_request::FromRequest, mime::Mime, IntoResponse};
 
 use serde::{self, de::Deserialize, ser::Serialize};
 
@@ -66,7 +66,7 @@ impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         match serde::json::to_string(&self.0) {
             Ok(x) => Response::builder()
-                .insert_header(CONTENT_TYPE, "application/json; charset=UTF-8")
+                .insert_header(CONTENT_TYPE, Mime::APPLICATION_JSON_UTF8)
                 .body(x.into()),
             Err(err) => {
                 log::error!("Failed to create JSON response: {err}");
