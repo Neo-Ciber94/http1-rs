@@ -422,23 +422,21 @@ impl ResolveAnyIndex {
         if let Some(path) = target_dir {
             let read_dir = std::fs::read_dir(path)?;
 
-            for entry in read_dir {
-                if let Ok(entry) = entry {
-                    let file_path = entry.path();
+            for entry in read_dir.flatten() {
+                let file_path = entry.path();
 
-                    if serve_path.is_dir() {
-                        let is_index_file = file_path
-                            .file_stem()
-                            .is_some_and(|s| s.to_string_lossy() == "index");
+                if serve_path.is_dir() {
+                    let is_index_file = file_path
+                        .file_stem()
+                        .is_some_and(|s| s.to_string_lossy() == "index");
 
-                        if is_index_file && file_path.is_file() && file_path.extension().is_some() {
-                            return Ok(file_path);
-                        }
-                    } else if let Some(f) = serve_path.file_name() {
-                        let is_match = file_path.file_stem().is_some_and(|s| s == f);
-                        if is_match && file_path.is_file() && file_path.extension().is_some() {
-                            return Ok(file_path);
-                        }
+                    if is_index_file && file_path.is_file() && file_path.extension().is_some() {
+                        return Ok(file_path);
+                    }
+                } else if let Some(f) = serve_path.file_stem() {
+                    let is_match = file_path.file_stem().is_some_and(|s| s == f);
+                    if is_match && file_path.is_file() && file_path.extension().is_some() {
+                        return Ok(file_path);
                     }
                 }
             }

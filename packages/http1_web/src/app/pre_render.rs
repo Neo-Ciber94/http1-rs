@@ -223,11 +223,7 @@ fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path, 
         route = "/index"
     }
 
-    let mut dst_file = target_dir.join(if route.starts_with("/") {
-        &route[1..]
-    } else {
-        route
-    });
+    let mut dst_file = target_dir.join(route.strip_prefix("/").unwrap_or(route));
 
     if let Some(parent) = dst_file.ancestors().nth(1) {
         if !parent.exists() {
