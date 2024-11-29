@@ -412,7 +412,7 @@ impl ResolveAnyIndex {
         let target_dir = if serve_path.is_dir() {
             Some(serve_path.as_path())
         } else {
-            serve_path.ancestors().skip(1).next()
+            serve_path.ancestors().nth(1)
         };
 
         if target_dir.is_none() {

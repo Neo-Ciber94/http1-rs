@@ -211,7 +211,7 @@ fn pre_render_routes<'a>(
                     response.status()
                 );
 
-                write_response_to_fs(response, &url, &target_dir, route);
+                write_response_to_fs(response, &url, target_dir, route);
                 pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             });
         }
@@ -229,7 +229,7 @@ fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path, 
         route
     });
 
-    if let Some(parent) = dst_file.ancestors().skip(1).next() {
+    if let Some(parent) = dst_file.ancestors().nth(1) {
         if !parent.exists() {
             std::fs::create_dir_all(parent)
                 .unwrap_or_else(|_| panic!("failed to create parent dir for: `{route}`"));
