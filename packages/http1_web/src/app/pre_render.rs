@@ -133,7 +133,7 @@ pub fn pre_render(
     let server = Server::new();
     let server_handle = server.handle();
 
-    log::info!("Starting temporal server for prerendering");
+    log::info!("Starting server for prerendering");
     let pre_render_id = Uuid::new_v4().to_string();
     app.add_middleware(ExtensionsProvider::new().insert(PreRenderId(pre_render_id.clone())));
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<()>();
@@ -264,5 +264,4 @@ fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path, 
         .unwrap_or_else(|_| panic!("failed to write response contents from `{url}`"));
 
     log::debug!("Written pre-render contents from `{url}` to `{dst_file:?}`");
-    panic!("adios");
 }

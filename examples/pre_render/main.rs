@@ -1,6 +1,6 @@
 use http1::server::Server;
 use http1_web::{
-    app::{App, PreRenderConfig},
+    app::{App, PreRenderConfig, Scope},
     fs::ServeDir,
     html,
 };
@@ -9,7 +9,7 @@ fn main() {
     log::set_logger(log::ConsoleLogger);
 
     http1_web::app::pre_render(
-        app(),
+        App::new().scope("/", pages()),
         "examples/pre_render/static/pages",
         PreRenderConfig::default(),
     )
@@ -22,8 +22,14 @@ fn main() {
 }
 
 fn app() -> App {
-    App::new()
-        .get("/*", ServeDir::new("examples/pre_render/static/pages"))
+    App::new().get(
+        "/*",
+        ServeDir::new("examples/pre_render/static/pages").append_html_index(true),
+    )
+}
+
+fn pages() -> Scope {
+    Scope::new()
         .get("/", || {
             html::html(|| {
                 html::body(|| {
