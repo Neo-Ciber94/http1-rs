@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::{Arc, Mutex},
     time::UNIX_EPOCH,
 };
@@ -349,4 +350,124 @@ where
             None
         }
     })
+}
+
+trait ResolveIndex {
+    fn resolve_index(req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf>;
+}
+
+struct ResolveIndexHtml;
+impl ResolveIndex for ResolveIndexHtml {
+    fn resolve_index(_req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
+        // Try to match /index.html
+        if serve_path.is_dir() {
+            let index_html = serve_path.join("index.html");
+
+            if index_html.exists() {
+                return Ok(index_html);
+            }
+        }
+
+        // Try to match /<path>.html
+        if !serve_path.exists() {
+            let mut html_file = serve_path.clone();
+            html_file.set_extension("html");
+
+            if html_file.exists() {
+                return Ok(html_file);
+            }
+        }
+
+        Ok(serve_path)
+    }
+}
+
+struct ResolveAnyIndex;
+impl ResolveAnyIndex {
+    fn resolve_any(serve_path: PathBuf) -> std::io::Result<PathBuf> {
+        // We use this ones for a fast look up
+        static COMMON_MIMES: &[Mime] = &[
+            Mime::TEXT_HTML,
+            Mime::TEXT_PLAIN,
+            Mime::APPLICATION_JSON,
+            Mime::APPLICATION_XML,
+            Mime::APPLICATION_PDF,
+        ];
+
+        for mime in COMMON_MIMES {
+            if let Some(p) = Self::try_index_type(&serve_path, mime) {
+                return Ok(p);
+            }
+        }
+
+        // Try to find a file that matches /index.{ext}
+        if serve_path.is_dir() {
+            let read_dir = std::fs::read_dir(&serve_path)?;
+            // TODO: Iterate files
+        }
+
+        Ok(serve_path)
+    }
+
+    fn resolve_from_types(serve_path: PathBuf, types: &[Mime]) -> std::io::Result<PathBuf> {
+        for mime in types {
+            if let Some(p) = Self::try_index_type(&serve_path, mime) {
+                return Ok(p);
+            }
+        }
+
+        Ok(serve_path)
+    }
+
+    fn try_index_type(serve_path: &Path, mime: &Mime) -> Option<PathBuf> {
+        let ext = mime.extension()?;
+
+        // Try to match /index.{ext}
+        if serve_path.is_dir() {
+            let index_file = serve_path.join(format!("index.{ext}"));
+
+            if index_file.exists() {
+                return Some(index_file);
+            }
+        }
+
+        // Try to match /<path>.{ext}
+        if !serve_path.exists() {
+            let mut html_file = serve_path.to_path_buf().clone();
+            html_file.set_extension(ext);
+
+            if html_file.exists() {
+                return Some(html_file);
+            }
+        }
+
+        None
+    }
+}
+impl ResolveIndex for ResolveAnyIndex {
+    fn resolve_index(req: &Request<()>, serve_path: PathBuf) -> std::io::Result<PathBuf> {
+        match req.headers().get(headers::ACCEPT) {
+            Some(value) => {
+                let accepts_any = value
+                    .as_str()
+                    .split(",")
+                    .map(|s| s.trim())
+                    .any(|s| s == "*/*");
+
+                if accepts_any {
+                    return ResolveAnyIndex::resolve_any(serve_path);
+                }
+
+                let types = value
+                    .as_str()
+                    .split(",")
+                    .map(|s| s.trim())
+                    .filter_map(|s| Mime::from_str(s).ok())
+                    .collect::<Vec<Mime>>();
+
+                ResolveAnyIndex::resolve_from_types(serve_path, &types)
+            }
+            None => ResolveAnyIndex::resolve_any(serve_path),
+        }
+    }
 }

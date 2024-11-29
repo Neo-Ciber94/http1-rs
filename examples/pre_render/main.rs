@@ -3,6 +3,7 @@ use http1_web::{
     app::{App, PreRenderConfig, Scope},
     fs::ServeDir,
     html,
+    json::Json,
 };
 
 fn main() {
@@ -70,5 +71,10 @@ fn pages() -> Scope {
                     html::h1("Page C");
                 });
             })
+        })
+        .get("/data", || {
+            Json(serde::json! {{
+                hello: "world"
+            }})
         })
 }
