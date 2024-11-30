@@ -5,6 +5,7 @@ use std::{
     path::Path,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc, LazyLock},
+    thread::ScopedJoinHandle,
     time::Duration,
 };
 
@@ -12,6 +13,7 @@ use http1::{
     body::{body_reader::BodyReader, Body},
     client::Client,
     common::uuid::Uuid,
+    error::BoxError,
     headers::{self, HeaderName},
     method::Method,
     response::Response,
@@ -87,6 +89,7 @@ impl FromRequest for PreRendering {
     }
 }
 
+/// Pre-render the routes of `App`.
 pub fn pre_render(
     mut app: App,
     destination_dir: impl AsRef<Path>,
@@ -167,7 +170,8 @@ pub fn pre_render(
         Arc::clone(&pre_render_count),
         port,
         &target_dir,
-    );
+    )
+    .expect("failed to pre-render");
 
     log::info!(
         "{} routes were pre-rendered, written to {target_dir:?}",
@@ -184,7 +188,7 @@ fn pre_render_routes<'a>(
     pre_render_count: Arc<AtomicUsize>,
     port: u16,
     target_dir: &Path,
-) {
+) -> Result<(), BoxError> {
     let client = Arc::new(
         Client::builder()
             .insert_default_header((*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
@@ -192,30 +196,58 @@ fn pre_render_routes<'a>(
             .build(),
     );
 
-    std::thread::scope(|s| {
+    let errors = std::thread::scope(|s| {
+        let mut handles = Vec::new();
+
         for route in routes {
             let client = Arc::clone(&client);
             let pre_render_count = Arc::clone(&pre_render_count);
 
-            s.spawn(move || {
+            let handle: ScopedJoinHandle<Result<(), BoxError>> = s.spawn(move || {
                 let base_url = format!("http://127.0.0.1:{port}");
                 let url = format!("{base_url}{route}");
 
                 let response = client
                     .get(url.as_str())
                     .send(())
-                    .unwrap_or_else(|err| panic!("Failed to pre-render `{url}`: {err}"));
-                assert!(
-                    response.status().is_success(),
-                    "Failed to pre-render `{url}`, returned {} status code",
-                    response.status()
-                );
+                    .map_err(|err| format!("Failed to pre-render `{url}`: {err}"))?;
+
+                if !response.status().is_success() {
+                    return Err(format!(
+                        "Failed to pre-render `{url}`, returned {} status code",
+                        response.status()
+                    )
+                    .into());
+                }
 
                 write_response_to_fs(response, &url, target_dir, route);
                 pre_render_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ok(())
             });
+
+            handles.push(handle);
         }
+
+        handles
+            .into_iter()
+            .map(|h| h.join())
+            .filter_map(|x| x.ok())
+            .filter(|x| x.is_err())
+            .map(|x| x.unwrap_err())
+            .collect::<Vec<_>>()
     });
+
+    if !errors.is_empty() {
+        let error_msg = errors
+            .into_iter()
+            .map(|err| format!("\t{err}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        
+        return Err(format!("pre-rendering error:\n\n{error_msg}").into());
+    }
+
+    Ok(())
 }
 
 fn write_response_to_fs(response: Response<Body>, url: &str, target_dir: &Path, mut route: &str) {
