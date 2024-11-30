@@ -243,7 +243,7 @@ fn pre_render_routes<'a>(
             .map(|err| format!("\t{err}"))
             .collect::<Vec<_>>()
             .join("\n");
-        
+
         return Err(format!("pre-rendering error:\n\n{error_msg}").into());
     }
 
