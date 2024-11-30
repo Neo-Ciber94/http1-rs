@@ -11,17 +11,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.80.1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.80.1
 
-    - name: Install clippy
-      run: rustup component add clippy
-      
-    - name: Build
-      run: cargo build --verbose
+      - name: Build
+        run: cargo build --verbose
 
-    - name: Clippy
-      run: cargo clippy
-          
-    - name: Run tests
-      run: cargo test --workspace --verbose
+  test:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.80.1
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+  clippy:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.80.1
+
+      - name: Clippy
+        run: cargo clippy
