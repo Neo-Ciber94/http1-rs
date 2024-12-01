@@ -1,6 +1,25 @@
-use std::{borrow::Cow, fmt::Display, hash::Hash};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use super::get_header_name;
+
+#[derive(Debug)]
+pub struct InvalidHeaderName(String);
+
+impl std::error::Error for InvalidHeaderName {}
+
+impl Display for InvalidHeaderName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "invalid header name, expected ascii string: {:?}",
+            self.0
+        )
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct HeaderName(Cow<'static, str>);
@@ -11,16 +30,36 @@ impl HeaderName {
     }
 
     pub fn from_static(s: &'static str) -> Self {
-        match get_header_name(s) {
-            Some(header_name) => header_name,
-            None => HeaderName(Cow::Borrowed(s)),
-        }
+        Self::from_checked_static(s).unwrap()
     }
 
     pub fn from_string(s: String) -> Self {
+        Self::from_checked_string(s).unwrap()
+    }
+
+    pub fn from_checked_static(s: &'static str) -> Result<Self, InvalidHeaderName> {
+        match get_header_name(s) {
+            Some(header_name) => Ok(header_name),
+            None => {
+                if !s.is_ascii() {
+                    return Err(InvalidHeaderName(s.to_owned()));
+                }
+
+                Ok(HeaderName(Cow::Borrowed(s)))
+            }
+        }
+    }
+
+    pub fn from_checked_string(s: String) -> Result<Self, InvalidHeaderName> {
         match get_header_name(&s) {
-            Some(header_name) => header_name,
-            None => HeaderName(Cow::Owned(s)),
+            Some(header_name) => Ok(header_name),
+            None => {
+                if !s.is_ascii() {
+                    return Err(InvalidHeaderName(s.to_owned()));
+                }
+
+                Ok(HeaderName(Cow::Owned(s)))
+            }
         }
     }
 

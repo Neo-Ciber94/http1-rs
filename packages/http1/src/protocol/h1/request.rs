@@ -101,6 +101,13 @@ fn read_request_body<R: Read + Send + 'static>(
 
 fn read_request_line(buf: &str) -> std::io::Result<(Method, Uri, Version)> {
     let str = buf.trim();
+
+    if !str.is_ascii() {
+        return Err(std::io::Error::other(format!(
+            "invalid request line, expected ascii string but was: {str:?}"
+        )));
+    }
+
     let mut parts = str.splitn(3, " ");
 
     let method = parts
@@ -138,9 +145,9 @@ pub(crate) fn read_headers<R: Read>(
             break;
         }
 
-        if let Some((key, values)) = parse_header_line(line) {
+        if let Some((name, values)) = parse_header_line(line) {
             values.into_iter().for_each(|v| {
-                headers.append(HeaderName::from(key), v);
+                headers.append(HeaderName::from(name), v);
             })
         }
 
