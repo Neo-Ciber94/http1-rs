@@ -138,6 +138,10 @@ impl<'a> AsciiStr<'a> {
         }
     }
 
+    pub fn from_string(s: &'a String) -> Result<Self, InvalidAsciiStr> {
+        Self::new(s.as_str())
+    }
+
     pub fn into_string(self) -> String {
         self.0.to_owned()
     }

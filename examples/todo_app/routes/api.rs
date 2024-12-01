@@ -27,7 +27,11 @@ macro_rules! tri {
         match $body {
             Err(err) if err.is::<ValidationError>() => {
                 let err = err.downcast::<ValidationError>().unwrap();
-                res.headers_mut().insert(headers::LOCATION, $location);
+                res.headers_mut().insert(
+                    headers::LOCATION,
+                    headers::HeaderValue::try_from($location).unwrap(),
+                );
+
                 if let Err(err) = set_flash_message(&mut res, AlertKind::Error, err.to_string()) {
                     return Err(err.into());
                 }
@@ -196,13 +200,15 @@ fn set_flash_message<B>(
     kind: AlertKind,
     message: impl Into<String>,
 ) -> Result<(), BoxError> {
+    use http1::headers::HeaderValue;
+
     let json = serde::json::to_string(&AlertProps::new(message, kind))?;
-    res.headers_mut().insert(
-        headers::SET_COOKIE,
-        Cookie::new(COOKIE_FLASH_MESSAGE, json)
-            .max_age(1)
-            .build()
-            .to_string(),
-    );
+    let cookie = Cookie::new(COOKIE_FLASH_MESSAGE, json)
+        .max_age(1)
+        .build()
+        .to_string();
+
+    res.headers_mut()
+        .insert(headers::SET_COOKIE, HeaderValue::from_string(cookie));
     Ok(())
 }
