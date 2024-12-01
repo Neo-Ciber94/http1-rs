@@ -24,11 +24,11 @@ pub trait FromRequest: Sized {
     ///
     /// # Parameters
     /// - `req`: The request (without the body or extensions)
-    /// - `extensions`: The request extensions
     /// - `payload`: The body
     fn from_request(req: &Request<()>, payload: &mut Payload) -> Result<Self, Self::Rejection>;
 
-    fn from_request_raw(req: Request<Body>) -> Result<Self, Self::Rejection> {
+    /// Creates this value using the request.
+    fn from_whole_request(req: Request<Body>) -> Result<Self, Self::Rejection> {
         let (req, body) = req.drop_body();
         Self::from_request(&req, &mut Payload::Data(body))
     }

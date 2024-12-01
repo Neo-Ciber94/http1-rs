@@ -45,7 +45,7 @@ impl BoxedHandler {
         R: IntoResponse,
     {
         BoxedHandler {
-            inner: Arc::new(move |req| match Args::from_request_raw(req) {
+            inner: Arc::new(move |req| match Args::from_whole_request(req) {
                 Ok(args) => {
                     let result = handler.call(args);
                     result.into_response()
