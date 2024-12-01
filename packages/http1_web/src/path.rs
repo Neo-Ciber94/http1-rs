@@ -55,7 +55,6 @@ impl<T: Deserialize> FromRequest for Path<T> {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let params_map = req

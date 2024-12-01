@@ -149,8 +149,8 @@ where
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let (req, mut extensions, mut payload) = crate::from_request::split_request(req);
-        let route_info = RouteInfo::from_request(&req, &mut extensions, &mut payload).unwrap();
+        let (req, mut payload) = crate::from_request::split_request(req);
+        let route_info = RouteInfo::from_request(&req, &mut payload).unwrap();
         let req_path = req.uri().path_and_query().path();
         let route = get_route(route_info, req_path);
         let mut serve_path = self.root.join(&route);
@@ -172,13 +172,13 @@ where
             if self.list_directory {
                 return list_directory_html(req_path, &serve_path).into_response();
             } else {
-                let req = crate::from_request::join_request(req, extensions, payload);
+                let req = crate::from_request::join_request(req, payload);
                 return self.fallback.call(req);
             }
         }
 
         if !serve_path.exists() {
-            let req = crate::from_request::join_request(req, extensions, payload);
+            let req = crate::from_request::join_request(req, payload);
             return self.fallback.call(req);
         }
 

@@ -32,11 +32,11 @@ impl FromRequest for RouteInfo {
     type Rejection = Infallible;
 
     fn from_request(
-        _req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
+        req: &http1::request::Request<()>,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        Ok(extensions
+        Ok(req
+            .extensions()
             .get::<RouteInfo>()
             .cloned()
             .expect("failed to get request RouteInfo"))

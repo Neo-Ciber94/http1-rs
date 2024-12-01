@@ -34,7 +34,6 @@ impl<T: FromConnectionInfo> FromRequest for ConnectionInfo<T> {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         match req.extensions().get::<Connected>() {

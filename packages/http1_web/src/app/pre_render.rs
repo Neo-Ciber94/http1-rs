@@ -73,10 +73,9 @@ impl FromRequest for PreRendering {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        match extensions.get::<PreRenderId>().cloned() {
+        match req.extensions().get::<PreRenderId>().cloned() {
             Some(PreRenderId(id)) => {
                 let is_pre_rendering = req
                     .headers()

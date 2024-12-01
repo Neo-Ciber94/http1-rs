@@ -40,15 +40,12 @@ impl FromRequest for ClientIp {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         match get_ip_from_headers(req.headers()) {
             Some(inner) => Ok(ClientIp(inner)),
             None => {
-                if let Ok(conn) =
-                    ConnectionInfo::<SocketAddr>::from_request(req, extensions, payload)
-                {
+                if let Ok(conn) = ConnectionInfo::<SocketAddr>::from_request(req, payload) {
                     return Ok(ClientIp(Inner::Ip(conn.ip())));
                 }
 

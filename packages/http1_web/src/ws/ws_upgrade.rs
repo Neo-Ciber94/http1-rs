@@ -133,7 +133,6 @@ impl FromRequest for WebSocketUpgrade {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         // Parsing the websocket according to:
@@ -194,13 +193,18 @@ impl FromRequest for WebSocketUpgrade {
             );
         }
 
-        let pending = extensions.remove::<PendingUpgrade>().ok_or_else(|| {
-            WebSocketUpgradeError::Other(
-                String::from("Failed to get connection upgrade stream").into(),
-            )
-        })?;
+        let pending = req
+            .extensions()
+            .get::<PendingUpgrade>()
+            .cloned()
+            .ok_or_else(|| {
+                WebSocketUpgradeError::Other(
+                    String::from("Failed to get connection upgrade stream").into(),
+                )
+            })?;
 
-        let config = extensions
+        let config = req
+            .extensions()
             .get::<State<WebSocketConfig>>()
             .cloned()
             .map(|x| x.into_inner());

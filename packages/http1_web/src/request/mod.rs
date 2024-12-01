@@ -15,19 +15,17 @@ impl RequestExt for Request<Body> {
     where
         U: FromRequest,
     {
-        // Butcher the request
+        // Split the request in parts
         let body = std::mem::take(self.body_mut());
         let parts = std::mem::take(self.parts_mut());
-        let mut extensions = std::mem::take(self.extensions_mut());
         let mut payload = Payload::Data(body);
+
+        // Extract the value
         let req = Request::from_parts(parts, ());
+        let value = U::from_request(&req, &mut payload)?;
 
-        let value = U::from_request(&req, &mut extensions, &mut payload)?;
-
-        // Restore the request again
-        let (_, mut parts) = req.into_parts();
-        parts.extensions = extensions;
-
+        // Restore request
+        let (_, parts) = req.into_parts();
         *self.parts_mut() = parts;
         *self.body_mut() = payload.take().unwrap_or_default();
 

@@ -16,7 +16,7 @@ use super::{
 };
 
 /// Request parts.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parts {
     pub headers: Headers,
     pub method: Method,

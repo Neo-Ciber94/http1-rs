@@ -84,7 +84,6 @@ impl<T: Deserialize> FromRequest for Form<T> {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let headers = req.headers();

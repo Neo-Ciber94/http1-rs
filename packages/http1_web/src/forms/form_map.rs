@@ -86,10 +86,9 @@ impl FromRequest for FormMap {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let mut form_data = FormData::from_request(req, extensions, payload)?;
+        let mut form_data = FormData::from_request(req, payload)?;
         let mut map = HashMap::new();
 
         loop {

@@ -240,7 +240,6 @@ impl<T: Deserialize> FromRequest for Query<T> {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let query_map = req.uri().path_and_query().query_map();

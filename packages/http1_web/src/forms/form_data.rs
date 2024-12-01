@@ -509,7 +509,6 @@ impl FromRequest for FormData {
 
     fn from_request(
         req: &Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         fn get_form_data_config(exts: &Extensions) -> FormDataConfig {
@@ -529,7 +528,7 @@ impl FromRequest for FormData {
             }
         }
 
-        let config = get_form_data_config(extensions);
+        let config = get_form_data_config(req.extensions());
         let headers = req.headers();
         let content_type = headers
             .get(headers::CONTENT_TYPE)
@@ -706,12 +705,7 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(s)),
-        )
-        .unwrap();
+        let mut form_data = FormData::from_request(&req, &mut Payload::Data(Body::new(s))).unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -758,12 +752,7 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(s)),
-        )
-        .unwrap();
+        let mut form_data = FormData::from_request(&req, &mut Payload::Data(Body::new(s))).unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -815,12 +804,7 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(s)),
-        )
-        .unwrap();
+        let mut form_data = FormData::from_request(&req, &mut Payload::Data(Body::new(s))).unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -885,12 +869,8 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(content)),
-        )
-        .unwrap();
+        let mut form_data =
+            FormData::from_request(&req, &mut Payload::Data(Body::new(content))).unwrap();
 
         {
             let field = form_data.next_field().unwrap().unwrap();
@@ -934,12 +914,8 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(form_data)),
-        )
-        .unwrap();
+        let mut form_data =
+            FormData::from_request(&req, &mut Payload::Data(Body::new(form_data))).unwrap();
 
         let field = form_data.next_field().unwrap().unwrap();
         assert_eq!(field.name(), "binary_field");
@@ -983,12 +959,8 @@ mod tests {
         let mut extensions = Extensions::new();
         extensions.extend(app_state.clone());
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut extensions,
-            &mut Payload::Data(Body::new(form_data)),
-        )
-        .unwrap();
+        let mut form_data =
+            FormData::from_request(&req, &mut Payload::Data(Body::new(form_data))).unwrap();
 
         let field = form_data.next_field().unwrap().unwrap();
         assert_eq!(field.name(), "binary_field");
@@ -1026,12 +998,8 @@ mod tests {
 
         req.extensions_mut().insert(Arc::new(app_state));
 
-        let mut form_data = FormData::from_request(
-            &req,
-            &mut Extensions::new(),
-            &mut Payload::Data(Body::new(form_data)),
-        )
-        .unwrap();
+        let mut form_data =
+            FormData::from_request(&req, &mut Payload::Data(Body::new(form_data))).unwrap();
 
         let field1 = form_data.next_field();
         assert!(field1.is_ok());

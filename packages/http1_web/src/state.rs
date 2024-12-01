@@ -57,11 +57,10 @@ impl<T: Clone + Send + Sync + 'static> FromRequest for State<T> {
     type Rejection = AppStateError<T>;
 
     fn from_request(
-        _req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
+        req: &http1::request::Request<()>,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        extensions
+        req.extensions()
             .get::<State<T>>()
             .cloned()
             .ok_or(AppStateError(PhantomData))

@@ -48,7 +48,6 @@ impl<T: Deserialize> FromRequest for Json<T> {
 
     fn from_request(
         _req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         if payload.is_empty() {

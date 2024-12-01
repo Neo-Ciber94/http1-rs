@@ -33,10 +33,9 @@ impl FromRequest for AuthenticatedUser {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        extensions: &mut http1::extensions::Extensions,
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
-        let State(db) = State::<KeyValueDatabase>::from_request(req, extensions, payload)
+        let State(db) = State::<KeyValueDatabase>::from_request(req, payload)
             .inspect_err(|err| {
                 log::error!("Failed to get database: {err}");
             })

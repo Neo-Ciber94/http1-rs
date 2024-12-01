@@ -79,7 +79,6 @@ impl<H: FromHeaders> FromRequest for GetHeader<H> {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let header = H::from_headers(req.headers())?;

@@ -529,7 +529,6 @@ impl FromRequest for Cookies {
 
     fn from_request(
         req: &http1::request::Request<()>,
-        _extensions: &mut http1::extensions::Extensions,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         Cookies::from_headers(req.headers())
