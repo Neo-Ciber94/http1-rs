@@ -35,6 +35,7 @@ impl FromRequest for RouteInfo {
         req: &http1::request::Request<()>,
         _payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
+        // `RouteInfo`` should always be available if is not its a bug
         Ok(req
             .extensions()
             .get::<RouteInfo>()
