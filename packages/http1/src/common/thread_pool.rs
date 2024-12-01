@@ -247,7 +247,7 @@ impl<'a> Drop for Watchdog<'a> {
         }
 
         log::error!(
-            "thread `{:?}` panicked, spawning new worker",
+            "thread `{:?}` panicked, spawning a new worker",
             std::thread::current()
         );
 
