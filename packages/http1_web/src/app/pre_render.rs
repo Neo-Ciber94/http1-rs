@@ -14,7 +14,7 @@ use http1::{
     client::Client,
     common::uuid::Uuid,
     error::BoxError,
-    headers::{self, HeaderName},
+    headers::{self, HeaderName, HeaderValue},
     method::Method,
     response::Response,
     server::Server,
@@ -191,7 +191,10 @@ fn pre_render_routes<'a>(
 ) -> Result<(), BoxError> {
     let client = Arc::new(
         Client::builder()
-            .insert_default_header((*HEADER_PRE_RENDER).clone(), pre_render_id.clone())
+            .insert_default_header(
+                (*HEADER_PRE_RENDER).clone(),
+                HeaderValue::try_from(pre_render_id.clone())?,
+            )
             .read_timeout(Some(Duration::from_millis(5000)))
             .build(),
     );

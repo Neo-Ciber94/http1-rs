@@ -3,7 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use http1::{body::Body, headers, request::Request, response::Response, status::StatusCode};
+use http1::{
+    body::Body,
+    headers::{self, HeaderValue},
+    request::Request,
+    response::Response,
+    status::StatusCode,
+};
 
 use crate::{handler::Handler, mime::Mime, IntoResponse};
 
@@ -57,7 +63,10 @@ fn create_file_response(file_path: &Path) -> Response<Body> {
             let body = Body::new(reader);
 
             Response::builder()
-                .insert_header(headers::CONTENT_TYPE, mime.to_string())
+                .insert_header(
+                    headers::CONTENT_TYPE,
+                    HeaderValue::from_string(mime.to_string()),
+                )
                 .body(body)
         }
         Err(err) if err.kind() == ErrorKind::NotFound => StatusCode::NOT_FOUND.into_response(),

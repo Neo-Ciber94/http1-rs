@@ -349,7 +349,7 @@ declare_mime_types! {
 
 impl From<Mime> for HeaderValue {
     fn from(value: Mime) -> Self {
-        HeaderValue::from(value.to_string())
+        HeaderValue::from_string(value.to_string())
     }
 }
 

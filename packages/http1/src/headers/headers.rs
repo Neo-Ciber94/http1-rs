@@ -96,8 +96,12 @@ impl Headers {
         key.find(self).is_some()
     }
 
-    pub fn insert(&mut self, key: HeaderName, value: HeaderValue) -> Option<HeaderValue> {
-        let value = NonEmptyList::single(value);
+    pub fn insert(
+        &mut self,
+        key: HeaderName,
+        value: impl Into<HeaderValue>,
+    ) -> Option<HeaderValue> {
+        let value = NonEmptyList::single(value.into());
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -111,7 +115,7 @@ impl Headers {
         }
     }
 
-    pub fn append(&mut self, key: HeaderName, value: HeaderValue) -> bool {
+    pub fn append(&mut self, key: HeaderName, value: impl Into<HeaderValue>) -> bool {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -119,7 +123,7 @@ impl Headers {
                 true
             }
             None => {
-                let value = NonEmptyList::single(value);
+                let value = NonEmptyList::single(value.into());
                 self.entries.push(HeaderEntry { key, value });
                 false
             }

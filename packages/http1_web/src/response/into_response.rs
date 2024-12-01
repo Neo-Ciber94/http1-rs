@@ -4,7 +4,7 @@ use http1::{
     body::Body,
     common::any_map::AnyMap,
     error::BoxError,
-    headers::{self, Headers},
+    headers::{self, HeaderValue, Headers},
     response::Response,
     status::StatusCode,
 };
@@ -28,7 +28,10 @@ impl<T: Into<Body>> IntoResponse for Response<T> {
 impl<'a> IntoResponse for &'a str {
     fn into_response(self) -> Response<Body> {
         Response::builder()
-            .insert_header(headers::CONTENT_TYPE, "text/plain")
+            .insert_header(
+                headers::CONTENT_TYPE,
+                HeaderValue::from_static("text/plain"),
+            )
             .body(self.into())
     }
 }
@@ -48,7 +51,10 @@ impl<'a> IntoResponse for Cow<'a, str> {
 impl<'a> IntoResponse for &'a [u8] {
     fn into_response(self) -> Response<Body> {
         Response::builder()
-            .insert_header(headers::CONTENT_TYPE, "application/octet-stream")
+            .insert_header(
+                headers::CONTENT_TYPE,
+                HeaderValue::from_static("application/octet-stream"),
+            )
             .body(self.into())
     }
 }

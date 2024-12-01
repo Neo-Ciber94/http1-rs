@@ -3,7 +3,12 @@ use std::{
     time::Duration,
 };
 
-use http1::{body::Body, headers, request::Request, status::StatusCode};
+use http1::{
+    body::Body,
+    headers::{self, HeaderValue},
+    request::Request,
+    status::StatusCode,
+};
 
 use crate::{
     cookies::{Cookie, Cookies},
@@ -142,9 +147,10 @@ impl<S: SessionStore> Middleware for SessionProvider<S> {
                 .max_age(self.max_age)
                 .build();
 
-            response
-                .headers_mut()
-                .append(headers::SET_COOKIE, cookie.to_string());
+            response.headers_mut().append(
+                headers::SET_COOKIE,
+                HeaderValue::from_string(cookie.to_string()),
+            );
         }
 
         // If the session is destroyed or expired, destroy it

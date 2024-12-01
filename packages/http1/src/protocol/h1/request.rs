@@ -149,7 +149,8 @@ pub(crate) fn read_headers<R: Read>(
             values
                 .into_iter()
                 .try_for_each::<_, Result<(), std::io::Error>>(|v| {
-                    let key = HeaderName::try_from(name.to_owned()).map_err(std::io::Error::other)?;
+                    let key =
+                        HeaderName::try_from(name.to_owned()).map_err(std::io::Error::other)?;
                     let value = HeaderValue::try_from(v).map_err(std::io::Error::other)?;
                     headers.append(key, value);
                     Ok(())

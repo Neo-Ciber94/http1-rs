@@ -7,7 +7,7 @@ use std::{
 
 use http1::{
     body::Body,
-    headers::{self, HeaderName},
+    headers::{self, HeaderName, HeaderValue},
     method::Method,
     request::Request,
     response::Response,
@@ -131,75 +131,84 @@ impl Middleware for Cors {
 
             match &this.allowed_origins {
                 CorsOrigin::Any => {
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        HeaderValue::from_static("*"),
+                    );
                 }
                 CorsOrigin::List(list) => {
                     let origins = get_comma_separated_list(list);
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_ORIGIN, origins);
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        HeaderValue::from_string(origins),
+                    );
                 }
                 CorsOrigin::Dynamic(f) => {
                     let list = f(req);
                     let origins = get_comma_separated_list(&list);
 
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_ORIGIN, origins);
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        HeaderValue::from_string(origins),
+                    );
                 }
             }
 
             match &this.allowed_methods {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_METHODS, "*");
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_METHODS,
+                        HeaderValue::from_static("*"),
+                    );
                 }
                 CorsValue::List(list) => {
                     let methods = get_comma_separated_list(list);
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_METHODS, methods);
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_METHODS,
+                        HeaderValue::from_string(methods),
+                    );
                 }
             }
 
             match &this.allowed_headers {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_HEADERS, "*");
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_HEADERS,
+                        HeaderValue::from_static("*"),
+                    );
                 }
                 CorsValue::List(list) => {
                     let headers = get_comma_separated_list(list);
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_ALLOW_HEADERS, headers);
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_ALLOW_HEADERS,
+                        HeaderValue::from_string(headers),
+                    );
                 }
             }
 
             match &this.expose_headers {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_EXPOSE_HEADERS, "*");
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_EXPOSE_HEADERS,
+                        HeaderValue::from_static("*"),
+                    );
                 }
                 CorsValue::List(list) => {
                     let headers = get_comma_separated_list(list);
-                    response
-                        .headers_mut()
-                        .insert(headers::ACCESS_CONTROL_EXPOSE_HEADERS, headers);
+                    response.headers_mut().insert(
+                        headers::ACCESS_CONTROL_EXPOSE_HEADERS,
+                        HeaderValue::from_string(headers),
+                    );
                 }
             }
 
             if let Some(allow_credentials) = this.allow_credentials {
                 response.headers_mut().insert(
                     headers::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                    if allow_credentials { "true" } else { "false" },
+                    HeaderValue::from_static(if allow_credentials { "true" } else { "false" }),
                 );
             }
 

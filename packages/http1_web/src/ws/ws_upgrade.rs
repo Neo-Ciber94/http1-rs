@@ -3,7 +3,7 @@ use std::fmt::Display;
 use http1::{
     body::Body,
     error::BoxError,
-    headers,
+    headers::{self, HeaderValue},
     method::Method,
     protocol::upgrade::{PendingUpgrade, PendingUpgradeError},
     response::Response,
@@ -59,9 +59,12 @@ impl WebSocketUpgrade {
 
         let response = Response::builder()
             .status(StatusCode::SWITCHING_PROTOCOLS)
-            .insert_header(headers::UPGRADE, "websocket")
-            .insert_header(headers::CONNECTION, "upgrade")
-            .insert_header(headers::SEC_WEBSOCKET_ACCEPT, accept_key)
+            .insert_header(headers::UPGRADE, HeaderValue::from_static("websocket"))
+            .insert_header(headers::CONNECTION, HeaderValue::from_static("upgrade"))
+            .insert_header(
+                headers::SEC_WEBSOCKET_ACCEPT,
+                HeaderValue::from_string(accept_key),
+            )
             .body(Body::empty());
 
         let pending = PendingWebSocketUpgrade { pending, config };

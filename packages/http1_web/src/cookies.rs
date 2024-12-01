@@ -2,7 +2,7 @@ use std::{convert::Infallible, fmt::Display, str::FromStr};
 
 use http1::{
     body::Body,
-    headers::{self, Headers},
+    headers::{self, HeaderValue, Headers},
     response::Response,
     status::StatusCode,
     uri::url_encoding::{self, Alphabet},
@@ -350,8 +350,10 @@ impl IntoResponseParts for Cookie {
         self,
         mut res: crate::ResponseParts,
     ) -> Result<crate::ResponseParts, Self::Err> {
-        res.headers_mut()
-            .append(headers::SET_COOKIE, self.to_string());
+        res.headers_mut().append(
+            headers::SET_COOKIE,
+            HeaderValue::from_string(self.to_string()),
+        );
         Ok(res)
     }
 }
@@ -359,9 +361,10 @@ impl IntoResponseParts for Cookie {
 impl IntoResponse for Cookie {
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         let mut response = Response::new(StatusCode::OK, Body::empty());
-        response
-            .headers_mut()
-            .append(headers::SET_COOKIE, self.to_string());
+        response.headers_mut().append(
+            headers::SET_COOKIE,
+            HeaderValue::from_string(self.to_string()),
+        );
         response
     }
 }
@@ -485,7 +488,10 @@ impl Extend<Cookie> for Headers {
     fn extend<T: IntoIterator<Item = Cookie>>(&mut self, iter: T) {
         // Set any new cookies
         for cookie in iter {
-            self.append(headers::SET_COOKIE, cookie.to_string());
+            self.append(
+                headers::SET_COOKIE,
+                HeaderValue::from_string(cookie.to_string()),
+            );
         }
     }
 }

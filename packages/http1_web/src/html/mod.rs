@@ -1,4 +1,7 @@
-use http1::{headers::CONTENT_TYPE, response::Response};
+use http1::{
+    headers::{HeaderValue, CONTENT_TYPE},
+    response::Response,
+};
 
 use crate::IntoResponse;
 
@@ -23,7 +26,7 @@ where
     fn into_response(self) -> http1::response::Response<http1::body::Body> {
         let body = self.0.into();
         Response::builder()
-            .insert_header(CONTENT_TYPE, "text/html")
+            .insert_header(CONTENT_TYPE, HeaderValue::from_static("text/html"))
             .body(body.into())
     }
 }

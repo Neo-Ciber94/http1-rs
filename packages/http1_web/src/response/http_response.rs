@@ -45,20 +45,23 @@ where
     /// Appends a header to the `HttpResponse`, adding another header if it
     /// already exists.
     pub fn append_header(mut self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.0.headers_mut().append(name, value);
+        self.0.headers_mut().append(name, value.into());
         self
     }
 
     /// Inserts a header into the `HttpResponse`, replacing the existing one if
     /// it already exists.
     pub fn insert_header(mut self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.0.headers_mut().insert(name, value);
+        self.0.headers_mut().insert(name, value.into());
         self
     }
 
     /// Sets a cookie header in the `HttpResponse`.
     pub fn set_cookie(self, cookie: impl Into<Cookie>) -> Self {
-        self.append_header(headers::SET_COOKIE, cookie.into().to_string())
+        self.append_header(
+            headers::SET_COOKIE,
+            HeaderValue::from_string(cookie.into().to_string()),
+        )
     }
 
     /// Maps the body of the `HttpResponse` to a different type.
@@ -84,18 +87,19 @@ impl HttpResponse<()> {
     /// Creates a `HttpResponse` with a 301 Moved Permanently status and `Location` header.
     pub fn moved_permanently(location: impl Into<String>) -> Self {
         HttpResponse::new(StatusCode::MOVED_PERMANENTLY, ())
-            .insert_header(headers::LOCATION, location.into())
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location.into()))
     }
 
     /// Creates a `HttpResponse` with a 302 Found status and `Location` header.
     pub fn found(location: impl Into<String>) -> Self {
-        HttpResponse::new(StatusCode::FOUND, ()).insert_header(headers::LOCATION, location.into())
+        HttpResponse::new(StatusCode::FOUND, ())
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location.into()))
     }
 
     /// Creates a `HttpResponse` with a 303 See Other status and `Location` header.
     pub fn see_other(location: impl Into<String>) -> Self {
         HttpResponse::new(StatusCode::SEE_OTHER, ())
-            .insert_header(headers::LOCATION, location.into())
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location.into()))
     }
 
     /// Creates a `HttpResponse` with a 304 Not Modified status.
@@ -106,13 +110,13 @@ impl HttpResponse<()> {
     /// Creates a `HttpResponse` with a 307 Temporary Redirect status and `Location` header.
     pub fn temporary_redirect(location: impl Into<String>) -> Self {
         HttpResponse::new(StatusCode::TEMPORARY_REDIRECT, ())
-            .insert_header(headers::LOCATION, location.into())
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location.into()))
     }
 
     /// Creates a `HttpResponse` with a 308 Permanent Redirect status and `Location` header.
     pub fn permanent_redirect(location: impl Into<String>) -> Self {
         HttpResponse::new(StatusCode::PERMANENT_REDIRECT, ())
-            .insert_header(headers::LOCATION, location.into())
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location.into()))
     }
 }
 

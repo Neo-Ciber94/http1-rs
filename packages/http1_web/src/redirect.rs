@@ -1,4 +1,9 @@
-use http1::{body::Body, headers, response::Response, status::StatusCode};
+use http1::{
+    body::Body,
+    headers::{self, HeaderValue},
+    response::Response,
+    status::StatusCode,
+};
 
 use crate::IntoResponse;
 
@@ -158,7 +163,7 @@ impl IntoResponse for Redirect {
         let location = self.location;
 
         Response::builder()
-            .insert_header(headers::LOCATION, location)
+            .insert_header(headers::LOCATION, HeaderValue::from_string(location))
             .status(status_code)
             .body(Body::empty())
     }

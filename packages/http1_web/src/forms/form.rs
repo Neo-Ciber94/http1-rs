@@ -3,7 +3,7 @@ use std::fmt::Display;
 use http1::{
     body::http_body::HttpBody,
     error::BoxError,
-    headers,
+    headers::{self, HeaderValue},
     response::Response,
     status::StatusCode,
     uri::{
@@ -191,7 +191,10 @@ impl<T: Serialize> IntoResponse for Form<T> {
                 let s = QueryMap::new(map).to_string();
                 let body = s.into();
                 Response::builder()
-                    .append_header(headers::CONTENT_TYPE, WWW_FORM_URLENCODED)
+                    .append_header(
+                        headers::CONTENT_TYPE,
+                        HeaderValue::from_static(WWW_FORM_URLENCODED),
+                    )
                     .body(body)
             }
             Err(err) => {

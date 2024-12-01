@@ -18,7 +18,12 @@ use crate::{
 };
 use datetime::DateTime;
 use http1::{
-    body::Body, headers, method::Method, request::Request, response::Response, status::StatusCode,
+    body::Body,
+    headers::{self, HeaderValue},
+    method::Method,
+    request::Request,
+    response::Response,
+    status::StatusCode,
 };
 
 pub struct DefaultServeDirFallback;
@@ -183,13 +188,16 @@ where
             Ok(file) => {
                 let reader = BufReader::new(file);
                 let mut res = Response::builder()
-                    .append_header(headers::CONTENT_TYPE, mime.to_string())
+                    .append_header(
+                        headers::CONTENT_TYPE,
+                        HeaderValue::from_string(mime.to_string()),
+                    )
                     .body(Body::new(reader));
 
                 if self.use_cache_headers {
                     res.headers_mut().insert(
                         headers::CACHE_CONTROL,
-                        String::from("public, max-age=604800, immutable"),
+                        HeaderValue::from_static("public, max-age=604800, immutable"),
                     );
                 }
 
