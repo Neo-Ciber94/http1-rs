@@ -143,7 +143,7 @@ impl<'a> AsciiStr<'a> {
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
+        self.0
     }
 }
 
@@ -151,7 +151,7 @@ impl<'a> Deref for AsciiStr<'a> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0
     }
 }
 

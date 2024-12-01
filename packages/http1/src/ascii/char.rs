@@ -158,6 +158,7 @@ declare_ascii_char!(AsciiChar => {
     Delete = 127
 });
 
+#[allow(clippy::derivable_impls)]
 impl Default for AsciiChar {
     fn default() -> Self {
         AsciiChar::Null
