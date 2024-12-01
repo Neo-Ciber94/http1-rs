@@ -96,12 +96,8 @@ impl Headers {
         key.find(self).is_some()
     }
 
-    pub fn insert(
-        &mut self,
-        key: HeaderName,
-        value: impl Into<HeaderValue>,
-    ) -> Option<HeaderValue> {
-        let value = NonEmptyList::single(value.into());
+    pub fn insert(&mut self, key: HeaderName, value: HeaderValue) -> Option<HeaderValue> {
+        let value = NonEmptyList::single(value);
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -115,7 +111,7 @@ impl Headers {
         }
     }
 
-    pub fn append(&mut self, key: HeaderName, value: impl Into<HeaderValue>) -> bool {
+    pub fn append(&mut self, key: HeaderName, value: HeaderValue) -> bool {
         match key.find(self) {
             Some(idx) => {
                 let entry = &mut self.entries[idx];
@@ -123,7 +119,7 @@ impl Headers {
                 true
             }
             None => {
-                let value = NonEmptyList::single(value.into());
+                let value = NonEmptyList::single(value);
                 self.entries.push(HeaderEntry { key, value });
                 false
             }
@@ -345,8 +341,14 @@ mod tests {
     #[test]
     fn should_insert() {
         let mut headers = Headers::new();
-        headers.insert("Accept".into(), "application/json");
-        headers.insert("Content Length".into(), "120");
+        headers.insert(
+            "Accept".try_into().unwrap(),
+            HeaderValue::from_static("application/json"),
+        );
+        headers.insert(
+            "Content Length".try_into().unwrap(),
+            HeaderValue::from_static("120"),
+        );
 
         assert_eq!(headers.len(), 2)
     }
@@ -354,44 +356,59 @@ mod tests {
     #[test]
     fn should_be_case_insensitive() {
         let mut headers = Headers::new();
-        headers.insert("abc".into(), "1");
-        headers.insert("xyz".into(), "2");
-        headers.insert("JKL".into(), "3");
+        headers.insert("abc".try_into().unwrap(), HeaderValue::from_static("1"));
+        headers.insert("xyz".try_into().unwrap(), HeaderValue::from_static("2"));
+        headers.insert("JKL".try_into().unwrap(), HeaderValue::from_static("3"));
 
-        assert_eq!(headers.get("ABC"), Some(&HeaderValue::from("1")));
-        assert_eq!(headers.get("XyZ"), Some(&HeaderValue::from("2")));
-        assert_eq!(headers.get("jKl"), Some(&HeaderValue::from("3")));
+        assert_eq!(headers.get("ABC"), Some(&HeaderValue::from_static("1")));
+        assert_eq!(headers.get("XyZ"), Some(&HeaderValue::from_static("2")));
+        assert_eq!(headers.get("jKl"), Some(&HeaderValue::from_static("3")));
     }
 
     #[test]
     fn should_get_mut() {
         let mut headers = Headers::new();
-        headers.insert("Accept".into(), "hello");
-        *headers.get_mut("accept").unwrap() = HeaderValue::from("hello-world");
+        headers.insert(
+            "Accept".try_into().unwrap(),
+            HeaderValue::from_static("hello"),
+        );
+        *headers.get_mut("accept").unwrap() = HeaderValue::from_static("hello-world");
 
         assert_eq!(
             headers.get("accept"),
-            Some(&HeaderValue::from("hello-world"))
+            Some(&HeaderValue::from_static("hello-world"))
         );
     }
 
     #[test]
     fn should_get_all() {
         let mut headers = Headers::new();
-        headers.append("Fruits".into(), "apple");
-        headers.append("Fruits".into(), "strawberry");
-        headers.append("Fruits".into(), "banana");
+        headers.append(
+            "Fruits".try_into().unwrap(),
+            HeaderValue::from_static("apple"),
+        );
+        headers.append(
+            "Fruits".try_into().unwrap(),
+            HeaderValue::from_static("strawberry"),
+        );
+        headers.append(
+            "Fruits".try_into().unwrap(),
+            HeaderValue::from_static("banana"),
+        );
 
-        assert_eq!(headers.get("fruits"), Some(&HeaderValue::from("apple")));
+        assert_eq!(
+            headers.get("fruits"),
+            Some(&HeaderValue::from_static("apple"))
+        );
         assert_eq!(
             headers
                 .get_all("fruits")
                 .cloned()
                 .collect::<Vec<HeaderValue>>(),
             vec![
-                HeaderValue::from("apple"),
-                HeaderValue::from("strawberry"),
-                HeaderValue::from("banana")
+                HeaderValue::from_static("apple"),
+                HeaderValue::from_static("strawberry"),
+                HeaderValue::from_static("banana")
             ]
         );
     }
@@ -399,48 +416,69 @@ mod tests {
     #[test]
     fn should_replace_existing_on_insert() {
         let mut headers = Headers::new();
-        headers.insert("Accept".into(), "text/html");
-        headers.insert("Accept-Encoding".into(), "gzip");
+        headers.insert(
+            "Accept".try_into().unwrap(),
+            HeaderValue::from_static("text/html"),
+        );
+        headers.insert(
+            "Accept-Encoding".try_into().unwrap(),
+            HeaderValue::from_static("gzip"),
+        );
 
-        headers.insert("accept".into(), "text/plain");
-        headers.insert("accept-encoding".into(), "br");
+        headers.insert(
+            "accept".try_into().unwrap(),
+            HeaderValue::from_static("text/plain"),
+        );
+        headers.insert(
+            "accept-encoding".try_into().unwrap(),
+            HeaderValue::from_static("br"),
+        );
 
         assert_eq!(
             headers.get("accept"),
-            Some(&HeaderValue::from("text/plain"))
+            Some(&HeaderValue::from_static("text/plain"))
         );
         assert_eq!(
             headers.get("accept-encoding"),
-            Some(&HeaderValue::from("br"))
+            Some(&HeaderValue::from_static("br"))
         )
     }
 
     #[test]
     fn should_remove() {
         let mut headers = Headers::new();
-        headers.insert("abc".into(), "1");
-        headers.insert("xyz".into(), "2");
-        headers.insert("JKL".into(), "3");
+        headers.insert("abc".try_into().unwrap(), HeaderValue::from_static("1"));
+        headers.insert("xyz".try_into().unwrap(), HeaderValue::from_static("2"));
+        headers.insert("JKL".try_into().unwrap(), HeaderValue::from_static("3"));
 
-        assert_eq!(headers.remove("abc"), Some(HeaderValue::from("1")));
+        assert_eq!(headers.remove("abc"), Some(HeaderValue::from_static("1")));
         assert_eq!(headers.remove("abc"), None);
 
-        assert_eq!(headers.remove("xYz"), Some(HeaderValue::from("2")));
+        assert_eq!(headers.remove("xYz"), Some(HeaderValue::from_static("2")));
         assert_eq!(headers.remove("xYz"), None);
 
-        assert_eq!(headers.remove("jKL"), Some(HeaderValue::from("3")));
+        assert_eq!(headers.remove("jKL"), Some(HeaderValue::from_static("3")));
         assert_eq!(headers.remove("jKL"), None);
     }
 
     #[test]
     fn should_iter_over_all_entries() {
         let mut headers = Headers::new();
-        headers.append("numbers".into(), "1");
-        headers.append("numbers".into(), "2");
-        headers.append("numbers".into(), "3");
-        headers.append("fruits".into(), "apple");
-        headers.append("fruits".into(), "strawberry");
-        headers.append("food".into(), "pizza");
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("1"));
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("2"));
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("3"));
+        headers.append(
+            "fruits".try_into().unwrap(),
+            HeaderValue::from_static("apple"),
+        );
+        headers.append(
+            "fruits".try_into().unwrap(),
+            HeaderValue::from_static("strawberry"),
+        );
+        headers.append(
+            "food".try_into().unwrap(),
+            HeaderValue::from_static("pizza"),
+        );
 
         let mut iter = headers.iter();
 
@@ -449,9 +487,9 @@ mod tests {
         assert_eq!(
             numbers.cloned().collect::<Vec<HeaderValue>>(),
             vec![
-                HeaderValue::from("1"),
-                HeaderValue::from("2"),
-                HeaderValue::from("3")
+                HeaderValue::from_static("1"),
+                HeaderValue::from_static("2"),
+                HeaderValue::from_static("3")
             ]
         );
 
@@ -459,14 +497,17 @@ mod tests {
         assert_eq!(fruits_name.as_str(), "fruits");
         assert_eq!(
             fruits.cloned().collect::<Vec<HeaderValue>>(),
-            vec![HeaderValue::from("apple"), HeaderValue::from("strawberry")]
+            vec![
+                HeaderValue::from_static("apple"),
+                HeaderValue::from_static("strawberry")
+            ]
         );
 
         let (food_name, foods) = iter.next().unwrap();
         assert_eq!(food_name.as_str(), "food");
         assert_eq!(
             foods.cloned().collect::<Vec<HeaderValue>>(),
-            vec![HeaderValue::from("pizza")]
+            vec![HeaderValue::from_static("pizza")]
         );
 
         assert!(iter.next().is_none())
@@ -475,12 +516,21 @@ mod tests {
     #[test]
     fn should_into_iter_over_all_entries() {
         let mut headers = Headers::new();
-        headers.append("numbers".into(), "1");
-        headers.append("numbers".into(), "2");
-        headers.append("numbers".into(), "3");
-        headers.append("fruits".into(), "apple");
-        headers.append("fruits".into(), "strawberry");
-        headers.append("food".into(), "pizza");
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("1"));
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("2"));
+        headers.append("numbers".try_into().unwrap(), HeaderValue::from_static("3"));
+        headers.append(
+            "fruits".try_into().unwrap(),
+            HeaderValue::from_static("apple"),
+        );
+        headers.append(
+            "fruits".try_into().unwrap(),
+            HeaderValue::from_static("strawberry"),
+        );
+        headers.append(
+            "food".try_into().unwrap(),
+            HeaderValue::from_static("pizza"),
+        );
 
         let mut iter = headers.into_iter();
 
@@ -489,9 +539,9 @@ mod tests {
         assert_eq!(
             numbers.collect::<Vec<HeaderValue>>(),
             vec![
-                HeaderValue::from("1"),
-                HeaderValue::from("2"),
-                HeaderValue::from("3")
+                HeaderValue::from_static("1"),
+                HeaderValue::from_static("2"),
+                HeaderValue::from_static("3")
             ]
         );
 
@@ -499,14 +549,17 @@ mod tests {
         assert_eq!(fruits_name.as_str(), "fruits");
         assert_eq!(
             fruits.collect::<Vec<HeaderValue>>(),
-            vec![HeaderValue::from("apple"), HeaderValue::from("strawberry")]
+            vec![
+                HeaderValue::from_static("apple"),
+                HeaderValue::from_static("strawberry")
+            ]
         );
 
         let (food_name, foods) = iter.next().unwrap();
         assert_eq!(food_name.as_str(), "food");
         assert_eq!(
             foods.collect::<Vec<HeaderValue>>(),
-            vec![HeaderValue::from("pizza")]
+            vec![HeaderValue::from_static("pizza")]
         );
 
         assert!(iter.next().is_none());
@@ -515,18 +568,27 @@ mod tests {
     #[test]
     fn should_extend_headers() {
         let mut first = Headers::new();
-        first.append("numbers".into(), "1");
-        first.append("fruits".into(), "apple");
+        first.append("numbers".try_into().unwrap(), HeaderValue::from_static("1"));
+        first.append(
+            "fruits".try_into().unwrap(),
+            HeaderValue::from_static("apple"),
+        );
 
         let mut second = Headers::new();
-        second.append("color".into(), "red");
-        second.append("animal".into(), "fox");
+        second.append("color".try_into().unwrap(), HeaderValue::from_static("red"));
+        second.append(
+            "animal".try_into().unwrap(),
+            HeaderValue::from_static("fox"),
+        );
 
         first.extend(second);
 
-        assert_eq!(first.get("numbers"), Some(&HeaderValue::from("1")));
-        assert_eq!(first.get("fruits"), Some(&HeaderValue::from("apple")));
-        assert_eq!(first.get("color"), Some(&HeaderValue::from("red")));
-        assert_eq!(first.get("animal"), Some(&HeaderValue::from("fox")));
+        assert_eq!(first.get("numbers"), Some(&HeaderValue::from_static("1")));
+        assert_eq!(
+            first.get("fruits"),
+            Some(&HeaderValue::from_static("apple"))
+        );
+        assert_eq!(first.get("color"), Some(&HeaderValue::from_static("red")));
+        assert_eq!(first.get("animal"), Some(&HeaderValue::from_static("fox")));
     }
 }

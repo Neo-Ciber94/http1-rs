@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    convert::Infallible,
     fmt::{Debug, Display},
     hash::Hash,
 };
@@ -18,6 +19,12 @@ impl Display for InvalidHeaderName {
             "invalid header name, expected ascii string: {:?}",
             self.0
         )
+    }
+}
+
+impl From<Infallible> for InvalidHeaderName {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
     }
 }
 
@@ -110,17 +117,29 @@ impl AsRef<str> for HeaderName {
     }
 }
 
-impl From<String> for HeaderName {
-    fn from(value: String) -> Self {
-        HeaderName::from_string(value)
+impl TryFrom<String> for HeaderName {
+    type Error = InvalidHeaderName;
+
+    fn try_from(value: String) -> Result<Self, InvalidHeaderName> {
+        HeaderName::from_checked_string(value)
     }
 }
 
-impl<'a> From<&'a str> for HeaderName {
-    fn from(value: &'a str) -> Self {
-        match get_header_name(value) {
-            Some(header_name) => header_name,
-            None => HeaderName(Cow::Owned(value.into())),
+impl TryFrom<&'static str> for HeaderName {
+    type Error = InvalidHeaderName;
+
+    fn try_from(value: &'static str) -> Result<Self, InvalidHeaderName> {
+        HeaderName::from_checked_static(value)
+    }
+}
+
+impl TryFrom<Cow<'static, str>> for HeaderName {
+    type Error = InvalidHeaderName;
+
+    fn try_from(value: Cow<'static, str>) -> Result<Self, InvalidHeaderName> {
+        match value {
+            Cow::Borrowed(s) => HeaderName::from_checked_static(s),
+            Cow::Owned(s) => HeaderName::from_checked_string(s),
         }
     }
 }

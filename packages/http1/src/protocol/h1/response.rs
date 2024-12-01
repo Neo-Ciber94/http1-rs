@@ -7,7 +7,7 @@ use crate::{
     body::{
         buf_body_reader::BufBodyReader, chunked_body::ReadChunkedBody, http_body::HttpBody, Body,
     },
-    headers::{self, Headers},
+    headers::{self, HeaderValue, Headers},
     response::Response,
     server::Config,
     status::StatusCode,
@@ -55,13 +55,16 @@ fn write_headers<W: Write>(
     config: &Config,
 ) -> std::io::Result<()> {
     if config.include_date_header {
-        headers.insert(headers::DATE, DateTime::now_utc().to_string());
+        headers.insert(
+            headers::DATE,
+            HeaderValue::from_string(DateTime::now_utc().to_string()),
+        );
     }
 
     if let Some(content_length) = body.size_hint() {
         // If the response provided a content-length we trust it
         if !headers.contains_key(headers::CONTENT_LENGTH) {
-            headers.insert(headers::CONTENT_LENGTH, content_length.to_string());
+            headers.insert(headers::CONTENT_LENGTH, HeaderValue::from(content_length));
         }
     }
 

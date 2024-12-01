@@ -9,7 +9,7 @@ use crate::{
         http_body::HttpBody,
         Body,
     },
-    headers::{self, HeaderName, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
+    headers::{self, HeaderName, HeaderValue, Headers, CONTENT_LENGTH, TRANSFER_ENCODING},
     method::Method,
     request::{Parts, Request},
     server::Config,
@@ -146,9 +146,14 @@ pub(crate) fn read_headers<R: Read>(
         }
 
         if let Some((name, values)) = parse_header_line(line) {
-            values.into_iter().for_each(|v| {
-                headers.append(HeaderName::from(name), v);
-            })
+            values
+                .into_iter()
+                .try_for_each::<_, Result<(), std::io::Error>>(|v| {
+                    let key = HeaderName::try_from(name.to_owned()).map_err(std::io::Error::other)?;
+                    let value = HeaderValue::try_from(v).map_err(std::io::Error::other)?;
+                    headers.append(key, value);
+                    Ok(())
+                })?;
         }
 
         buf.clear();
@@ -194,7 +199,7 @@ pub fn write_request<W: std::io::Write>(
 
     if !headers.contains_key(headers::CONTENT_LENGTH) {
         if let Some(size) = body.size_hint() {
-            headers.append(headers::CONTENT_LENGTH, size.to_string());
+            headers.append(headers::CONTENT_LENGTH, HeaderValue::from(size));
         }
     }
 

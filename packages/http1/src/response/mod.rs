@@ -227,12 +227,8 @@ impl Builder {
     ///
     /// # Returns
     /// The updated `Builder` with the new header.
-    pub fn insert_header<K: Into<HeaderName>>(
-        mut self,
-        key: K,
-        value: impl Into<HeaderValue>,
-    ) -> Self {
-        self.headers.insert(key.into(), value);
+    pub fn insert_header(mut self, key: HeaderName, value: impl Into<HeaderValue>) -> Self {
+        self.headers.insert(key, value.into());
         self
     }
 
@@ -246,12 +242,8 @@ impl Builder {
     ///
     /// # Returns
     /// The updated `Builder` with the appended header.
-    pub fn append_header<K: Into<HeaderName>>(
-        mut self,
-        key: K,
-        value: impl Into<HeaderValue>,
-    ) -> Self {
-        self.headers.append(key.into(), value);
+    pub fn append_header(mut self, key: HeaderName, value: impl Into<HeaderValue>) -> Self {
+        self.headers.append(key, value.into());
         self
     }
 

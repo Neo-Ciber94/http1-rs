@@ -5,7 +5,7 @@ use serde::ser::Serialize;
 use crate::{
     body::Body,
     error::BoxError,
-    headers::{self, HeaderName, HeaderValue, Headers},
+    headers::{self, HeaderName, HeaderValue, Headers, InvalidHeaderName, InvalidHeaderValue},
     method::Method,
     request::{InvalidRequest, Request},
     response::Response,
@@ -267,25 +267,25 @@ impl<'a> RequestBuilder<'a> {
     }
 
     /// Append a header.
-    pub fn append_header(self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.tap(|mut request| {
-            if let Some(h) = request.headers_mut() {
-                h.append(name, value);
-            }
-
-            request
-        })
+    pub fn append_header<K, V>(self, name: K, value: V) -> Self
+    where
+        K: TryInto<HeaderName>,
+        K::Error: Into<InvalidHeaderName>,
+        V: TryInto<HeaderValue>,
+        V::Error: Into<InvalidHeaderValue>,
+    {
+        self.tap(|request| request.append_header(name, value))
     }
 
     /// Insert a header.
-    pub fn insert_header(self, name: HeaderName, value: impl Into<HeaderValue>) -> Self {
-        self.tap(|mut request| {
-            if let Some(h) = request.headers_mut() {
-                h.insert(name, value);
-            }
-
-            request
-        })
+    pub fn insert_header<K, V>(self, name: K, value: V) -> Self
+    where
+        K: TryInto<HeaderName>,
+        K::Error: Into<InvalidHeaderName>,
+        V: TryInto<HeaderValue>,
+        V::Error: Into<InvalidHeaderValue>,
+    {
+        self.tap(|request| request.insert_header(name, value))
     }
 
     /// Sends the request using the given `JSON` as body.
@@ -293,8 +293,11 @@ impl<'a> RequestBuilder<'a> {
         let json_bytes =
             serde::json::to_bytes(json).map_err(|err| RequestError::Other(err.into()))?;
 
-        self.append_header(headers::CONTENT_TYPE, "application/json;charset-utf8")
-            .send(json_bytes)
+        self.append_header(
+            headers::CONTENT_TYPE,
+            HeaderValue::from_static("application/json;charset-utf8"),
+        )
+        .send(json_bytes)
     }
 
     /// Sends a request with the given body.
@@ -315,7 +318,9 @@ impl<'a> RequestBuilder<'a> {
         let (host, port) = get_addr(&request)?;
         let addr = format!("{host}:{port}");
 
-        request.headers_mut().insert(headers::HOST, host.clone());
+        request
+            .headers_mut()
+            .insert(headers::HOST, HeaderValue::from_string(host.clone()));
         request.headers_mut().extend(client.default_headers.clone());
 
         let mut stream =
@@ -351,7 +356,7 @@ mod tests {
 
     use crate::{
         body::{chunked_body::ChunkedBody, http_body::HttpBody, Body},
-        headers,
+        headers::{self, HeaderValue},
         method::Method,
         response::Response,
         server::Server,
@@ -444,7 +449,10 @@ mod tests {
 
                         Response::builder()
                             .status(StatusCode::CREATED)
-                            .append_header(headers::TRANSFER_ENCODING, "chunked")
+                            .append_header(
+                                headers::TRANSFER_ENCODING,
+                                HeaderValue::from_static("chunked"),
+                            )
                             .body(body.into())
                     })
                     .unwrap();

@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::extensions::Extensions;
+use crate::{
+    extensions::Extensions,
+    headers::{InvalidHeaderName, InvalidHeaderValue},
+};
 
 use super::{
     headers::{HeaderName, HeaderValue, Headers},
@@ -192,12 +195,20 @@ impl Request<()> {
 #[derive(Debug)]
 pub enum InvalidRequest {
     InvalidUri(InvalidUri),
+    InvalidHeaderName(InvalidHeaderName),
+    InvalidHeaderValue(InvalidHeaderValue),
 }
 
 impl Display for InvalidRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InvalidRequest::InvalidUri(invalid_uri) => write!(f, "{invalid_uri}"),
+            InvalidRequest::InvalidHeaderName(invalid_header_name) => {
+                write!(f, "invalid request, {invalid_header_name}")
+            }
+            InvalidRequest::InvalidHeaderValue(invalid_header_value) => {
+                write!(f, "invalid request, {invalid_header_value}")
+            }
         }
     }
 }
@@ -327,9 +338,22 @@ impl Builder {
     ///
     /// # Returns
     /// The updated `Builder`.
-    pub fn insert_header<K: Into<HeaderName>>(self, key: K, value: impl Into<HeaderValue>) -> Self {
+    pub fn insert_header<K, V>(self, name: K, value: V) -> Self
+    where
+        K: TryInto<HeaderName>,
+        K::Error: Into<InvalidHeaderName>,
+        V: TryInto<HeaderValue>,
+        V::Error: Into<InvalidHeaderValue>,
+    {
         self.update(|parts| {
-            parts.headers.insert(key.into(), value);
+            let key = name
+                .try_into()
+                .map_err(|err| InvalidRequest::InvalidHeaderName(err.into()))?;
+            let value = value
+                .try_into()
+                .map_err(|err| InvalidRequest::InvalidHeaderValue(err.into()))?;
+
+            parts.headers.insert(key, value);
             Ok(())
         })
     }
@@ -344,9 +368,22 @@ impl Builder {
     ///
     /// # Returns
     /// The updated `Builder`.
-    pub fn append_header<K: Into<HeaderName>>(self, key: K, value: impl Into<HeaderValue>) -> Self {
+    pub fn append_header<K, V>(self, name: K, value: V) -> Self
+    where
+        K: TryInto<HeaderName>,
+        K::Error: Into<InvalidHeaderName>,
+        V: TryInto<HeaderValue>,
+        V::Error: Into<InvalidHeaderValue>,
+    {
         self.update(|parts| {
-            parts.headers.append(key.into(), value);
+            let key = name
+                .try_into()
+                .map_err(|err| InvalidRequest::InvalidHeaderName(err.into()))?;
+            let value = value
+                .try_into()
+                .map_err(|err| InvalidRequest::InvalidHeaderValue(err.into()))?;
+
+            parts.headers.append(key, value);
             Ok(())
         })
     }
