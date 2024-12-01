@@ -23,19 +23,27 @@ impl Display for PendingUpgradeError {
     }
 }
 
+#[derive(Default)]
+enum UpgradeState {
+    #[default]
+    Waiting,
+    Pending(Upgrade),
+    Completed,
+}
+
 /// A pending connection upgrade.
 #[derive(Clone)]
-pub struct PendingUpgrade(Arc<(Mutex<Option<Upgrade>>, Condvar)>);
+pub struct PendingUpgrade(Arc<(Mutex<UpgradeState>, Condvar)>);
 
 /// A notifier that sends the upgraded connection when ready.
-pub struct NotifyUpgradeReady(Arc<(Mutex<Option<Upgrade>>, Condvar)>);
+pub struct NotifyUpgradeReady(Arc<(Mutex<UpgradeState>, Condvar)>);
 
 impl NotifyUpgradeReady {
     pub fn notify(self, upgrade: Upgrade) -> bool {
         let (mutex, cond_var) = &*self.0;
         match mutex.lock() {
             Ok(mut x) => {
-                *x = Some(upgrade);
+                *x = UpgradeState::Pending(upgrade);
                 cond_var.notify_one();
                 true
             }
@@ -46,7 +54,7 @@ impl NotifyUpgradeReady {
 
 impl PendingUpgrade {
     pub(crate) fn new() -> (NotifyUpgradeReady, PendingUpgrade) {
-        let pair = Arc::new((Mutex::new(None), Condvar::new()));
+        let pair = Arc::new((Mutex::new(UpgradeState::Waiting), Condvar::new()));
         (NotifyUpgradeReady(pair.clone()), PendingUpgrade(pair))
     }
 
@@ -55,15 +63,19 @@ impl PendingUpgrade {
         let (mutex, cond_var) = &*self.0;
         let mut lock = mutex.lock().map_err(|_| PendingUpgradeError::Failed)?;
 
-        while lock.is_none() {
+        while matches!(*lock, UpgradeState::Waiting) {
             lock = cond_var
                 .wait(lock)
                 .map_err(|_| PendingUpgradeError::Failed)?;
         }
 
-        match lock.take() {
-            Some(upgrade) => Ok(upgrade),
-            None => unreachable!(),
+        match std::mem::take(&mut *lock) {
+            UpgradeState::Pending(upgrade) => {
+                let _ = std::mem::replace(&mut *lock, UpgradeState::Completed);
+                Ok(upgrade)
+            }
+            UpgradeState::Completed => panic!("websocket upgrade was already completed"),
+            UpgradeState::Waiting => unreachable!(),
         }
     }
 }
