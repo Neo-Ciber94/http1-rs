@@ -24,6 +24,7 @@ impl Display for PendingUpgradeError {
 }
 
 /// A pending connection upgrade.
+#[derive(Clone)]
 pub struct PendingUpgrade(Arc<(Mutex<Option<Upgrade>>, Condvar)>);
 
 /// A notifier that sends the upgraded connection when ready.

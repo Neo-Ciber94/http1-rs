@@ -67,6 +67,7 @@ impl Write for Connection {
 }
 
 /// Request connection information after a request is accepted.
+#[derive(Clone)]
 pub struct Connected {
     peer_addr: Option<SocketAddr>,
 }

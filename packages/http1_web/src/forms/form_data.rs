@@ -678,7 +678,7 @@ mod tests {
 
     use http1::{body::Body, extensions::Extensions, headers, payload::Payload, request::Request};
 
-    use crate::{forms::form_data::TestForm, from_request::FromRequest, state::AppState};
+    use crate::{forms::form_data::TestForm, from_request::FromRequest};
 
     use super::{FormData, FormDataConfig};
 
@@ -973,7 +973,7 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut app_state = AppState::default();
+        let mut app_state = Extensions::default();
         app_state.insert(crate::state::State(FormDataConfig {
             max_body_size: 200,
             buffer_size: 16,
@@ -981,7 +981,7 @@ mod tests {
         }));
 
         let mut extensions = Extensions::new();
-        extensions.extend((*app_state).clone());
+        extensions.extend(app_state.clone());
 
         let mut form_data = FormData::from_request(
             &req,
@@ -1018,7 +1018,7 @@ mod tests {
             .body(())
             .unwrap();
 
-        let mut app_state = AppState::default();
+        let mut app_state = Extensions::default();
         app_state.insert(FormDataConfig {
             max_header_length: 100,
             ..Default::default()

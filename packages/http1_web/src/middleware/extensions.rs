@@ -1,10 +1,10 @@
-use http1::common::any_map::CloneableAnyMap;
+use http1::extensions::Extensions;
 
 use super::Middleware;
 
-/// Allow to insert values into the request extensions.\
+/// Allow to insert values into the request extensions.
 #[derive(Default)]
-pub struct ExtensionsProvider(CloneableAnyMap);
+pub struct ExtensionsProvider(Extensions);
 
 impl ExtensionsProvider {
     /// Constructs a new request extension provider.

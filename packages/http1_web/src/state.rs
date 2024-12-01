@@ -1,10 +1,10 @@
 use std::{
     fmt::{Debug, Display},
     marker::PhantomData,
-    ops::{Deref, DerefMut},
+    ops::Deref,
 };
 
-use http1::{common::any_map::CloneableAnyMap, status::StatusCode};
+use http1::status::StatusCode;
 
 use crate::{from_request::FromRequest, IntoResponse};
 
@@ -29,29 +29,6 @@ impl<T> Deref for State<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[derive(Default)]
-pub struct AppState(CloneableAnyMap);
-
-impl Debug for AppState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("AppState").finish()
-    }
-}
-
-impl Deref for AppState {
-    type Target = CloneableAnyMap;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for AppState {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

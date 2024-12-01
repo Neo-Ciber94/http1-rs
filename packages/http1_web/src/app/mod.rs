@@ -4,12 +4,12 @@ pub use pre_render::*;
 use std::{
     collections::HashMap,
     fmt::Debug,
-    sync::{atomic::AtomicUsize, Arc, LazyLock},
+    sync::{atomic::AtomicUsize, LazyLock},
 };
 
 use http1::{
-    body::Body, handler::RequestHandler, method::Method, request::Request, response::Response,
-    status::StatusCode,
+    body::Body, extensions::Extensions, handler::RequestHandler, method::Method, request::Request,
+    response::Response, status::StatusCode,
 };
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
         method_route::MethodRoute, params::ParamsMap, route::Route, route_info::RouteInfo, Match,
         Router,
     },
-    state::{AppState, State},
+    state::State,
     IntoResponse,
 };
 
@@ -28,7 +28,7 @@ use crate::{
 pub struct App {
     scope: Scope,
     middleware: Vec<BoxedMiddleware>,
-    app_state: Arc<AppState>,
+    app_state: Extensions,
 }
 
 impl App {
@@ -36,7 +36,7 @@ impl App {
         App {
             scope: Scope::root(),
             middleware: Vec::new(),
-            app_state: Arc::new(AppState::default()),
+            app_state: Default::default(),
         }
     }
 }
@@ -79,9 +79,7 @@ impl App {
     where
         U: Clone + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.app_state)
-            .expect("Failed to get app state")
-            .insert(State::new(value));
+        self.app_state.insert(State::new(value));
         self
     }
 
@@ -220,7 +218,7 @@ impl RequestHandler for App {
         }
 
         req.extensions_mut().insert(mtch.params.clone());
-        req.extensions_mut().extend((**self.app_state).clone());
+        req.extensions_mut().extend(self.app_state.clone());
 
         // Handle the request
         let res = if middlewares.is_empty() {
@@ -526,7 +524,10 @@ impl Debug for Scope {
 
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, sync::Mutex};
+    use std::{
+        str::FromStr,
+        sync::{Arc, Mutex},
+    };
 
     use http1::{body::http_body::HttpBody, uri::uri::Uri};
 
