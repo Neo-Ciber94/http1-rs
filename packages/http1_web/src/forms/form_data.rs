@@ -938,7 +938,7 @@ mod tests {
 
         let form_data = form.to_bytes();
 
-        let req = Request::builder()
+        let mut req = Request::builder()
             .append_header(
                 headers::CONTENT_TYPE,
                 format!(
@@ -956,8 +956,7 @@ mod tests {
             ..Default::default()
         }));
 
-        let mut extensions = Extensions::new();
-        extensions.extend(app_state.clone());
+        req.extensions_mut().extend(app_state.clone());
 
         let mut form_data =
             FormData::from_request(&req, &mut Payload::Data(Body::new(form_data))).unwrap();
