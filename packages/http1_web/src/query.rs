@@ -13,7 +13,7 @@ use serde::{
 };
 
 /// Represents the query params in a request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Query<T>(pub T);
 
 impl<T> Query<T> {

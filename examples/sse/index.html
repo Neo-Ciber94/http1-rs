@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Server-Sent Events Example</title>
+  </head>
+  <body>
+    <h1>Server-Sent Events Counter</h1>
+    <p id="count">Waiting...</p>
+    <script>
+      const countEl = document.querySelector("#count");
+
+      window.addEventListener("load", () => {
+        const { searchParams } = new URL(location.href);
+        const to = searchParams.get("to");
+
+        const url =
+          to != null && !Number.isNaN(to) ? `/api/count?to=${to}` : "/api/count";
+
+        const sse = new EventSource(url);
+        sse.onerror = () => {
+          alert("failed to receive event");
+        };
+
+        sse.onmessage = (ev) => {
+          const text = String(ev.data);
+          countEl.textContent = text;
+        };
+      });
+    </script>
+  </body>
+</html>
