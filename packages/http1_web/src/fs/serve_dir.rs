@@ -21,6 +21,7 @@ use http1::{
     body::Body,
     headers::{self, HeaderValue},
     method::Method,
+    payload::Payload,
     request::Request,
     response::Response,
     status::StatusCode,
@@ -149,7 +150,7 @@ where
             return StatusCode::METHOD_NOT_ALLOWED.into_response();
         }
 
-        let (req, mut payload) = crate::from_request::split_request(req);
+        let (req, mut payload) = req.map_body(Payload::Data).drop_body();
         let route_info = RouteInfo::from_request(&req, &mut payload).unwrap();
         let req_path = req.uri().path_and_query().path();
         let route = get_route(route_info, req_path);
@@ -172,13 +173,13 @@ where
             if self.list_directory {
                 return list_directory_html(req_path, &serve_path).into_response();
             } else {
-                let req = crate::from_request::join_request(req, payload);
+                let req = Request::with_body(req, payload.unwrap());
                 return self.fallback.call(req);
             }
         }
 
         if !serve_path.exists() {
-            let req = crate::from_request::join_request(req, payload);
+            let req = Request::with_body(req, payload.unwrap());
             return self.fallback.call(req);
         }
 

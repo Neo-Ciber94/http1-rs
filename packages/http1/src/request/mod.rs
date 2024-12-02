@@ -175,6 +175,14 @@ impl<T> Request<T> {
 }
 
 impl Request<()> {
+    /// Creates a new request from other with no body.
+    pub fn with_body<T>(req: Request<()>, body: T) -> Request<T> {
+        Request {
+            body,
+            parts: req.parts,
+        }
+    }
+
     /// Returns a `Builder` for constructing a new `Request`.
     ///
     /// # Example

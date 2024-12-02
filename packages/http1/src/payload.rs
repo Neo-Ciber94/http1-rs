@@ -26,6 +26,14 @@ impl Payload {
             Payload::None => None,
         }
     }
+
+    /// Returns the body or panic if the payload have no body.
+    pub fn unwrap(self) -> Body {
+        match self {
+            Payload::Data(body) => body,
+            Payload::None => panic!("payload have no body"),
+        }
+    }
 }
 
 impl HttpBody for Payload {

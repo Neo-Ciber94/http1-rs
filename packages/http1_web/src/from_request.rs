@@ -320,15 +320,3 @@ impl_tuple_from_request!(A, B, C, D, E, F, G, H, I);
 impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J);
 impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J, K);
 impl_tuple_from_request!(A, B, C, D, E, F, G, H, I, J, K, L);
-
-pub(crate) fn split_request(req: Request<Body>) -> (Request<()>, Payload) {
-    let (body, parts) = req.into_parts();
-    let payload = Payload::Data(body);
-
-    let req = Request::from_parts(parts, ());
-    (req, payload)
-}
-
-pub(crate) fn join_request(req: Request<()>, mut payload: Payload) -> Request<Body> {
-    req.map_body(|_| payload.take().unwrap_or_default())
-}
