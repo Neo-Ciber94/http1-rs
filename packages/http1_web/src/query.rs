@@ -250,3 +250,53 @@ impl<T: Deserialize> FromRequest for Query<T> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::QueryDeserializer;
+    use http1::uri::uri::Uri;
+    use serde::{de::Deserialize, impl_serde_struct};
+    use std::{collections::HashMap, str::FromStr};
+
+    fn deserialize_query<T: Deserialize>(url: &str) -> T {
+        let query_map = Uri::from_str(url).unwrap().path_and_query().query_map();
+        let deserializer = QueryDeserializer(query_map);
+        T::deserialize(deserializer).unwrap()
+    }
+
+    #[test]
+    fn should_parse_query_to_hash_map() {
+        let query =
+            deserialize_query::<HashMap<String, String>>("/path?num=10&text=hello&bool=true");
+
+        assert_eq!(query.get("num").unwrap(), "10");
+        assert_eq!(query.get("text").unwrap(), "hello");
+        assert_eq!(query.get("bool").unwrap(), "true");
+    }
+
+    #[test]
+    fn should_parse_optional_field() {
+        #[derive(Debug, Clone)]
+        struct Value {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        }
+
+        impl_serde_struct!(Value => {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        });
+
+        let v1 = deserialize_query::<Value>("/path?num=32&text=wonderful&bool=false");
+        assert_eq!(v1.num, Some(32));
+        assert_eq!(v1.text, Some(String::from("wonderful")));
+        assert_eq!(v1.bool, Some(false));
+
+        let v2 = deserialize_query::<Value>("/path?text=tiger");
+        assert_eq!(v2.num, None);
+        assert_eq!(v2.text, Some(String::from("tiger")));
+        assert_eq!(v2.bool, None);
+    }
+}

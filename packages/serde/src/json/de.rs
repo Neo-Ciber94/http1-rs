@@ -650,7 +650,7 @@ impl<R: Read> Deserializer for JsonDeserializer<R> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        impl_deserialize_struct,
+        impl_deserialize_struct, impl_serde_struct,
         json::{from_str, value::JsonValue},
     };
 
@@ -1148,5 +1148,39 @@ mod tests {
     fn should_deserialize_to_option() {
         let value = from_str::<Option<u32>>("29001").unwrap();
         assert_eq!(value, Some(29001));
+    }
+
+    #[test]
+    fn should_deserialize_map_with_optional_fields() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct Value {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        }
+
+        impl_serde_struct!(Value => {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        });
+
+        assert_eq!(
+            from_str::<Value>("{}").unwrap(),
+            Value {
+                num: None,
+                text: None,
+                bool: None
+            }
+        );
+
+        assert_eq!(
+            from_str::<Value>("{\"text\":\"angela\"}").unwrap(),
+            Value {
+                num: None,
+                text: Some(String::from("angela")),
+                bool: None
+            }
+        );
     }
 }

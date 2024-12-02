@@ -315,7 +315,10 @@ fn map_key_error() -> JsonSerializationError {
 mod tests {
     use orderedmap::OrderedMap;
 
-    use crate::json::{number::Number, to_pretty_string, to_string, value::JsonValue};
+    use crate::{
+        impl_serde_struct,
+        json::{number::Number, to_pretty_string, to_string, value::JsonValue},
+    };
 
     #[test]
     fn should_serialize_number() {
@@ -476,5 +479,31 @@ mod tests {
     fn should_serialize_null() {
         let null = JsonValue::Null;
         assert_eq!(to_string(&null).unwrap(), "null");
+    }
+
+    #[test]
+    fn should_serialize_object_with_optional_fields() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct Value {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        }
+
+        impl_serde_struct!(Value => {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        });
+
+        assert_eq!(
+            to_string(&Value {
+                num: None,
+                text: None,
+                bool: None
+            })
+            .unwrap(),
+            "{\"num\":null,\"text\":null,\"bool\":null}"
+        );
     }
 }
