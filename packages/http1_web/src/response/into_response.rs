@@ -5,7 +5,7 @@ use http1::{
     common::any_map::AnyMap,
     error::BoxError,
     headers::{self, HeaderValue, Headers},
-    response::Response,
+    response::{sse::SseStream, Response},
     status::StatusCode,
 };
 
@@ -288,5 +288,11 @@ impl<T: IntoResponse> IntoResponse for NotFound<T> {
         let mut res = self.0.into_response();
         *res.status_mut() = StatusCode::NOT_FOUND;
         res
+    }
+}
+
+impl IntoResponse for SseStream {
+    fn into_response(self) -> Response<Body> {
+        Response::new(StatusCode::OK, Body::new(self))
     }
 }
