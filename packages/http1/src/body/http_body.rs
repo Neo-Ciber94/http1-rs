@@ -33,15 +33,15 @@ pub trait HttpBody {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Bytes<T>(Option<T>);
+pub(crate) struct BytesBuf<T>(Option<T>);
 
-impl<T> Bytes<T> {
+impl<T> BytesBuf<T> {
     pub fn new(data: T) -> Self {
-        Bytes(Some(data))
+        BytesBuf(Some(data))
     }
 }
 
-impl<T: AsRef<[u8]>> HttpBody for Bytes<T> {
+impl<T: AsRef<[u8]>> HttpBody for BytesBuf<T> {
     type Err = Infallible;
     type Data = Vec<u8>;
 
@@ -237,7 +237,7 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     use crate::body::chunked_body::ChunkedBody;
-    use crate::body::http_body::{Bytes, HttpBody};
+    use crate::body::http_body::{BytesBuf, HttpBody};
     use crate::body::Body;
 
     fn read_all_body_data(body: &mut Body) -> Vec<u8> {
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn should_read_bytes_body() {
-        let bytes = Bytes::new(b"hello".to_vec());
+        let bytes = BytesBuf::new(b"hello".to_vec());
         let mut body = Body::new(bytes);
 
         assert_eq!(body.size_hint(), Some(5));
