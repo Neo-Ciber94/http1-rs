@@ -1,5 +1,6 @@
 pub mod bytes;
 pub mod expected;
+pub mod ignore;
 pub mod impossible;
 pub mod json;
 pub mod string;
@@ -67,10 +68,7 @@ macro_rules! impl_deserialize_struct {
                                 )*
 
                                 _ => {
-                                    // TODO: Allow unknown fields
-                                    return Err($crate::de::Error::other(format!(
-                                        "Unknown field '{k}'"
-                                    )));
+                                   _ = map.next_value::<$crate::ignore::Ignore>()?;
                                 }
                             }
                         }

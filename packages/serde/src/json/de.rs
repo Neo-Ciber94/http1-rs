@@ -1183,4 +1183,29 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn should_deserialize_with_non_existing_field() {
+        #[derive(Debug, PartialEq, Eq)]
+        struct Value {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        }
+
+        impl_serde_struct!(Value => {
+            num: Option<u32>,
+            text: Option<String>,
+            bool: Option<bool>,
+        });
+
+        assert_eq!(
+            from_str::<Value>("{\"text\":\"marina\", \"timestamp\": 10203030 }").unwrap(),
+            Value {
+                num: None,
+                text: Some(String::from("marina")),
+                bool: None
+            }
+        );
+    }
 }
