@@ -1,0 +1,37 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "roles": ["admin", "user"],
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "roles": ["user"],
+      "isActive": false
+    }
+  ],
+  "posts": [
+    {
+      "id": 101,
+      "title": "Lorem Ipsum Post",
+      "content": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+      "authorId": 1
+    },
+    {
+      "id": 102,
+      "title": "Another Post",
+      "content": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+      "authorId": 2
+    }
+  ],
+  "metadata": {
+    "generated_at": "2024-12-03T12:00:00Z",
+    "total_users": 2,
+    "total_posts": 2
+  }
+}

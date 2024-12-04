@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    <users>
+        <user>
+            <id>1</id>
+            <name>John Doe</name>
+            <email>john@example.com</email>
+            <roles>
+                <role>admin</role>
+                <role>user</role>
+            </roles>
+            <isActive>true</isActive>
+        </user>
+        <user>
+            <id>2</id>
+            <name>Jane Smith</name>
+            <email>jane@example.com</email>
+            <roles>
+                <role>user</role>
+            </roles>
+            <isActive>false</isActive>
+        </user>
+    </users>
+    <posts>
+        <post>
+            <id>101</id>
+            <title>Lorem Ipsum Post</title>
+            <content>Lorem ipsum dolor sit amet...</content>
+            <authorId>1</authorId>
+        </post>
+        <post>
+            <id>102</id>
+            <title>Another Post</title>
+            <content>Ut enim ad minim veniam...</content>
+            <authorId>2</authorId>
+        </post>
+    </posts>
+</data>
