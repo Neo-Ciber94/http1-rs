@@ -7,7 +7,7 @@ pub mod http_body;
 use std::{borrow::Cow, fmt::Debug};
 
 use crate::error::BoxError;
-use http_body::{Bytes, HttpBody};
+use http_body::{BytesBuf, HttpBody};
 
 struct BoxBodyInner<B: HttpBody>(B);
 
@@ -90,7 +90,7 @@ impl Default for Body {
 
 impl From<Vec<u8>> for Body {
     fn from(value: Vec<u8>) -> Self {
-        Body::new(Bytes::new(value))
+        Body::new(BytesBuf::new(value))
     }
 }
 
