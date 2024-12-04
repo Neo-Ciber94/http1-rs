@@ -7,7 +7,7 @@ use std::{
 
 use http1::{
     body::Body,
-    headers::{self, HeaderName, HeaderValue},
+    headers::{self, HeaderName, HeaderValue, Headers},
     method::Method,
     request::Request,
     response::Response,
@@ -19,7 +19,7 @@ use super::Middleware;
 pub enum CorsOrigin {
     Any,
     List(HashSet<String>),
-    Dynamic(Box<dyn Fn(&Request<Body>) -> Vec<String>>),
+    Dynamic(Box<dyn Fn(&Request<Body>) -> Vec<String> + Send + Sync>),
 }
 
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl Cors {
 
     pub fn from_origins_fn<F>(f: F) -> Self
     where
-        F: Fn(&Request<Body>) -> Vec<String> + 'static,
+        F: Fn(&Request<Body>) -> Vec<String> + Sync + Send + 'static,
     {
         CorsBuilder::new()
             .with_origin(f)
@@ -123,22 +123,19 @@ impl Middleware for Cors {
                 .join(", ")
         }
 
-        fn create_cors_response(
-            this: &Cors,
-            req: &Request<Body>,
-        ) -> http1::response::Response<Body> {
-            let mut response = Response::new(StatusCode::NO_CONTENT, Body::empty());
+        fn get_cors_headers(this: &Cors, req: &Request<Body>) -> Headers {
+            let mut headers = Headers::new();
 
             match &this.allowed_origins {
                 CorsOrigin::Any => {
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_ORIGIN,
                         HeaderValue::from_static("*"),
                     );
                 }
                 CorsOrigin::List(list) => {
                     let origins = get_comma_separated_list(list);
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_ORIGIN,
                         HeaderValue::from_string(origins),
                     );
@@ -147,7 +144,7 @@ impl Middleware for Cors {
                     let list = f(req);
                     let origins = get_comma_separated_list(&list);
 
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_ORIGIN,
                         HeaderValue::from_string(origins),
                     );
@@ -157,14 +154,14 @@ impl Middleware for Cors {
             match &this.allowed_methods {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_METHODS,
                         HeaderValue::from_static("*"),
                     );
                 }
                 CorsValue::List(list) => {
                     let methods = get_comma_separated_list(list);
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_METHODS,
                         HeaderValue::from_string(methods),
                     );
@@ -174,16 +171,16 @@ impl Middleware for Cors {
             match &this.allowed_headers {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_HEADERS,
                         HeaderValue::from_static("*"),
                     );
                 }
                 CorsValue::List(list) => {
-                    let headers = get_comma_separated_list(list);
-                    response.headers_mut().insert(
+                    let headers_str = get_comma_separated_list(list);
+                    headers.insert(
                         headers::ACCESS_CONTROL_ALLOW_HEADERS,
-                        HeaderValue::from_string(headers),
+                        HeaderValue::from_string(headers_str),
                     );
                 }
             }
@@ -191,41 +188,43 @@ impl Middleware for Cors {
             match &this.expose_headers {
                 CorsValue::None => {}
                 CorsValue::Any => {
-                    response.headers_mut().insert(
+                    headers.insert(
                         headers::ACCESS_CONTROL_EXPOSE_HEADERS,
                         HeaderValue::from_static("*"),
                     );
                 }
                 CorsValue::List(list) => {
-                    let headers = get_comma_separated_list(list);
-                    response.headers_mut().insert(
+                    let headers_str = get_comma_separated_list(list);
+                    headers.insert(
                         headers::ACCESS_CONTROL_EXPOSE_HEADERS,
-                        HeaderValue::from_string(headers),
+                        HeaderValue::from_string(headers_str),
                     );
                 }
             }
 
             if let Some(allow_credentials) = this.allow_credentials {
-                response.headers_mut().insert(
+                headers.insert(
                     headers::ACCESS_CONTROL_ALLOW_CREDENTIALS,
                     HeaderValue::from_static(if allow_credentials { "true" } else { "false" }),
                 );
             }
 
             if let Some(max_age) = this.max_age {
-                response
-                    .headers_mut()
-                    .insert(headers::ACCESS_CONTROL_MAX_AGE, max_age);
+                headers.insert(headers::ACCESS_CONTROL_MAX_AGE, max_age);
             }
 
-            response
+            headers
         }
 
-        if req.method() == Method::OPTIONS {
-            create_cors_response(self, &req)
+        let cors_headers = get_cors_headers(self, &req);
+        let mut outgoing_response = if req.method() == Method::OPTIONS {
+            Response::new(StatusCode::NO_CONTENT, Body::empty())
         } else {
             next.call(req)
-        }
+        };
+
+        outgoing_response.headers_mut().extend(cors_headers);
+        outgoing_response
     }
 }
 
@@ -260,7 +259,7 @@ impl CorsBuilder {
 
     pub fn with_origin<F>(mut self, f: F) -> Self
     where
-        F: Fn(&Request<Body>) -> Vec<String> + 'static,
+        F: Fn(&Request<Body>) -> Vec<String> + Send + Sync + 'static,
     {
         self.0.allowed_origins = CorsOrigin::Dynamic(Box::new(f));
         self
