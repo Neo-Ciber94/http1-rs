@@ -10,12 +10,15 @@ use crate::{from_request::FromRequest, IntoResponse};
 
 mod accept;
 mod authorization;
+mod basic_auth;
 mod entity;
 mod host;
 mod referer;
 mod user_agent;
 
-pub use {accept::*, authorization::*, entity::*, host::*, referer::*, user_agent::*};
+pub use {
+    accept::*, authorization::*, basic_auth::*, entity::*, host::*, referer::*, user_agent::*,
+};
 
 /// Allow to create a value from the request headers.
 pub trait FromHeaders: Sized {
