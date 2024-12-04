@@ -293,6 +293,13 @@ impl<T: IntoResponse> IntoResponse for NotFound<T> {
 
 impl IntoResponse for SseStream {
     fn into_response(self) -> Response<Body> {
-        Response::new(StatusCode::OK, Body::new(self))
+        Response::builder()
+            .insert_header(headers::CONNECTION, HeaderValue::from_static("keep-alive"))
+            .insert_header(
+                headers::CONTENT_TYPE,
+                HeaderValue::from_static("text/event-stream"),
+            )
+            .insert_header(headers::CACHE_CONTROL, HeaderValue::from_static("no-cache"))
+            .body(Body::new(self))
     }
 }
