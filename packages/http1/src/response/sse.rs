@@ -92,8 +92,11 @@ impl SseEvent {
         Builder::new()
     }
 
-    pub fn with_data(data: impl Into<String>) -> Result<Self, InvalidSseEvent> {
-        Builder::new().data(data)
+    pub fn with_data(data: impl Into<String>) -> Self {
+        // SAFETY: This should never fail
+        Builder::new()
+            .data(data)
+            .expect("invalid server-sent event")
     }
 
     pub fn with_event_data(
@@ -154,7 +157,6 @@ struct Parts {
 pub enum InvalidSseEvent {
     InvalidIdLineBreak,
     InvalidEventLineBreak,
-    InvalidDataLineBreak,
 }
 
 impl Display for InvalidSseEvent {
@@ -163,9 +165,6 @@ impl Display for InvalidSseEvent {
             InvalidSseEvent::InvalidIdLineBreak => write!(f, "'id' cannot contain a line-break"),
             InvalidSseEvent::InvalidEventLineBreak => {
                 write!(f, "'event' cannot contain a line-break")
-            }
-            InvalidSseEvent::InvalidDataLineBreak => {
-                write!(f, "'data' cannot contain a line-break")
             }
         }
     }
@@ -225,10 +224,6 @@ impl Builder {
         let Parts { event, id, retry } = self.0?;
 
         let data = data.into();
-
-        if has_line_break(&data) {
-            return Err(InvalidSseEvent::InvalidDataLineBreak);
-        }
 
         Ok(SseEvent {
             id,

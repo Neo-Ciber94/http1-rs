@@ -44,13 +44,11 @@ fn get_counter(query: Option<Query<Count>>) -> Response<Body> {
         let max = count.to.unwrap_or(u64::MAX);
 
         for i in 0..max {
-            tx.send(SseEvent::with_data(i.to_string()).unwrap())
-                .unwrap();
-
+            tx.send(SseEvent::with_data(i.to_string())).unwrap();
             std::thread::sleep(Duration::from_millis(1000));
         }
 
-        tx.send(SseEvent::with_data("Done!").unwrap()).unwrap();
+        tx.send(SseEvent::with_data("Done!")).unwrap();
     });
 
     rx.into_response()
