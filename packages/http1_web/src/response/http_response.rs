@@ -25,6 +25,14 @@ impl<B> HttpResponse<B> {
     }
 }
 
+impl HttpResponse<()> {
+    /// Creates a `HttpResponse` from a value.
+    pub fn from_response<T: IntoResponse>(value: T) -> HttpResponse<Body> {
+        let res = value.into_response();
+        HttpResponse(res)
+    }
+}
+
 impl<B> HttpResponse<B>
 where
     B: HttpBody + Send + 'static,
