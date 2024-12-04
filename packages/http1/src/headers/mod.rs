@@ -51,6 +51,7 @@ define_header_names! {
     X_REAL_IP => "X-Real-IP", // NON-STANDARD
     X_CLIENT_IP => "X-Client-IP", // NON-STANDARD
     X_FRAME_OPTIONS => "X-Frame-Options",
+    WWW_AUTHENTICATE => "WWW-Authenticate",
     FORWARDED => "Forwarded",
     ORIGIN => "Origin",
     DATE => "Date",
