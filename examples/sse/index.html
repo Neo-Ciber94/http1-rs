@@ -16,12 +16,11 @@
         const to = searchParams.get("to");
 
         const url =
-          to != null && !Number.isNaN(to) ? `/api/count?to=${to}` : "/api/count";
+          to != null && !Number.isNaN(to)
+            ? `/api/count?to=${to}`
+            : "/api/count";
 
         const sse = new EventSource(url);
-        sse.onerror = () => {
-          alert("failed to receive event");
-        };
 
         sse.onmessage = (ev) => {
           const text = String(ev.data);

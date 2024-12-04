@@ -8,13 +8,17 @@ use http1::{
     },
     server::Server,
 };
-use http1_web::{app::App, fs::ServeFile, query::Query, IntoResponse};
+use http1_web::{
+    app::App, fs::ServeFile, middleware::logging::Logging, query::Query, IntoResponse,
+};
 use log::ConsoleLogger;
 use serde::impl_serde_struct;
 
 fn main() -> std::io::Result<()> {
     log::set_logger(ConsoleLogger);
+
     let app = App::new()
+        .middleware(Logging)
         .get("/", ServeFile::new("examples/sse/index.html").unwrap())
         .get("/api/count", get_counter);
 
