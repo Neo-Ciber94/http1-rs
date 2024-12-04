@@ -1,5 +1,5 @@
 use std::{
-    io::{BufReader, ErrorKind},
+    io::ErrorKind,
     path::{Path, PathBuf},
 };
 
@@ -59,8 +59,7 @@ fn create_file_response(file_path: &Path) -> Response<Body> {
                 .and_then(|x| Mime::guess_mime(x).ok())
                 .unwrap_or(Mime::APPLICATION_OCTET_STREAM);
 
-            let reader = BufReader::new(file);
-            let body = Body::new(reader);
+            let body = Body::new(file);
 
             Response::builder()
                 .insert_header(
