@@ -92,16 +92,16 @@ impl SseEvent {
         Builder::new()
     }
 
-    pub fn with_data(data: impl Into<String>) -> Self {
+    pub fn with_data(data: impl Display) -> Self {
         // SAFETY: This should never fail
         Builder::new()
-            .data(data)
+            .data(data.to_string())
             .expect("invalid server-sent event")
     }
 
     pub fn with_event_data(
         event: impl Into<String>,
-        data: impl Into<String>,
+        data: impl Display,
     ) -> Result<Self, InvalidSseEvent> {
         Builder::new().event(event).data(data)
     }
@@ -220,10 +220,9 @@ impl Builder {
         })
     }
 
-    pub fn data(self, data: impl Into<String>) -> Result<SseEvent, InvalidSseEvent> {
+    pub fn data(self, data: impl Display) -> Result<SseEvent, InvalidSseEvent> {
         let Parts { event, id, retry } = self.0?;
-
-        let data = data.into();
+        let data = data.to_string();
 
         Ok(SseEvent {
             id,

@@ -44,7 +44,7 @@ fn get_counter(query: Option<Query<Count>>) -> Response<Body> {
         let max = count.to.unwrap_or(u64::MAX);
 
         for i in 0..max {
-            tx.send(SseEvent::with_data(i.to_string())).unwrap();
+            tx.send(SseEvent::with_data(i)).unwrap();
             std::thread::sleep(Duration::from_millis(1000));
         }
 
