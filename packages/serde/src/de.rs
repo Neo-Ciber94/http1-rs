@@ -12,6 +12,8 @@ use std::{
     },
 };
 
+use crate::forward_to_deserialize_any;
+
 use super::{
     expected::{Expected, TypeMismatchError},
     visitor::Visitor,
@@ -47,6 +49,58 @@ impl Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+/// Returns the initial value for a field that is missing.
+pub fn missing_field<T: Deserialize>(field_name: &'static str) -> Result<T, Error> {
+    struct MissingFieldDeserializer<T>(&'static str, PhantomData<T>);
+
+    impl<T> Deserializer for MissingFieldDeserializer<T> {
+        fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Error>
+        where
+            V: Visitor,
+        {
+            Err(Error::other(format!("missing field `{}`", self.0)))
+        }
+
+        fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Error>
+        where
+            V: Visitor,
+        {
+            visitor.visit_unit()
+        }
+
+        fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Error>
+        where
+            V: Visitor,
+        {
+            visitor.visit_none()
+        }
+
+        forward_to_deserialize_any!(
+            deserialize_bool,
+            deserialize_u8,
+            deserialize_u16,
+            deserialize_u32,
+            deserialize_u64,
+            deserialize_u128,
+            deserialize_i8,
+            deserialize_i16,
+            deserialize_i32,
+            deserialize_i64,
+            deserialize_i128,
+            deserialize_f32,
+            deserialize_f64,
+            deserialize_char,
+            deserialize_string,
+            deserialize_seq,
+            deserialize_bytes_seq,
+            deserialize_bytes_buf,
+            deserialize_map
+        );
+    }
+
+    T::deserialize(MissingFieldDeserializer::<T>(field_name, PhantomData))
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Unexpected {

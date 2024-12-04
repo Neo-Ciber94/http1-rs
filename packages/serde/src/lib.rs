@@ -9,6 +9,21 @@ pub mod visitor;
 pub mod de;
 pub mod ser;
 
+/// Forward all the calls to `deserialize_any`
+#[macro_export]
+macro_rules! forward_to_deserialize_any {
+    ($($method:ident),* $(,)?) => {
+        $(
+            fn $method<V>(self, visitor: V) -> Result<V::Value, Error>
+            where
+                V: Visitor,
+            {
+                self.deserialize_any(visitor)
+            }
+        )*
+    };
+}
+
 /// Implement `Deserialize` for a struct.
 #[macro_export]
 macro_rules! impl_deserialize_struct {
@@ -23,7 +38,7 @@ macro_rules! impl_deserialize_struct {
                     type Value = $struct;
 
                     fn expected(&self) -> &'static str {
-                        "struct"
+                       concat!("struct ", stringify!($struct))
                     }
 
                     fn visit_map<Map: $crate::visitor::MapAccess>(
@@ -31,15 +46,19 @@ macro_rules! impl_deserialize_struct {
                         mut map: Map,
                     ) -> Result<Self::Value, $crate::de::Error>  {
                         $(
-                            let mut $field: Result<$value, $crate::de::Error> = Err($crate::de::Error::other(concat!("missing field '", stringify!($field), "'")));
+                            let mut $field: Option<$value> = None;
                         )*
 
                         while let Some(k) = map.next_key::<String>()?  {
                             match k.as_str() {
                                 $(
                                     stringify!($field) => {
+                                        if Option::is_some(&$field) {
+                                            return Err($crate::de::Error::other(concat!("duplicated field field '", stringify!($field), "'")));
+                                        }
+
                                         $field = match map.next_value::<$value>()? {
-                                            Some(x) => Ok(x),
+                                            Some(x) => Some(x),
                                             None => {
                                                 return Err($crate::de::Error::other(concat!("missing field '", stringify!($field), "'")));
                                             }
@@ -48,6 +67,7 @@ macro_rules! impl_deserialize_struct {
                                 )*
 
                                 _ => {
+                                    // TODO: Allow unknown fields
                                     return Err($crate::de::Error::other(format!(
                                         "Unknown field '{k}'"
                                     )));
@@ -55,9 +75,16 @@ macro_rules! impl_deserialize_struct {
                             }
                         }
 
+                        $(
+                            let $field = match $field {
+                                Some(x) => x,
+                                None => $crate::de::missing_field(stringify!($field))?
+                            };
+                        )*
+
                         Ok($struct {
                             $(
-                                $field: $field?
+                                $field
                             ),*
                         })
                     }
