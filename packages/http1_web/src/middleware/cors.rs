@@ -285,6 +285,23 @@ impl CorsBuilder {
         self
     }
 
+    pub fn allow_methods<I>(mut self, methods: I) -> Self
+    where
+        I: IntoIterator<Item = Method>,
+    {
+        match &mut self.0.allowed_methods {
+            CorsValue::List(list) => {
+                list.extend(methods);
+            }
+            _ => {
+                let values = HashSet::from_iter(methods);
+                let _ = std::mem::replace(&mut self.0.allowed_methods, CorsValue::List(values));
+            }
+        }
+
+        self
+    }
+
     pub fn allow_any_header(mut self) -> Self {
         self.0.allowed_headers = CorsValue::Any;
         self
