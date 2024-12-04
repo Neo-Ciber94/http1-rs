@@ -38,7 +38,7 @@ impl FromHeaders for BasicAuth {
                 let (username, password) = basic_auth_str
                     .split_once(":")
                     .map(|(a, b)| (a.to_owned(), b.to_owned()))
-                    .ok_or_else(|| Unauthorized)?;
+                    .ok_or(Unauthorized)?;
 
                 Ok(BasicAuth { username, password })
             }
