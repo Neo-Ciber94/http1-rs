@@ -197,3 +197,12 @@ where
         self.0.map_body(Body::new)
     }
 }
+
+/// Helper trait to convert types that implement `IntoResponse` to `HttpResponse`.
+pub trait IntoHttpResponse: IntoResponse + Sized {
+    fn into_http_response(self) -> HttpResponse {
+        HttpResponse::from_response(self).finish()
+    }
+}
+
+impl<T> IntoHttpResponse for T where T: IntoResponse {}
