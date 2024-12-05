@@ -1,4 +1,4 @@
-use std::{ops::Deref, str::FromStr};
+use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use http1::{headers, uri::uri::Uri};
 
@@ -21,6 +21,13 @@ impl Deref for Referer {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+
+impl Display for Referer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
