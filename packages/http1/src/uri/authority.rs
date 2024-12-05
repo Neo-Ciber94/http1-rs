@@ -14,10 +14,10 @@ pub struct Authority {
 
 impl Authority {
     /// Constructs a new authority.
-    pub fn new(user_info: Option<String>, host: String, port: Option<u16>) -> Self {
+    pub fn new(user_info: Option<String>, host: impl Into<String>, port: Option<u16>) -> Self {
         Authority {
             user_info,
-            host,
+            host: host.into(),
             port,
         }
     }
@@ -51,7 +51,7 @@ impl Authority {
 impl Display for Authority {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(user_info) = &self.user_info {
-            write!(f, "{user_info}")?;
+            write!(f, "{user_info}@")?;
         }
 
         write!(f, "{}", self.host)?;

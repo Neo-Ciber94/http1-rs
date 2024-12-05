@@ -67,7 +67,7 @@ impl ToSocketAddrs for Uri {
 impl std::fmt::Display for Uri {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(scheme) = &self.scheme {
-            write!(f, "{}//", scheme)?;
+            write!(f, "{}://", scheme)?;
         }
 
         if let Some(authority) = &self.authority {
@@ -194,7 +194,18 @@ impl<'a> TryFrom<&'a str> for Uri {
 mod tests {
     use std::str::FromStr;
 
-    use crate::uri::uri::Uri;
+    use crate::uri::{authority::Authority, path_query::PathAndQuery, scheme::Scheme, uri::Uri};
+
+    #[test]
+    fn should_display_uri() {
+        let uri = Uri::new(
+            Some(Scheme::Http),
+            Some(Authority::new(Some(String::from("user")), "localhost", Some(4500))),
+            PathAndQuery::new(String::from("/hello/world"), Some(String::from("num=2&text=hello")),Some(String::from("fragment")))
+        );
+
+        assert_eq!(uri.to_string(), "http://user@localhost:4500/hello/world?num=2&text=hello#fragment");
+    }
 
     #[test]
     fn should_parse_uri_with_empty_path() {
