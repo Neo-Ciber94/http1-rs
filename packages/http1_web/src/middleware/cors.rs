@@ -110,124 +110,6 @@ impl Cors {
     }
 }
 
-impl Middleware for Cors {
-    fn on_request(
-        &self,
-        req: Request<Body>,
-        next: &crate::handler::BoxedHandler,
-    ) -> http1::response::Response<Body> {
-        fn get_comma_separated_list<I: IntoIterator<Item = T>, T: Display>(iter: I) -> String {
-            iter.into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        }
-
-        fn get_cors_headers(this: &Cors, req: &Request<Body>) -> Headers {
-            let mut headers = Headers::new();
-
-            match &this.allowed_origins {
-                CorsOrigin::Any => {
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-                        HeaderValue::from_static("*"),
-                    );
-                }
-                CorsOrigin::List(list) => {
-                    let origins = get_comma_separated_list(list);
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-                        HeaderValue::from_string(origins),
-                    );
-                }
-                CorsOrigin::Dynamic(f) => {
-                    let list = f(req);
-                    let origins = get_comma_separated_list(&list);
-
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-                        HeaderValue::from_string(origins),
-                    );
-                }
-            }
-
-            match &this.allowed_methods {
-                CorsValue::None => {}
-                CorsValue::Any => {
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_METHODS,
-                        HeaderValue::from_static("*"),
-                    );
-                }
-                CorsValue::List(list) => {
-                    let methods = get_comma_separated_list(list);
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_METHODS,
-                        HeaderValue::from_string(methods),
-                    );
-                }
-            }
-
-            match &this.allowed_headers {
-                CorsValue::None => {}
-                CorsValue::Any => {
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_HEADERS,
-                        HeaderValue::from_static("*"),
-                    );
-                }
-                CorsValue::List(list) => {
-                    let headers_str = get_comma_separated_list(list);
-                    headers.insert(
-                        headers::ACCESS_CONTROL_ALLOW_HEADERS,
-                        HeaderValue::from_string(headers_str),
-                    );
-                }
-            }
-
-            match &this.expose_headers {
-                CorsValue::None => {}
-                CorsValue::Any => {
-                    headers.insert(
-                        headers::ACCESS_CONTROL_EXPOSE_HEADERS,
-                        HeaderValue::from_static("*"),
-                    );
-                }
-                CorsValue::List(list) => {
-                    let headers_str = get_comma_separated_list(list);
-                    headers.insert(
-                        headers::ACCESS_CONTROL_EXPOSE_HEADERS,
-                        HeaderValue::from_string(headers_str),
-                    );
-                }
-            }
-
-            if let Some(allow_credentials) = this.allow_credentials {
-                headers.insert(
-                    headers::ACCESS_CONTROL_ALLOW_CREDENTIALS,
-                    HeaderValue::from_static(if allow_credentials { "true" } else { "false" }),
-                );
-            }
-
-            if let Some(max_age) = this.max_age {
-                headers.insert(headers::ACCESS_CONTROL_MAX_AGE, max_age);
-            }
-
-            headers
-        }
-
-        let cors_headers = get_cors_headers(self, &req);
-        let mut outgoing_response = if req.method() == Method::OPTIONS {
-            Response::new(StatusCode::NO_CONTENT, Body::empty())
-        } else {
-            next.call(req)
-        };
-
-        outgoing_response.headers_mut().extend(cors_headers);
-        outgoing_response
-    }
-}
-
 pub struct CorsBuilder(Cors);
 
 impl CorsBuilder {
@@ -358,4 +240,122 @@ impl Default for CorsBuilder {
     fn default() -> Self {
         Self::new()
     }
+}
+
+impl Middleware for Cors {
+    fn on_request(
+        &self,
+        req: Request<Body>,
+        next: &crate::handler::BoxedHandler,
+    ) -> http1::response::Response<Body> {
+        let cors_headers = get_cors_headers(self, &req);
+        let mut outgoing_response = if req.method() == Method::OPTIONS {
+            Response::new(StatusCode::NO_CONTENT, Body::empty())
+        } else {
+            next.call(req)
+        };
+
+        outgoing_response.headers_mut().extend(cors_headers);
+        outgoing_response
+    }
+}
+
+fn get_comma_separated_list<I: IntoIterator<Item = T>, T: Display>(iter: I) -> String {
+    iter.into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn get_cors_headers(cors: &Cors, req: &Request<Body>) -> Headers {
+    let mut headers = Headers::new();
+
+    match &cors.allowed_origins {
+        CorsOrigin::Any => {
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_static("*"),
+            );
+        }
+        CorsOrigin::List(list) => {
+            let origins = get_comma_separated_list(list);
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_string(origins),
+            );
+        }
+        CorsOrigin::Dynamic(f) => {
+            let list = f(req);
+            let origins = get_comma_separated_list(&list);
+
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_string(origins),
+            );
+        }
+    }
+
+    match &cors.allowed_methods {
+        CorsValue::None => {}
+        CorsValue::Any => {
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_METHODS,
+                HeaderValue::from_static("*"),
+            );
+        }
+        CorsValue::List(list) => {
+            let methods = get_comma_separated_list(list);
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_METHODS,
+                HeaderValue::from_string(methods),
+            );
+        }
+    }
+
+    match &cors.allowed_headers {
+        CorsValue::None => {}
+        CorsValue::Any => {
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_HEADERS,
+                HeaderValue::from_static("*"),
+            );
+        }
+        CorsValue::List(list) => {
+            let headers_str = get_comma_separated_list(list);
+            headers.insert(
+                headers::ACCESS_CONTROL_ALLOW_HEADERS,
+                HeaderValue::from_string(headers_str),
+            );
+        }
+    }
+
+    match &cors.expose_headers {
+        CorsValue::None => {}
+        CorsValue::Any => {
+            headers.insert(
+                headers::ACCESS_CONTROL_EXPOSE_HEADERS,
+                HeaderValue::from_static("*"),
+            );
+        }
+        CorsValue::List(list) => {
+            let headers_str = get_comma_separated_list(list);
+            headers.insert(
+                headers::ACCESS_CONTROL_EXPOSE_HEADERS,
+                HeaderValue::from_string(headers_str),
+            );
+        }
+    }
+
+    if let Some(allow_credentials) = cors.allow_credentials {
+        headers.insert(
+            headers::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            HeaderValue::from_static(if allow_credentials { "true" } else { "false" }),
+        );
+    }
+
+    if let Some(max_age) = cors.max_age {
+        headers.insert(headers::ACCESS_CONTROL_MAX_AGE, max_age);
+    }
+
+    headers
 }
