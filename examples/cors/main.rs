@@ -1,9 +1,15 @@
 use std::sync::{Arc, Mutex};
 
-use http1::{body::Body, method::Method, server::Server};
+use http1::{
+    body::Body,
+    headers::{self, HeaderName, HeaderValue},
+    method::Method,
+    server::Server,
+};
 use http1_web::{
     app::App,
     forms::form::Form,
+    handler::BoxedHandler,
     header::{GetHeader, Referer},
     html::Html,
     json::Json,
@@ -17,11 +23,12 @@ use serde::impl_serde_struct;
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    let t1 = std::thread::spawn(move || backend().expect("failed to start backend"));
-    let t2 = std::thread::spawn(move || frontend().expect("failed to start frontend"));
+    // let t1 = std::thread::spawn(move || backend().expect("failed to start backend"));
+    // let t2 = std::thread::spawn(move || frontend().expect("failed to start frontend"));
 
-    t1.join().unwrap();
-    t2.join().unwrap();
+    // while !t1.is_finished() || !t2.is_finished() {}
+
+    backend().expect("failed to start backend");
     Ok(())
 }
 
@@ -45,36 +52,37 @@ fn backend() -> std::io::Result<()> {
     let app = App::new()
         .middleware(
             Cors::builder()
-                .allow_methods(vec![Method::GET, Method::POST])
+                .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
                 .allow_origins(vec!["http://localhost:3456"])
+                .allow_any_header()
                 .build(),
         )
         .middleware(Logging)
-        .state(AppState::default())
-        .get("/api/flowers", |State(state): State<AppState>| {
-            let lock = state.flowers.lock().unwrap();
-            let flowers = (*lock).clone();
-            Json(flowers)
-        })
-        .post(
-            "/api/flowers",
-            |Form(flower): Form<Flower>,
-             State(state): State<AppState>,
-             referer: Option<GetHeader<Referer>>| {
-                dbg!(&flower);
-                let mut lock = state.flowers.lock().unwrap();
-                lock.push(flower);
+        // .state(AppState::default())
+        // .get("/api/flowers", |State(state): State<AppState>| {
+        //     let lock = state.flowers.lock().unwrap();
+        //     let flowers = (*lock).clone();
+        //     Json(flowers).into_http_response().append_header(
+        //         headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+        //         HeaderValue::from_static("http://localhost:3456"),
+        //     )
+        // })
+        .get("/api/flowers", || Json(Vec::<Flower>::new()))
+        .post("/api/flowers", |flower: String| {
+            dbg!(&flower);
+            // let mut lock = state.flowers.lock().unwrap();
+            // lock.push(flower);
 
-                match referer {
-                    Some(GetHeader(referer)) => {
-                        let s = referer.to_string();
-                        println!("{s}");
-                        Redirect::see_other(referer.to_string()).into_http_response()
-                    }
-                    None => HttpResponse::created(Body::empty()),
-                }
-            },
-        );
+            // match referer {
+            //     Some(GetHeader(referer)) => {
+            //         let s = referer.to_string();
+            //         println!("{s}");
+            //         Redirect::see_other(referer.to_string()).into_http_response()
+            //     }
+            //     None => HttpResponse::created(Body::empty()),
+            // }
+            "Hello World"
+        });
 
     Server::new()
         .on_ready(|addr| println!("Backend listening on http://localhost:{}", addr.port()))
@@ -91,47 +99,12 @@ fn frontend() -> std::io::Result<()> {
                 <meta charset="utf-8">
                 <style>
                     .flower-color {
-                        width: 10px;
-                        height: 10px;
-                        background-color: attr(data-color);
+                        display: inline-block;
+                        margin-right: 8px;
+                        width: 16px;
+                        height: 16px;                        
                     }
                 </style>
-                <script>
-                    window.onload = () => {
-                        const flowersEl = document.getElementById('flower-list');
-                        
-                        fetch('http://localhost:5000/api/flowers')
-                            .then(res => res.json()) 
-                            .then(flowers => {
-
-                                if (flowers.length === 0) {
-                                   flowersEl.textContent = 'No flowers available 🥀'; 
-                                }
-                                else {
-                                    const listEl = document.createElement("ul");
-
-                                    for (const flower of flowers) {
-                                        const flowerEl = document.createElement("li");
-                                        const colorEl = document.createElement("span");
-                                        const textEl = document.createElement("span");
-
-                                        colorEl.classList.add("flower-color");
-                                        colorEl.dataset.color = flower.color;
-                                        textEl.textContent = flower.name;
-
-                                        flowerEl.append(colorEl);
-                                        flowerEl.append(textEl);
-                                    }
-
-                                    flowersEl.append(listEl);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching users:', error);
-                                flowersEl.textContent = '❌ Failed to load flowers'; 
-                            });
-                    };
-                </script>
             </head>
             <body>
                 <h1>🌸🌸 Flowers 🌸🌸</h1>
@@ -146,6 +119,43 @@ fn frontend() -> std::io::Result<()> {
                     <br/>
                     <button>Add Flower</button>
                 </form>
+                <script>
+                    window.onload = () => {
+                        const flowersEl = document.getElementById('flower-list');
+                        
+                        fetch('http://localhost:5000/api/flowers')
+                            .then(res => res.json()) 
+                            .then(flowers => {
+                                console.log({ flowers })
+                                if (flowers.length === 0) {
+                                   flowersEl.textContent = 'No flowers available 🥀'; 
+                                }
+                                else {
+                                    const listEl = document.createElement("ul");
+
+                                    for (const flower of flowers) {
+                                        const flowerEl = document.createElement("li");
+                                        const colorEl = document.createElement("span");
+                                        const textEl = document.createElement("span");
+
+                                        colorEl.classList.add("flower-color");
+                                        colorEl.style.backgroundColor = flower.color;
+                                        textEl.textContent = flower.name;
+
+                                        flowerEl.appendChild(colorEl);
+                                        flowerEl.appendChild(textEl);
+                                        listEl.appendChild(flowerEl);
+                                    }
+
+                                    flowersEl.replaceChildren(listEl);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching users:', error);
+                                flowersEl.textContent = '❌ Failed to load flowers'; 
+                            });
+                    };
+                </script>
             </body>
         </html>
         "#,
