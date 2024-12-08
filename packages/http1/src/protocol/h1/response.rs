@@ -57,7 +57,7 @@ fn write_headers<W: Write>(
     if config.include_date_header {
         headers.insert(
             headers::DATE,
-            HeaderValue::from_string(DateTime::now_utc().to_string()),
+            HeaderValue::from_string(DateTime::now_utc().to_rfc_1123_string()),
         );
     }
 
