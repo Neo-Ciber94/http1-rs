@@ -19,7 +19,7 @@ use super::Middleware;
 pub enum CorsOrigin {
     Any,
     List(HashSet<String>),
-    Dynamic(Box<dyn Fn(&Request<Body>) -> Vec<String> + Send + Sync>),
+    Dynamic(Box<dyn Fn(&Request<Body>) -> bool + Send + Sync>),
 }
 
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl Cors {
 
     pub fn from_origins_fn<F>(f: F) -> Self
     where
-        F: Fn(&Request<Body>) -> Vec<String> + Sync + Send + 'static,
+        F: Fn(&Request<Body>) -> bool + Send + Sync + 'static,
     {
         CorsBuilder::new()
             .with_origin(f)
@@ -141,7 +141,7 @@ impl CorsBuilder {
 
     pub fn with_origin<F>(mut self, f: F) -> Self
     where
-        F: Fn(&Request<Body>) -> Vec<String> + Send + Sync + 'static,
+        F: Fn(&Request<Body>) -> bool + Send + Sync + 'static,
     {
         self.0.allowed_origins = CorsOrigin::Dynamic(Box::new(f));
         self
@@ -278,20 +278,26 @@ fn get_cors_headers(cors: &Cors, req: &Request<Body>) -> Headers {
             );
         }
         CorsOrigin::List(list) => {
-            let origins = get_comma_separated_list(list);
-            headers.insert(
-                headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-                HeaderValue::from_string(origins),
-            );
+            if let Some(origin) = req.headers().get(headers::ORIGIN) {
+                if list.contains(origin.as_str()) {
+                    headers.insert(
+                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        HeaderValue::from_string(origin.to_string()),
+                    );
+                }
+            }
         }
         CorsOrigin::Dynamic(f) => {
-            let list = f(req);
-            let origins = get_comma_separated_list(&list);
+            if let Some(origin) = req.headers().get(headers::ORIGIN) {
+                let is_allowed = f(req);
 
-            headers.insert(
-                headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-                HeaderValue::from_string(origins),
-            );
+                if is_allowed {
+                    headers.insert(
+                        headers::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        HeaderValue::from_string(origin.to_string()),
+                    );
+                }
+            }
         }
     }
 
