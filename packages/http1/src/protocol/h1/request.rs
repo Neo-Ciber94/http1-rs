@@ -17,18 +17,67 @@ use crate::{
     version::Version,
 };
 
+struct DebugRead<R>(R);
+impl<R: Read> Read for DebugRead<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let len = self.0.read(buf)?;
+        {
+            let bytes = &buf[..len];
+            let s = String::from_utf8_lossy(bytes);
+            println!("Reading: {s:?}");
+        }
+
+        Ok(len)
+    }
+}
+
+fn read_line<R: Read>(buf: &mut String, mut reader: R) -> std::io::Result<()> {
+    let mut bytes = Vec::new();
+    let mut byte_buf = [0; 1];
+    let mut prev = None;
+
+    loop {
+        println!("reding btye");
+        match reader.read(&mut byte_buf)? {
+            0 => break,
+            _ => {
+                let c = byte_buf[0];
+                bytes.push(c);
+                print!("{:?}", char::from_u32(c as u32).unwrap());
+
+                if c == b'\n' && prev == Some(b'\r') {
+                    bytes.pop();
+                    bytes.pop();
+                    break;
+                }
+
+                prev = Some(c);
+            }
+        }
+    }
+
+    let s = std::str::from_utf8(&bytes).map_err(std::io::Error::other)?;
+    buf.push_str(s);
+
+    println!("done...");
+    Ok(())
+}
+
 pub fn read_request<R: Read + Send + 'static>(
     stream: R,
     config: &Config,
 ) -> std::io::Result<Request<Body>> {
-    let mut reader = BufReader::new(stream);
+    let mut reader = BufReader::new(DebugRead(stream));
     let mut buf = String::new();
 
     // Read first line
-    reader.read_line(&mut buf)?;
+    println!("reading first...");
+    // reader.read_line(&mut buf)?;
+    read_line(&mut buf, &mut reader)?;
 
     let mut builder = Request::builder();
 
+    println!("reading request line...");
     let (method, url, version) = read_request_line(&buf)?;
     let can_discard_body = method == Method::GET || method == Method::HEAD;
 
@@ -37,10 +86,12 @@ pub fn read_request<R: Read + Send + 'static>(
     *builder.version_mut().unwrap() = version;
 
     // Read headers
+    println!("reading headers...");
     buf.clear();
     let headers = read_headers(&mut reader, &mut buf)?;
 
     // Read the body
+    println!("reading body...");
     let body = read_request_body(reader, &headers, can_discard_body, config)?;
 
     // Set headers
@@ -71,7 +122,9 @@ fn read_request_body<R: Read + Send + 'static>(
         return Ok(Body::empty());
     }
 
+    println!("reading body");
     let body = if let Some(length) = content_length {
+        dbg!(length);
         // Read body based on Content-Length
         Body::new(FixedLengthBodyReader::new(
             reader,

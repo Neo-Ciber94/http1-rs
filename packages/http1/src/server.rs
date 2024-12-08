@@ -185,6 +185,13 @@ where
             let config = config.clone();
             let handler = handler.clone();
 
+            // std::thread::spawn(move || {
+            //     match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
+            //         Ok(..) => {}
+            //         Err(err) => log::error!("{err}"),
+            //     }
+            // });
+
             let result = executor.execute(move || {
                 match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
                     Ok(..) => {}
