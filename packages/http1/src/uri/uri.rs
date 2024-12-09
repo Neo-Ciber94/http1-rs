@@ -200,11 +200,22 @@ mod tests {
     fn should_display_uri() {
         let uri = Uri::new(
             Some(Scheme::Http),
-            Some(Authority::new(Some(String::from("user")), "localhost", Some(4500))),
-            PathAndQuery::new(String::from("/hello/world"), Some(String::from("num=2&text=hello")),Some(String::from("fragment")))
+            Some(Authority::new(
+                Some(String::from("user")),
+                "localhost",
+                Some(4500),
+            )),
+            PathAndQuery::new(
+                String::from("/hello/world"),
+                Some(String::from("num=2&text=hello")),
+                Some(String::from("fragment")),
+            ),
         );
 
-        assert_eq!(uri.to_string(), "http://user@localhost:4500/hello/world?num=2&text=hello#fragment");
+        assert_eq!(
+            uri.to_string(),
+            "http://user@localhost:4500/hello/world?num=2&text=hello#fragment"
+        );
     }
 
     #[test]

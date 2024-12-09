@@ -24,7 +24,6 @@ impl Deref for Referer {
     }
 }
 
-
 impl Display for Referer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
