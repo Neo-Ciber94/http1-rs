@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn should_get_request_and_get_response() {
-        let pipe = Pipe::from("GET / HTTP/1.1\nHost: localhost:3000");
+        let pipe = Pipe::from("GET / HTTP/1.1\r\nHost: localhost:3000");
 
         let config = Config {
             include_date_header: false,
