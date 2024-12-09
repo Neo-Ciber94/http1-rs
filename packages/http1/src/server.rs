@@ -185,13 +185,6 @@ where
             let config = config.clone();
             let handler = handler.clone();
 
-            // std::thread::spawn(move || {
-            //     match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
-            //         Ok(..) => {}
-            //         Err(err) => log::error!("{err}"),
-            //     }
-            // });
-
             let result = executor.execute(move || {
                 match handle_incoming(&handler, &config, Connection::Tcp(stream)) {
                     Ok(..) => {}
@@ -240,5 +233,19 @@ impl Executor for ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         self.execute(f)
+    }
+}
+
+/// An executor that spawn each task in a separate thread.
+pub struct SpawnExecutor;
+impl Executor for SpawnExecutor {
+    type Err = std::io::Error;
+
+    fn execute<F>(&self, f: F) -> Result<(), Self::Err>
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        std::thread::spawn(f);
+        Ok(())
     }
 }

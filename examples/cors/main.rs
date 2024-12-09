@@ -4,7 +4,7 @@ use http1::{
     body::Body,
     headers::{self, HeaderName, HeaderValue},
     method::Method,
-    server::Server,
+    server::{Server, SpawnExecutor},
 };
 use http1_web::{
     app::App,
@@ -58,33 +58,33 @@ fn backend() -> std::io::Result<()> {
                 .build(),
         )
         .middleware(Logging)
-        // .state(AppState::default())
-        // .get("/api/flowers", |State(state): State<AppState>| {
-        //     let lock = state.flowers.lock().unwrap();
-        //     let flowers = (*lock).clone();
-        //     Json(flowers).into_http_response().append_header(
-        //         headers::ACCESS_CONTROL_ALLOW_ORIGIN,
-        //         HeaderValue::from_static("http://localhost:3456"),
-        //     )
-        // })
-        .get("/api/flowers", || Json(Vec::<Flower>::new()))
-        .post("/api/flowers", |flower: String| {
-            dbg!(&flower);
-            // let mut lock = state.flowers.lock().unwrap();
-            // lock.push(flower);
+        .state(AppState::default())
+        .get("/api/flowers", |State(state): State<AppState>| {
+            let lock = state.flowers.lock().unwrap();
+            let flowers = (*lock).clone();
+            Json(flowers)
+        })
+        .post(
+            "/api/flowers",
+            |Form(flower): Form<Flower>,
+             State(state): State<AppState>,
+             referer: Option<GetHeader<Referer>>| {
+                dbg!(&flower);
+                let mut lock = state.flowers.lock().unwrap();
+                lock.push(flower);
 
-            // match referer {
-            //     Some(GetHeader(referer)) => {
-            //         let s = referer.to_string();
-            //         println!("{s}");
-            //         Redirect::see_other(referer.to_string()).into_http_response()
-            //     }
-            //     None => HttpResponse::created(Body::empty()),
-            // }
-            "Hello World"
-        });
+                match referer {
+                    Some(GetHeader(referer)) => {
+                        let s = referer.to_string();
+                        println!("{s}");
+                        Redirect::see_other(referer.to_string()).into_http_response()
+                    }
+                    None => HttpResponse::created(Body::empty()),
+                }
+            },
+        );
 
-    Server::new()
+    Server::with_executor(SpawnExecutor)
         .on_ready(|addr| println!("Backend listening on http://localhost:{}", addr.port()))
         .listen("0.0.0.0:5000", app)
 }
