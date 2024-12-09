@@ -101,12 +101,12 @@ fn frontend() -> std::io::Result<()> {
             <body>
                 <h1>🌸🌸 Flowers 🌸🌸</h1>
                 <div id="flower-list">
-                   Loading...
+                   Loading... ⌛
                 </div>
 
                 <h2>New Flower</h2>
                 <form method="post" action="http://localhost:5000/api/flowers">
-                    <input name="name" type="text" required />
+                    <input name="name" type="text" required placeholder="Flower name..."/>
                     <input name="color" type="color" required />
                     <br/>
                     <button>Add Flower</button>
