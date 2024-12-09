@@ -40,7 +40,7 @@ pub struct Monitoring {
     panicked_worker_count: AtomicCounter,
 }
 
-struct State {
+struct SharedState {
     name: String,
     stack_size: Option<usize>,
     sender: Sender<Task>,
@@ -52,7 +52,7 @@ struct State {
 
 #[derive(Clone)]
 pub struct ThreadPool {
-    inner: Arc<State>,
+    state: Arc<SharedState>,
 }
 
 impl ThreadPool {
@@ -71,32 +71,32 @@ impl ThreadPool {
 
     /// Returns the name used as prefix for the worker threads.
     pub fn name(&self) -> &str {
-        self.inner.name.as_str()
+        self.state.name.as_str()
     }
 
     /// Returns the size of the stack of the worker threads.
     pub fn stack_size(&self) -> Option<usize> {
-        self.inner.stack_size
+        self.state.stack_size
     }
 
     /// Returns the number of active worker threads.
     pub fn worker_count(&self) -> usize {
-        self.inner.monitoring.active_worker_count.get()
+        self.state.monitoring.active_worker_count.get()
     }
 
     /// Returns the max allowed number of workers
     pub fn max_workers_count(&self) -> Option<usize> {
-        self.inner.max_workers_count
+        self.state.max_workers_count
     }
 
     /// Returns the number of tasks that still running.
     pub fn pending_count(&self) -> usize {
-        self.inner.monitoring.pending_tasks_count.get()
+        self.state.monitoring.pending_tasks_count.get()
     }
 
     /// Returns the number of workers that panicked.
     pub fn panicked_count(&self) -> usize {
-        self.inner.monitoring.panicked_worker_count.get()
+        self.state.monitoring.panicked_worker_count.get()
     }
 
     /// Executes the given task on an available worker.
@@ -104,24 +104,24 @@ impl ThreadPool {
         let is_full = self.pending_count() >= self.worker_count();
 
         if is_full {
-            match self.inner.max_workers_count {
+            match self.state.max_workers_count {
                 Some(max_workers_count) => {
                     if self.worker_count() < max_workers_count {
-                        let _ = spawn_worker(&self.inner);
+                        let _ = spawn_worker(&self.state);
                     }
                 }
                 None => {
-                    let _ = spawn_worker(&self.inner);
+                    let _ = spawn_worker(&self.state);
                 }
             }
         }
 
         // Increment the count
-        self.inner.monitoring.pending_tasks_count.increment();
+        self.state.monitoring.pending_tasks_count.increment();
 
         // Spawn the new task
         let task = Box::new(f);
-        self.inner
+        self.state
             .sender
             .send(task)
             .expect("Failed to send a task to the ThreadPool");
@@ -131,7 +131,7 @@ impl ThreadPool {
 
     pub fn join(&self) -> Result<(), TerminateError> {
         // Wait for all pending tasks to finish
-        while self.inner.monitoring.pending_tasks_count.get() > 0 {
+        while self.state.monitoring.pending_tasks_count.get() > 0 {
             std::thread::yield_now()
         }
 
@@ -204,7 +204,7 @@ impl Builder {
 
         let name = name.unwrap_or_else(|| String::from(DEFAULT_WORKER_NAME));
 
-        let inner = Arc::new(State {
+        let inner = Arc::new(SharedState {
             name,
             sender,
             stack_size,
@@ -218,7 +218,7 @@ impl Builder {
             spawn_worker(&inner)?;
         }
 
-        Ok(ThreadPool { inner })
+        Ok(ThreadPool { state: inner })
     }
 }
 
@@ -229,12 +229,12 @@ impl Default for Builder {
 }
 
 struct Watchdog<'a> {
-    state: &'a Arc<State>,
+    state: &'a Arc<SharedState>,
     is_active: bool,
 }
 
 impl<'a> Watchdog<'a> {
-    pub fn new(state: &'a Arc<State>) -> Self {
+    pub fn new(state: &'a Arc<SharedState>) -> Self {
         Watchdog {
             state,
             is_active: false,
@@ -290,7 +290,7 @@ impl<F: FnOnce()> Drop for CallOnDrop<F> {
     }
 }
 
-fn spawn_worker(state: &Arc<State>) -> std::io::Result<()> {
+fn spawn_worker(state: &Arc<SharedState>) -> std::io::Result<()> {
     let mut builder = std::thread::Builder::new();
 
     let worker_name = format!(
