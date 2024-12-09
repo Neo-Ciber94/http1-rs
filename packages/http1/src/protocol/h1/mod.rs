@@ -28,10 +28,7 @@ where
     };
 
     // Create the request object
-    println!("reading request");
     let mut request = request::read_request(conn, config)?;
-
-    println!("request was read");
 
     // If the connection can be upgraded, we create a pending upgrade
     let can_be_upgraded = is_upgrade_request(&request);

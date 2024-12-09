@@ -2,14 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use http1::{
     body::Body,
-    headers::{self, HeaderName, HeaderValue},
     method::Method,
     server::{Server, SpawnExecutor},
 };
 use http1_web::{
     app::App,
     forms::form::Form,
-    handler::BoxedHandler,
     header::{GetHeader, Referer},
     html::Html,
     json::Json,
@@ -23,12 +21,9 @@ use serde::impl_serde_struct;
 fn main() -> std::io::Result<()> {
     log::set_logger(log::ConsoleLogger);
 
-    // let t1 = std::thread::spawn(move || backend().expect("failed to start backend"));
-    // let t2 = std::thread::spawn(move || frontend().expect("failed to start frontend"));
-
-    // while !t1.is_finished() || !t2.is_finished() {}
-
-    backend().expect("failed to start backend");
+    let t1 = std::thread::spawn(move || backend().expect("failed to start backend"));
+    let t2 = std::thread::spawn(move || frontend().expect("failed to start frontend"));
+    while !t1.is_finished() || !t2.is_finished() {}
     Ok(())
 }
 
@@ -69,14 +64,11 @@ fn backend() -> std::io::Result<()> {
             |Form(flower): Form<Flower>,
              State(state): State<AppState>,
              referer: Option<GetHeader<Referer>>| {
-                dbg!(&flower);
                 let mut lock = state.flowers.lock().unwrap();
                 lock.push(flower);
 
                 match referer {
                     Some(GetHeader(referer)) => {
-                        let s = referer.to_string();
-                        println!("{s}");
                         Redirect::see_other(referer.to_string()).into_http_response()
                     }
                     None => HttpResponse::created(Body::empty()),
