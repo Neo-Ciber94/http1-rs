@@ -118,7 +118,6 @@ fn frontend() -> std::io::Result<()> {
                         fetch('http://localhost:5000/api/flowers')
                             .then(res => res.json()) 
                             .then(flowers => {
-                                console.log({ flowers })
                                 if (flowers.length === 0) {
                                    flowersEl.textContent = 'No flowers available 🥀'; 
                                 }
