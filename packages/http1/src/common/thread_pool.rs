@@ -1,11 +1,7 @@
-use std::{
-    any::Any,
-    fmt::Debug,
-    sync::{
-        atomic::AtomicUsize,
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
+use std::sync::{
+    atomic::AtomicUsize,
+    mpsc::{channel, Receiver, Sender},
+    Arc, Mutex,
 };
 
 type Task = Box<dyn FnOnce() + Send + 'static>;
@@ -26,12 +22,6 @@ impl AtomicCounter {
     pub fn decrement(&self) {
         self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
     }
-}
-
-#[derive(Debug)]
-pub enum TerminateError {
-    JoinError(Box<dyn Any + 'static>),
-    Other(String),
 }
 
 pub struct Monitoring {
@@ -129,13 +119,11 @@ impl ThreadPool {
         Ok(())
     }
 
-    pub fn join(&self) -> Result<(), TerminateError> {
+    pub fn join(&self) {
         // Wait for all pending tasks to finish
         while self.state.monitoring.pending_tasks_count.get() > 0 {
             std::thread::yield_now()
         }
-
-        Ok(())
     }
 }
 
@@ -395,7 +383,7 @@ mod tests {
         assert_eq!(pool.pending_count(), 2);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        pool.join().unwrap();
+        pool.join();
         std::thread::sleep(Duration::from_millis(50));
 
         assert_eq!(pool.worker_count(), 2);
@@ -431,7 +419,7 @@ mod tests {
         assert_eq!(pool.pending_count(), 3);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        pool.join().unwrap();
+        pool.join();
         std::thread::sleep(Duration::from_millis(50));
 
         assert_eq!(pool.pending_count(), 0);
@@ -464,7 +452,7 @@ mod tests {
         assert_eq!(pool.worker_count(), 5);
 
         is_done.store(true, std::sync::atomic::Ordering::Release);
-        pool.join().unwrap();
+        pool.join();
 
         assert_eq!(pool.pending_count(), 0);
     }
