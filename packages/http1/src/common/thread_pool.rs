@@ -218,29 +218,22 @@ impl Default for Builder {
 
 struct Watchdog<'a> {
     state: &'a Arc<SharedState>,
-    is_active: bool,
 }
 
 impl<'a> Watchdog<'a> {
     pub fn new(state: &'a Arc<SharedState>) -> Self {
-        Watchdog {
-            state,
-            is_active: false,
-        }
-    }
-
-    pub fn cancel(&mut self) {
-        self.is_active = false;
+        Watchdog { state }
     }
 }
 
 impl<'a> Drop for Watchdog<'a> {
     fn drop(&mut self) {
-        if !std::thread::panicking() || !self.is_active {
+        if !std::thread::panicking() {
             return;
         }
 
         let state = &self.state;
+        state.monitoring.active_worker_count.decrement();
         state.monitoring.panicked_worker_count.increment();
 
         if let Some(on_panic) = state.on_worker_panic {
@@ -299,32 +292,28 @@ fn spawn_worker(state: &Arc<SharedState>) -> std::io::Result<()> {
     let state = Arc::clone(state);
 
     builder.spawn(move || {
-        let _guard_active_worker = CallOnDrop::new({
-            let monitoring = state.monitoring.clone();
-            move || monitoring.active_worker_count.decrement()
-        });
-
-        let mut watchdog = Watchdog::new(&state);
+        // The watchdog will spawn a new thread if the current one panics
+        let _watchdog = Watchdog::new(&state);
 
         loop {
-            let receiver = state.receiver.lock().expect("failed to lock job receiver");
-
             // Decrement active work count when completes
             let _guard = CallOnDrop::new({
                 let monitoring = state.monitoring.clone();
                 move || monitoring.pending_tasks_count.decrement()
             });
 
-            let task = match receiver.recv() {
-                Ok(x) => x,
-                Err(..) => break,
+            let task = {
+                let receiver = state.receiver.lock().expect("failed to lock job receiver");
+
+                match receiver.recv() {
+                    Ok(t) => t,
+                    Err(..) => break,
+                }
             };
 
             // Execute the task
             task();
         }
-
-        watchdog.cancel();
     })?;
 
     Ok(())
@@ -457,21 +446,22 @@ mod tests {
         assert_eq!(pool.pending_count(), 0);
     }
 
-    // #[test]
-    // fn should_spawn_additional_worker_on_panic() {
-    //     let pool = ThreadPool::builder().num_workers(3).build().unwrap();
+    #[test]
+    fn should_spawn_additional_worker_on_panic() {
+        let pool = ThreadPool::builder().num_workers(3).build().unwrap();
 
-    //     assert_eq!(pool.worker_count(), 3);
+        assert_eq!(pool.worker_count(), 3);
 
-    //     pool.execute(|| panic!("Oh oh")).unwrap();
-    //     pool.execute(|| panic!("Oh oh")).unwrap();
+        pool.execute(|| panic!("Oh oh")).unwrap();
+        pool.execute(|| panic!("Oh oh")).unwrap();
 
-    //     assert_eq!(pool.pending_count(), 2);
+        assert_eq!(pool.pending_count(), 2);
 
-    //     pool.join().unwrap();
+        pool.join();
+        std::thread::sleep(Duration::from_millis(100));
 
-    //     assert_eq!(pool.worker_count(), 3);
-    //     assert_eq!(pool.pending_count(), 0);
-    //     assert_eq!(pool.panicked_count(), 2);
-    // }
+        assert_eq!(pool.worker_count(), 3);
+        assert_eq!(pool.pending_count(), 0);
+        assert_eq!(pool.panicked_count(), 2);
+    }
 }
