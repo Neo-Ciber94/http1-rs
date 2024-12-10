@@ -15,15 +15,8 @@ impl<T> OneOrMany<T> {
     }
 
     pub fn many(values: Vec<T>) -> Self {
-        assert!(values.len() > 0);
+        assert!(!values.is_empty());
         OneOrMany::Many(Many(values))
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            OneOrMany::One(_) => 0,
-            OneOrMany::Many(Many(vec)) => vec.len(),
-        }
     }
 
     pub fn insert(&mut self, value: T) {
