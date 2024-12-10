@@ -12,4 +12,4 @@ A zero dependencies implementation of the HTTP 1.1 protocol in rust.
 
 ## FIXME
 
-- [ ] Mime type implementation is fully correct, MUST be case insensitive: <https://httpwg.org/specs/rfc9110.html#media.type>
+- [ ] Mime type implementation not is fully correct, MUST be case insensitive: <https://httpwg.org/specs/rfc9110.html#media.type>
