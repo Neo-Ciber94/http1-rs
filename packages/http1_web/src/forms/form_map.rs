@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     fs::File,
     io::{Cursor, Read},
     ops::{Deref, DerefMut},
@@ -12,6 +13,7 @@ use crate::from_request::FromRequest;
 use super::{
     form_data::{FormData, FormDataError},
     form_field::{FormField, Storage},
+    one_or_many::OneOrMany,
 };
 
 #[derive(Debug)]
@@ -56,11 +58,11 @@ impl Read for Data {
 }
 
 #[derive(Debug)]
-pub struct FormMap(HashMap<String, FormField<Data>>);
+pub struct FormMap(HashMap<String, OneOrMany<FormField<Data>>>);
 
 impl IntoIterator for FormMap {
-    type Item = (String, FormField<Data>);
-    type IntoIter = std::collections::hash_map::IntoIter<String, FormField<Data>>;
+    type Item = (String, OneOrMany<FormField<Data>>);
+    type IntoIter = std::collections::hash_map::IntoIter<String, OneOrMany<FormField<Data>>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -68,7 +70,7 @@ impl IntoIterator for FormMap {
 }
 
 impl Deref for FormMap {
-    type Target = HashMap<String, FormField<Data>>;
+    type Target = HashMap<String, OneOrMany<FormField<Data>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -89,7 +91,7 @@ impl FromRequest for FormMap {
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let mut form_data = FormData::from_request(req, payload)?;
-        let mut map = HashMap::new();
+        let mut map = HashMap::<String, OneOrMany<FormField<Data>>>::new();
 
         loop {
             match form_data.next_field() {
@@ -127,7 +129,15 @@ impl FromRequest for FormMap {
 
                     let form_field =
                         FormField::from_parts(name.clone(), filename, content_type, storage);
-                    map.insert(name, form_field);
+
+                    match map.entry(name.clone()) {
+                        std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
+                            occupied_entry.get_mut().insert(form_field);
+                        }
+                        std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                            vacant_entry.insert(OneOrMany::One(form_field));
+                        }
+                    }
                 }
                 Ok(None) => break,
                 Err(err) => return Err(FormDataError::Other(err.into())),
