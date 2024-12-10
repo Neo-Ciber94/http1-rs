@@ -15,24 +15,25 @@ use serde::{
     bytes::BytesBufferDeserializer,
     de::{Deserialize, Deserializer},
     string::{DeserializeFromStr, DeserializeOnlyString},
-    visitor::{MapAccess, Visitor},
+    visitor::{MapAccess, SeqAccess, Visitor},
 };
 
 use super::{
     form_data::FormDataError,
     form_field::FormField,
     form_map::{Data, FormMap},
+    one_or_many::OneOrMany,
 };
 
 #[derive(Debug)]
-pub struct FormFile {
+pub struct FormEntry {
     name: String,
     filename: Option<String>,
     content_type: Option<String>,
     data: TempFile,
 }
 
-impl FormFile {
+impl FormEntry {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -115,12 +116,12 @@ impl<T: Deserialize> FromRequest for Multipart<T> {
     }
 }
 
-impl Deserialize for FormFile {
+impl Deserialize for FormEntry {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, serde::de::Error> {
         struct FormFileVisitor;
 
         impl Visitor for FormFileVisitor {
-            type Value = FormFile;
+            type Value = FormEntry;
 
             fn expected(&self) -> &'static str {
                 "file"
@@ -165,7 +166,7 @@ impl Deserialize for FormFile {
                     }
                 }
 
-                Ok(FormFile {
+                Ok(FormEntry {
                     name: name?,
                     filename: filename?,
                     content_type: content_type?,
@@ -408,10 +409,10 @@ impl Deserializer for MultipartDeserializer {
 
 struct FormMapAccess<I> {
     iter: I,
-    value: Option<FormField<Data>>,
+    value: Option<OneOrMany<FormField<Data>>>,
 }
 
-impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<I> {
+impl<I: Iterator<Item = (String, OneOrMany<FormField<Data>>)>> MapAccess for FormMapAccess<I> {
     fn next_key<K: serde::de::Deserialize>(&mut self) -> Result<Option<K>, serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
@@ -425,26 +426,31 @@ impl<I: Iterator<Item = (String, FormField<Data>)>> MapAccess for FormMapAccess<
 
     fn next_value<V: serde::de::Deserialize>(&mut self) -> Result<Option<V>, serde::de::Error> {
         match self.value.take() {
-            Some(field) => {
-                if field.filename().is_some() {
-                    // let deserializer = BytesBufferDeserializer(field.reader());
-                    // let value = V::deserialize(deserializer)?;
-                    // Ok(Some(value))
-                    let deserializer = FormFieldDeserializer(field);
-                    let value = V::deserialize(deserializer)?;
-                    Ok(Some(value))
-                } else {
-                    let s = field.text().map_err(serde::de::Error::other)?;
-                    let value = V::deserialize(DeserializeFromStr::Str(s))?;
-                    Ok(Some(value))
-                }
+            Some(form_fields) => {
+                // let field = form_fields.first();
+                // if field.filename().is_some() {
+                //     // let deserializer = BytesBufferDeserializer(field.reader());
+                //     // let value = V::deserialize(deserializer)?;
+                //     // Ok(Some(value))
+                //     let deserializer = FormFieldDeserializer(form_fields);
+                //     let value = V::deserialize(deserializer)?;
+                //     Ok(Some(value))
+                // } else {
+                //     let s = field.text().map_err(serde::de::Error::other)?;
+                //     let value = V::deserialize(DeserializeFromStr::Str(s))?;
+                //     Ok(Some(value))
+                // }
+
+                let deserializer = FormFieldDeserializer(form_fields);
+                let value = V::deserialize(deserializer)?;
+                Ok(Some(value))
             }
             None => Ok(None),
         }
     }
 }
 
-struct FormFieldDeserializer(FormField<Data>);
+struct FormFieldDeserializer(OneOrMany<FormField<Data>>);
 impl Deserializer for FormFieldDeserializer {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
@@ -599,13 +605,12 @@ impl Deserializer for FormFieldDeserializer {
         ))
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, serde::de::Error>
     where
         V: Visitor,
     {
-        Err(serde::de::Error::other(
-            "cannot deserialize form file to `seq`",
-        ))
+        let fields = self.0.into_vec();
+        visitor.visit_seq(FormFieldSeqAccess(fields))
     }
 
     fn deserialize_bytes_seq<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
@@ -630,12 +635,14 @@ impl Deserializer for FormFieldDeserializer {
     where
         V: Visitor,
     {
+        let field = self.0.take_first();
+
         visitor.visit_map(FormFieldAccess {
             step: ReadingStep::Name,
-            name: Some(self.0.name().to_string()),
-            filename: self.0.filename().map(|x| x.to_owned()),
-            content_type: self.0.content_type().map(|x| x.to_owned()),
-            data: Some(self.0.reader()),
+            name: Some(field.name().to_string()),
+            filename: field.filename().map(|x| x.to_owned()),
+            content_type: field.content_type().map(|x| x.to_owned()),
+            data: Some(field.reader()),
         })
     }
 
@@ -646,6 +653,21 @@ impl Deserializer for FormFieldDeserializer {
         Err(serde::de::Error::other(
             "cannot deserialize form file to `option`",
         ))
+    }
+}
+
+struct FormFieldSeqAccess(Vec<FormField<Data>>);
+impl SeqAccess for FormFieldSeqAccess {
+    fn next_element<D: Deserialize>(&mut self) -> Result<Option<D>, serde::de::Error> {
+        if self.0.is_empty() {
+            return Ok(None);
+        }
+
+        // Use VecDeque instead?
+        let field = self.0.remove(0);
+        let deserializer = FormFieldDeserializer(OneOrMany::one(field));
+        let value = D::deserialize(deserializer)?;
+        Ok(Some(value))
     }
 }
 

@@ -9,7 +9,7 @@ use app::db::KeyValueDatabase;
 use http1::{common::uuid::Uuid, server::Server};
 use http1_web::{
     app::App,
-    forms::multipart::{FormFile, Multipart},
+    forms::multipart::{FormEntry, Multipart},
     fs::ServeDir,
     html::{self, element::HTMLElement},
     middleware::logging::Logging,
@@ -195,11 +195,11 @@ mod components {
 
 #[derive(Debug)]
 struct UploadFile {
-    image: FormFile,
+    image: FormEntry,
 }
 
 serde::impl_deserialize_struct!(UploadFile => {
-    image: FormFile
+    image: FormEntry
 });
 
 fn upload(
