@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use http1::headers::HeaderValue;
 
-/// Represents document format: https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types
+/// Represents document format: <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types>
 ///
 /// A mime is compose by: `type/subtype;<parameter=value>`
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

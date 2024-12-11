@@ -15,6 +15,7 @@ use crate::{
     },
 };
 
+/// A request error.
 const DEFAULT_USER_AGENT: &str = "rust";
 
 #[derive(Debug)]

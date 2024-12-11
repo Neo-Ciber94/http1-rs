@@ -9,6 +9,7 @@ use crate::{
     protocol::{connection::Connection, h1::handle_incoming},
 };
 
+/// Server handle to shutdown the server.
 #[derive(Clone)]
 pub struct ServerHandle {
     is_closed: Arc<AtomicBool>,

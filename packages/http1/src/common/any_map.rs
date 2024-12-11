@@ -9,18 +9,22 @@ use std::{
 pub struct AnyMap(HashMap<TypeId, Box<dyn CloneBox + Send + Sync>>);
 
 impl AnyMap {
+    /// Creates an empty `AnyMap`.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Returns the number of items in this map.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns `true` if this map is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Returns a reference of a value of type `T`.
     pub fn get<T>(&self) -> Option<&T>
     where
         T: Send + Sync + 'static,
@@ -30,6 +34,7 @@ impl AnyMap {
             .and_then(|x| (**x).as_any().downcast_ref())
     }
 
+    /// Returns a mutable reference of a value of type `T`.
     pub fn get_mut<T>(&mut self) -> Option<&mut T>
     where
         T: Send + Sync + 'static,
@@ -39,6 +44,7 @@ impl AnyMap {
             .and_then(|x| (**x).as_any_mut().downcast_mut())
     }
 
+    /// Returns `true` if contains a value from the given type `T`.
     pub fn contains<T>(&self) -> bool
     where
         T: Send + Sync + 'static,
@@ -46,6 +52,7 @@ impl AnyMap {
         self.0.contains_key(&TypeId::of::<T>())
     }
 
+    /// Inserts the given value.
     pub fn insert<T>(&mut self, value: T) -> Option<T>
     where
         T: Send + Clone + Sync + 'static,
@@ -56,6 +63,7 @@ impl AnyMap {
             .map(|x| *x)
     }
 
+    /// Removes the value of the given type.
     pub fn remove<T>(&mut self) -> Option<T>
     where
         T: Send + Sync + 'static,
@@ -66,6 +74,7 @@ impl AnyMap {
             .map(|x| *x)
     }
 
+    /// Extend this type from other.
     pub fn extend(&mut self, other: AnyMap) {
         self.0.extend(other.0);
     }

@@ -118,7 +118,7 @@ impl Default for FormDataConfig {
 /// 
 /// For a typed form use `[Multipart<T>]`.
 ///
-/// We parse the file according to: https://datatracker.ietf.org/doc/html/rfc7578
+/// We parse the file according to: <https://datatracker.ietf.org/doc/html/rfc7578>
 pub struct FormData {
     reader: StreamReader<BodyReader>,
     boundary: String,
