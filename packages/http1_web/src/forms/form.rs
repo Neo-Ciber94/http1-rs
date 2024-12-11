@@ -22,6 +22,7 @@ use serde::{
 
 use orderedmap::OrderedMap;
 
+/// Represents an `application/x-www-form-urlencoded` form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Form<T>(pub T);
 
