@@ -18,11 +18,19 @@ impl_serde_struct!(Session => {
     expires_at: DateTime,
 });
 
+/// Status of this session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionStatus {
+    /// Session was newly created.
     New,
+
+    /// No status, may be refreshed.
     None,
+
+    /// Session was modified.
     Modified,
+
+    /// Session was destroyed because expired or manually.
     Destroyed,
 }
 
@@ -43,6 +51,7 @@ impl_serde_struct!(SessionInner => {
     status: SessionStatus,
 });
 
+/// A key-value collection to store information for the current user.
 #[derive(Clone)]
 pub struct Session {
     id: String,
@@ -52,6 +61,9 @@ pub struct Session {
 }
 
 impl Session {
+    /// Create a new session.
+    ///
+    /// This should be done by the session provider and not manually.
     pub fn new(id: impl Into<String>, expires_at: DateTime) -> Self {
         Session {
             id: id.into(),
@@ -64,15 +76,18 @@ impl Session {
         }
     }
 
+    /// Returns the session id.
     pub fn id(&self) -> &str {
         self.id.as_ref()
     }
 
+    /// Returns the status of this session.
     pub fn status(&self) -> SessionStatus {
         let inner = self.inner.read().expect("failed to lock session data");
         inner.status
     }
 
+    /// Get the value for the given key.
     pub fn get<T: Deserialize>(&self, key: impl AsRef<str>) -> Result<Option<T>, BoxError> {
         let inner = self.inner.read().expect("failed to lock session data");
         let bytes = match inner.data.get(key.as_ref()) {
@@ -84,11 +99,13 @@ impl Session {
         Ok(Some(value))
     }
 
+    /// Returns `true` if the session contain the given value.
     pub fn contains_key(&self, key: impl AsRef<str>) -> bool {
         let inner = self.inner.read().expect("failed to lock session data");
         inner.data.contains_key(key.as_ref())
     }
 
+    /// Reset the session status.
     pub fn refresh_status(&mut self) {
         let mut inner = self.inner.write().expect("failed to lock session data");
 
@@ -100,6 +117,7 @@ impl Session {
         inner.status = SessionStatus::None;
     }
 
+    /// Insert or replace the value with the given key.
     pub fn insert<T: Serialize>(
         &mut self,
         key: impl Into<String>,
@@ -112,6 +130,7 @@ impl Session {
         Ok(())
     }
 
+    /// Get the value for the given key or insert it and return it.
     pub fn get_or_insert<T: Serialize + Deserialize>(
         &mut self,
         key: impl AsRef<str>,
@@ -120,6 +139,7 @@ impl Session {
         self.get_or_insert_with(key, || default_value)
     }
 
+    /// Get the value for the given key or insert with the given function it and return it.
     pub fn get_or_insert_with<T: Serialize + Deserialize>(
         &mut self,
         key: impl AsRef<str>,
@@ -144,6 +164,47 @@ impl Session {
         self.get(key).map(|x| x.expect("value should exists"))
     }
 
+    /// Updates the value associated with the given key or insert it if it don't exists.
+    pub fn update_or_insert<T: Serialize + Deserialize, F>(
+        &mut self,
+        key: impl AsRef<str>,
+        initial: T,
+        updater: F,
+    ) -> Result<(), BoxError>
+    where
+        F: FnOnce(T) -> T,
+    {
+        self.update_or_insert_with(key, || initial, updater)
+    }
+
+    /// Updates the value associated with the given key or insert with a function it if it don't exists.
+    pub fn update_or_insert_with<T, U, F>(
+        &mut self,
+        key: impl AsRef<str>,
+        initial: U,
+        updater: F,
+    ) -> Result<(), BoxError>
+    where
+        F: FnOnce(T) -> T,
+        U: FnOnce() -> T,
+        T: Serialize + Deserialize,
+    {
+        if !self.contains_key(key.as_ref()) {
+            return self.insert(key.as_ref().to_owned(), initial());
+        }
+
+        let value = match self.get::<T>(key.as_ref())? {
+            Some(x) => x,
+            None => initial(),
+        };
+
+        let new_value = updater(value);
+        self.insert(key.as_ref().to_owned(), new_value)?;
+
+        Ok(())
+    }
+
+    /// Removes the value associated with the given key.
     pub fn remove(&mut self, key: impl AsRef<str>) -> Result<(), BoxError> {
         let mut inner = self.inner.write().expect("failed to lock session data");
         inner.data.remove(key.as_ref());
@@ -151,19 +212,23 @@ impl Session {
         Ok(())
     }
 
+    /// Whether if this session is expired.
     pub fn is_expired(&self) -> bool {
         DateTime::now_utc() > self.expires_at
     }
 
+    /// Remove this session from this user.
     pub fn destroy(self) {
         self.is_destroyed
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    /// Whether if this session is destroyed for this user.
     pub fn is_destroyed(&self) -> bool {
         self.is_destroyed.load(std::sync::atomic::Ordering::Acquire)
     }
 
+    /// Whether if this session is expired or destroyed.
     pub fn is_valid(&self) -> bool {
         !self.is_expired() && !self.is_destroyed()
     }
