@@ -33,6 +33,10 @@ pub struct SessionProvider<S> {
 }
 
 impl SessionProvider<()> {
+    pub fn new<S: SessionStore>(store: S) -> SessionProvider<S> {
+        Self::builder().store(store)
+    }
+
     pub fn builder() -> Builder {
         Builder::new(generate_session_id)
     }
