@@ -114,7 +114,9 @@ impl Default for FormDataConfig {
     }
 }
 
-/// Represents multipart/form-data stream.
+/// Represents a raw multipart/form-data stream.
+/// 
+/// For a typed form use `[Multipart<T>]`.
 ///
 /// We parse the file according to: https://datatracker.ietf.org/doc/html/rfc7578
 pub struct FormData {
