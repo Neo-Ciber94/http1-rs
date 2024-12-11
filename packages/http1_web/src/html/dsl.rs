@@ -373,33 +373,34 @@ define_html_element_fn!(
     html, body, head, title, 
     
     // Metadata and Scripting
-    style, script,
+    style, script, noscript, template, 
     
-     // Headings
+    // Headings
     h1, h2, h3, h4, h5, h6, 
     
     // Sections and Grouping Content
-    div, section, article, aside, header, footer, nav, 
+    div, section, article, aside, header, footer, nav, main, 
     
     // Text Content
-    p, span, a, i, u, b, strong, em, blockquote, pre, code, 
+    p, span, a, i, u, b, strong, em, blockquote, pre, code, q, abbr, cite, dfn, mark, 
     
     // Lists
     ol, ul, li, dl, dt, dd, 
     
     // Table Content
-    table, tr, td, th, thead, tbody, tfoot, caption, 
+    table, tr, td, th, thead, tbody, tfoot, caption, colgroup, 
     
     // Forms
-    form, textarea, button, label, select, option, 
+    form, textarea, button, label, select, option, optgroup, fieldset, legend, output, 
     
     // Media and Embedded Content
-    figure, figcaption
+    figure, figcaption, video, audio, canvas, svg, math, iframe, embed, object, param, picture
 );
 
+#[rustfmt::skip]
 define_html_void_element_fn!(
     // Void elements (self-closing)
-    hr, br, img, input, meta, link
+    hr, br, img, input, meta, link, area, base, col, command, keygen, source, wbr
 );
 
 /// Set a value in the global context.
