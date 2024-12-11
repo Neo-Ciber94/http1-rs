@@ -50,7 +50,7 @@ jobs:
         run: cargo doc --no-deps
 
       - name: Add redirect
-        run: echo '<meta http-equiv="refresh" content="0;url=http1/index.html">' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0;url=/http1/index.html">' > target/doc/index.html
 
       - name: Upload files
         id: deployment
