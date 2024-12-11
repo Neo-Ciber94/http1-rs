@@ -1,8 +1,12 @@
 use std::fmt::Debug;
 
+/// Represents one or many items.
 #[derive(Clone, PartialEq, Eq)]
 pub enum OneOrMany<T> {
+    /// A single item.
     One(T),
+
+    // Multiple items.
     Many(Many<T>),
 }
 

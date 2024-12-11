@@ -57,12 +57,15 @@ impl Read for Data {
     }
 }
 
+/// One or many form fields.
+pub type FormFields = OneOrMany<FormField<Data>>;
+
 #[derive(Debug)]
-pub struct FormMap(HashMap<String, OneOrMany<FormField<Data>>>);
+pub struct FormMap(HashMap<String, FormFields>);
 
 impl IntoIterator for FormMap {
-    type Item = (String, OneOrMany<FormField<Data>>);
-    type IntoIter = std::collections::hash_map::IntoIter<String, OneOrMany<FormField<Data>>>;
+    type Item = (String, FormFields);
+    type IntoIter = std::collections::hash_map::IntoIter<String, FormFields>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -70,7 +73,7 @@ impl IntoIterator for FormMap {
 }
 
 impl Deref for FormMap {
-    type Target = HashMap<String, OneOrMany<FormField<Data>>>;
+    type Target = HashMap<String, FormFields>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -91,7 +94,7 @@ impl FromRequest for FormMap {
         payload: &mut http1::payload::Payload,
     ) -> Result<Self, Self::Rejection> {
         let mut form_data = FormData::from_request(req, payload)?;
-        let mut map = HashMap::<String, OneOrMany<FormField<Data>>>::new();
+        let mut map = HashMap::<String, FormFields>::new();
 
         loop {
             match form_data.next_field() {

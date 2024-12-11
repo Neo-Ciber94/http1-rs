@@ -21,7 +21,7 @@ use serde::{
 use super::{
     form_data::FormDataError,
     form_field::FormField,
-    form_map::{Data, FormMap},
+    form_map::{Data, FormFields, FormMap},
     one_or_many::OneOrMany,
 };
 
@@ -409,10 +409,10 @@ impl Deserializer for MultipartDeserializer {
 
 struct FormMapAccess<I> {
     iter: I,
-    value: Option<OneOrMany<FormField<Data>>>,
+    value: Option<FormFields>,
 }
 
-impl<I: Iterator<Item = (String, OneOrMany<FormField<Data>>)>> MapAccess for FormMapAccess<I> {
+impl<I: Iterator<Item = (String, FormFields)>> MapAccess for FormMapAccess<I> {
     fn next_key<K: serde::de::Deserialize>(&mut self) -> Result<Option<K>, serde::de::Error> {
         match self.iter.next() {
             Some((k, v)) => {
@@ -436,7 +436,7 @@ impl<I: Iterator<Item = (String, OneOrMany<FormField<Data>>)>> MapAccess for For
     }
 }
 
-struct FormFieldDeserializer(OneOrMany<FormField<Data>>);
+struct FormFieldDeserializer(FormFields);
 impl Deserializer for FormFieldDeserializer {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, serde::de::Error>
     where
