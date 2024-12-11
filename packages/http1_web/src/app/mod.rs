@@ -24,6 +24,7 @@ use crate::{
     IntoResponse,
 };
 
+/// Represents a server application that provides middlewares and handlers.
 #[derive(Debug)]
 pub struct App {
     scope: Scope,
@@ -32,6 +33,7 @@ pub struct App {
 }
 
 impl App {
+    /// Constructs an empty server application.
     pub fn new() -> App {
         App {
             scope: Scope::root(),
@@ -48,6 +50,7 @@ impl Default for App {
 }
 
 impl App {
+    /// Adds a middleware to this application.
     pub fn add_middleware<M>(&mut self, middleware: M)
     where
         M: Middleware + Send + Sync + 'static,
@@ -55,6 +58,7 @@ impl App {
         self.middleware.push(BoxedMiddleware::new(middleware));
     }
 
+    /// Adds a route handler to this application.
     pub fn add_route<H, Args, R>(&mut self, method: MethodRoute, route: &str, handler: H)
     where
         Args: FromRequest,
@@ -67,6 +71,7 @@ impl App {
 }
 
 impl App {
+    /// Adds a middleware.
     pub fn middleware<M>(mut self, middleware: M) -> Self
     where
         M: Middleware + Send + Sync + 'static,
@@ -75,6 +80,7 @@ impl App {
         self
     }
 
+    /// Adds a state to the app, this later can be retrieve using `State<T>`.
     pub fn state<U>(mut self, value: U) -> Self
     where
         U: Clone + Send + Sync + 'static,
@@ -83,11 +89,13 @@ impl App {
         self
     }
 
+    /// Adds a nested route.
     pub fn scope(mut self, route: &str, scope: Scope) -> Self {
         self.scope.add_scope(route, scope);
         self
     }
 
+    /// Adds a route with the given method, route path and handler.
     pub fn route<H, Args, R>(mut self, method: MethodRoute, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -98,6 +106,7 @@ impl App {
         self
     }
 
+    /// Adds a fallback route handler.
     pub fn fallback<H, Args, R>(mut self, handler: H) -> Self
     where
         Args: FromRequest,
@@ -108,6 +117,7 @@ impl App {
         self
     }
 
+    /// Adds a `GET` request route handler.
     pub fn get<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -117,6 +127,7 @@ impl App {
         self.route(MethodRoute::GET, route, handler)
     }
 
+    /// Adds a `POST` request route handler.
     pub fn post<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -126,6 +137,7 @@ impl App {
         self.route(MethodRoute::POST, route, handler)
     }
 
+    /// Adds a `PUT` request route handler.
     pub fn put<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -135,6 +147,7 @@ impl App {
         self.route(MethodRoute::PUT, route, handler)
     }
 
+    /// Adds a `DELETE` request route handler.
     pub fn delete<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -144,6 +157,7 @@ impl App {
         self.route(MethodRoute::DELETE, route, handler)
     }
 
+    /// Adds a `PATCH` request route handler.
     pub fn patch<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -153,6 +167,7 @@ impl App {
         self.route(MethodRoute::PATCH, route, handler)
     }
 
+    /// Adds a `OPTIONS` request route handler.
     pub fn options<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -162,6 +177,7 @@ impl App {
         self.route(MethodRoute::OPTIONS, route, handler)
     }
 
+    /// Adds a `HEAD` request route handler.
     pub fn head<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -171,6 +187,7 @@ impl App {
         self.route(MethodRoute::HEAD, route, handler)
     }
 
+    /// Adds a `TRACE` request route handler.
     pub fn trace<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -180,6 +197,7 @@ impl App {
         self.route(MethodRoute::TRACE, route, handler)
     }
 
+    /// Adds a handler that catches any route in the given route path.
     pub fn any<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -191,14 +209,7 @@ impl App {
 
     /// Return an iterator over all the routes.
     pub fn routes(&self) -> impl Iterator<Item = (Route, &Method)> {
-        self.scope.method_router.entries().flat_map(|(r, id)| {
-            self.scope
-                .route_to_methods
-                .get(id)
-                .expect("failed to get route methods")
-                .keys()
-                .map(|method| (r.clone(), method))
-        })
+        self.scope.routes()
     }
 }
 
@@ -262,6 +273,7 @@ impl RouteId {
     }
 }
 
+/// An scoped route.
 #[derive(Default)]
 pub struct Scope {
     method_router: Router<RouteId>,
@@ -279,6 +291,7 @@ impl Scope {
         }
     }
 
+    /// Creates a new scoped route.
     pub fn new() -> Self {
         Default::default()
     }
@@ -402,6 +415,7 @@ impl Scope {
         }
     }
 
+    /// Adds a fallback route handler.
     pub fn fallback<H, Args, R>(mut self, fallback: H) -> Self
     where
         Args: FromRequest,
@@ -412,11 +426,13 @@ impl Scope {
         self
     }
 
+    /// Adds a nested route.
     pub fn scope(mut self, route: &str, scope: Scope) -> Self {
         self.add_scope(route, scope);
         self
     }
 
+    /// Adds a route with the given method, route path and handler.
     pub fn route<H, Args, R>(mut self, method: MethodRoute, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -427,6 +443,7 @@ impl Scope {
         self
     }
 
+    /// Adds a `GET` request route handler.
     pub fn get<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -436,6 +453,7 @@ impl Scope {
         self.route(MethodRoute::GET, route, handler)
     }
 
+    /// Adds a `POST` request route handler.
     pub fn post<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -445,6 +463,7 @@ impl Scope {
         self.route(MethodRoute::POST, route, handler)
     }
 
+    /// Adds a `PUT` request route handler.
     pub fn put<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -454,6 +473,7 @@ impl Scope {
         self.route(MethodRoute::PUT, route, handler)
     }
 
+    /// Adds a `DELETE` request route handler.
     pub fn delete<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -463,6 +483,7 @@ impl Scope {
         self.route(MethodRoute::DELETE, route, handler)
     }
 
+    /// Adds a `PATCH` request route handler.
     pub fn patch<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -472,6 +493,7 @@ impl Scope {
         self.route(MethodRoute::PATCH, route, handler)
     }
 
+    /// Adds a `OPTIONS` request route handler.
     pub fn options<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -481,6 +503,7 @@ impl Scope {
         self.route(MethodRoute::OPTIONS, route, handler)
     }
 
+    /// Adds a `HEAD` request route handler.
     pub fn head<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -490,6 +513,7 @@ impl Scope {
         self.route(MethodRoute::HEAD, route, handler)
     }
 
+    /// Adds a `TRACE` request route handler.
     pub fn trace<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -499,6 +523,7 @@ impl Scope {
         self.route(MethodRoute::TRACE, route, handler)
     }
 
+    /// Adds a handler that catches any route in the given route path.
     pub fn any<H, Args, R>(self, route: &str, handler: H) -> Self
     where
         Args: FromRequest,
@@ -506,6 +531,17 @@ impl Scope {
         R: IntoResponse,
     {
         self.route(MethodRoute::any(), route, handler)
+    }
+
+    /// Return an iterator over all the routes.
+    pub fn routes(&self) -> impl Iterator<Item = (Route, &Method)> {
+        self.method_router.entries().flat_map(|(r, id)| {
+            self.route_to_methods
+                .get(id)
+                .expect("failed to get route methods")
+                .keys()
+                .map(|method| (r.clone(), method))
+        })
     }
 }
 
