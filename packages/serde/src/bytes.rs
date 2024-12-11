@@ -3,9 +3,9 @@ use crate::{
     visitor::{BytesAccess, SeqAccess, Visitor},
 };
 
-pub struct BytesBufferDeserializer<R: std::io::Read>(pub R);
+pub struct BytesReaderDeserializer<R: std::io::Read>(pub R);
 
-impl<R: std::io::Read> Deserializer for BytesBufferDeserializer<R> {
+impl<R: std::io::Read> Deserializer for BytesReaderDeserializer<R> {
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, crate::de::Error>
     where
         V: Visitor,

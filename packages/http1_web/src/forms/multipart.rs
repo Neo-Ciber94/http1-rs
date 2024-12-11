@@ -12,7 +12,7 @@ use http1::{
 
 use crate::{from_request::FromRequest, IntoResponse};
 use serde::{
-    bytes::BytesBufferDeserializer,
+    bytes::BytesReaderDeserializer,
     de::{Deserialize, Deserializer},
     string::{DeserializeFromStr, DeserializeOnlyString},
     visitor::{MapAccess, SeqAccess, Visitor},
@@ -427,20 +427,6 @@ impl<I: Iterator<Item = (String, OneOrMany<FormField<Data>>)>> MapAccess for For
     fn next_value<V: serde::de::Deserialize>(&mut self) -> Result<Option<V>, serde::de::Error> {
         match self.value.take() {
             Some(form_fields) => {
-                // let field = form_fields.first();
-                // if field.filename().is_some() {
-                //     // let deserializer = BytesBufferDeserializer(field.reader());
-                //     // let value = V::deserialize(deserializer)?;
-                //     // Ok(Some(value))
-                //     let deserializer = FormFieldDeserializer(form_fields);
-                //     let value = V::deserialize(deserializer)?;
-                //     Ok(Some(value))
-                // } else {
-                //     let s = field.text().map_err(serde::de::Error::other)?;
-                //     let value = V::deserialize(DeserializeFromStr::Str(s))?;
-                //     Ok(Some(value))
-                // }
-
                 let deserializer = FormFieldDeserializer(form_fields);
                 let value = V::deserialize(deserializer)?;
                 Ok(Some(value))
@@ -734,7 +720,7 @@ impl<R: std::io::Read> MapAccess for FormFieldAccess<R> {
             ReadingStep::Data => {
                 let _ = std::mem::replace(&mut self.step, ReadingStep::Finished);
                 let data = self.data.take().expect("`data` was already read");
-                let deserializer = BytesBufferDeserializer(data);
+                let deserializer = BytesReaderDeserializer(data);
                 let value = V::deserialize(deserializer)?;
                 Ok(Some(value))
             }
