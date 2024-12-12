@@ -1,13 +1,28 @@
+/// Byte stream deserialization utilities.
 pub mod bytes;
+
+/// Utilities to display expected errors.
 pub mod expected;
+
+/// To ignore values during deserialization.
 pub mod ignore;
+
+/// Type that cannot be serialized.
 pub mod impossible;
+
+/// JSON serialization and deserialization.
 pub mod json;
+
+/// String serialization/deserialization utilities.
 pub mod string;
+
+/// Deserializer visitors.
 pub mod visitor;
 
-//
+/// Deserialization.
 pub mod de;
+
+/// Serialization.
 pub mod ser;
 
 /// Forward all the calls to `deserialize_any`

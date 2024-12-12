@@ -143,6 +143,7 @@ impl Display for Unexpected {
     }
 }
 
+/// Provide a mechanism to deserialize a value to a type.
 pub trait Deserializer {
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
@@ -233,6 +234,7 @@ pub trait Deserializer {
         V: Visitor;
 }
 
+/// Convert a value to this type.
 pub trait Deserialize: Sized {
     fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, Error>;
 }
