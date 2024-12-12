@@ -5,6 +5,7 @@ use std::{
 
 use datetime::DateTime;
 
+/// Level of a log message.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LogLevel {
@@ -14,6 +15,7 @@ pub enum LogLevel {
     Error,
 }
 
+/// A record that contains information of the log message.
 #[derive(Debug, Clone)]
 pub struct Record<'a> {
     module_path: &'static str,
@@ -23,6 +25,13 @@ pub struct Record<'a> {
 }
 
 impl<'a> Record<'a> {
+    /// Constructs a new log record.
+    ///
+    /// # Parameters
+    /// - `module_path`: The module where the log occurred, obtained with `module_path!()`
+    /// - `file`: The file where the log occurred, obtained with `file!()`
+    /// - `line`: The line where the log occurred, obtained with `line!()`
+    /// - `args`: Argument to that contains the message.
     pub fn new(
         module_path: &'static str,
         file: &'static str,
@@ -37,27 +46,34 @@ impl<'a> Record<'a> {
         }
     }
 
+    /// Returns the module path where the log occurred.
     pub fn module_path(&self) -> &'static str {
         self.module_path
     }
 
+    /// Returns the file where the log occurred.
     pub fn file(&self) -> &'static str {
         self.file
     }
 
+    /// Returns the line where the log occurred.
     pub fn line(&self) -> u32 {
         self.line
     }
 
+    /// Returns the arguments of the log.
     pub fn args(&self) -> &Arguments<'a> {
         &self.args
     }
 }
 
+/// A logger.
 pub trait Logger: Send + Sync {
+    /// Send a message.
     fn log(&self, level: LogLevel, record: &Record<'_>);
 }
 
+/// A logger that does nothing.
 pub struct NoopLogger;
 
 /// A logger.
@@ -131,6 +147,7 @@ impl Logger for ConsoleLogger {
     }
 }
 
+/// Logs a message with the given level.
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($arg:tt)*) => {
@@ -138,6 +155,7 @@ macro_rules! log {
     };
 }
 
+/// Logs a debug message.
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
@@ -145,6 +163,7 @@ macro_rules! debug {
     };
 }
 
+/// Logs a information message.
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {
@@ -152,6 +171,7 @@ macro_rules! info {
     };
 }
 
+/// Logs a warning message.
 #[macro_export]
 macro_rules! warn {
     ($($arg:tt)*) => {
@@ -159,6 +179,7 @@ macro_rules! warn {
     };
 }
 
+/// Logs a error message.
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {
