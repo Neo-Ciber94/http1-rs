@@ -17,6 +17,7 @@ thread_local! {
     static RNG: RefCell<xorshift::XorShiftRng128> = RefCell::new(xorshift::XorShiftRng128::new());
 }
 
+/// A thread local random implementation.
 #[derive(Clone, Copy)]
 pub struct LocalRng {
     _priv: (),
