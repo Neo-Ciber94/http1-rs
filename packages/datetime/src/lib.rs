@@ -22,6 +22,7 @@ const DAYS_IN_MONTH_LEAP: [u8; 12] = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30
 //
 const YEAR_EPOCH: u32 = 1970;
 
+/// A month of the year.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Month {
@@ -68,6 +69,7 @@ impl Display for Month {
     }
 }
 
+/// A day of the week.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DayOfWeek {
@@ -140,6 +142,7 @@ impl TryFrom<u8> for Month {
     }
 }
 
+/// Represents a date and a time of the day.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DateTime(u128);
 
@@ -167,19 +170,19 @@ impl DateTime {
         Builder::new().year(year).month(month).day(day).build()
     }
 
-    pub fn as_millis(&self) -> u128 {
+    pub const fn as_millis(&self) -> u128 {
         self.0
     }
 
-    pub fn as_days(&self) -> u128 {
+    pub const fn as_days(&self) -> u128 {
         self.as_millis() / DAYS_IN_MILLIS
     }
 
-    pub fn is_leap_year(&self) -> bool {
+    pub const fn is_leap_year(&self) -> bool {
         is_leap_year(self.year())
     }
 
-    pub fn year(&self) -> u64 {
+    pub const fn year(&self) -> u64 {
         let mut remaining_days = self.as_days() as u64;
         let mut year = YEAR_EPOCH as u64;
 
@@ -280,20 +283,20 @@ impl DateTime {
         (remaining_ms_in_day / HOURS_IN_MILLIS) as u8
     }
 
-    pub fn minutes(&self) -> u8 {
+    pub const fn minutes(&self) -> u8 {
         let remaining_ms_in_day = self.remaining_ms_in_day();
         let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
         (remaining_ms_in_hour / MINUTES_IN_MILLIS) as u8
     }
 
-    pub fn secs(&self) -> u8 {
+    pub const fn secs(&self) -> u8 {
         let remaining_ms_in_day = self.remaining_ms_in_day();
         let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
         let remaining_ms_in_minute = remaining_ms_in_hour % MINUTES_IN_MILLIS;
         (remaining_ms_in_minute / SECONDS_IN_MILLIS) as u8
     }
 
-    pub fn millis(&self) -> u16 {
+    pub const fn millis(&self) -> u16 {
         let remaining_ms_in_day = self.remaining_ms_in_day();
         let remaining_ms_in_hour = remaining_ms_in_day % HOURS_IN_MILLIS;
         let remaining_ms_in_minute = remaining_ms_in_hour % MINUTES_IN_MILLIS;
@@ -307,7 +310,7 @@ impl DateTime {
             .unwrap_or_default()
     }
 
-    fn remaining_ms_in_day(&self) -> u128 {
+    const fn remaining_ms_in_day(&self) -> u128 {
         let millis = self.as_millis();
         let days = self.as_days();
         let millis_in_full_days = days * DAYS_IN_MILLIS;
@@ -469,7 +472,7 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Builder {
             year: 1970,
             month: Month::January,
@@ -481,38 +484,38 @@ impl Builder {
         }
     }
 
-    pub fn year(mut self, year: u32) -> Self {
+    pub const fn year(mut self, year: u32) -> Self {
         self.year = year;
         self
     }
 
-    pub fn month(mut self, month: Month) -> Self {
+    pub const fn month(mut self, month: Month) -> Self {
         self.month = month;
         self
     }
 
-    pub fn day(mut self, day: u8) -> Self {
+    pub const fn day(mut self, day: u8) -> Self {
         assert!(day > 0, "day should be greater than 0");
         self.day = day;
         self
     }
 
-    pub fn hours(mut self, hours: u8) -> Self {
+    pub const fn hours(mut self, hours: u8) -> Self {
         self.hours = hours;
         self
     }
 
-    pub fn minutes(mut self, minutes: u8) -> Self {
+    pub const fn minutes(mut self, minutes: u8) -> Self {
         self.minutes = minutes;
         self
     }
 
-    pub fn secs(mut self, secs: u8) -> Self {
+    pub const fn secs(mut self, secs: u8) -> Self {
         self.secs = secs;
         self
     }
 
-    pub fn millis(mut self, millis: u16) -> Self {
+    pub const fn millis(mut self, millis: u16) -> Self {
         self.millis = millis;
         self
     }
@@ -566,7 +569,7 @@ fn millis_until_year(year: u64) -> u128 {
     years_ms + (year_days * DAYS_IN_MILLIS)
 }
 
-fn days_in_year(year: u64) -> u64 {
+const fn days_in_year(year: u64) -> u64 {
     if is_leap_year(year) {
         366
     } else {
@@ -574,7 +577,7 @@ fn days_in_year(year: u64) -> u64 {
     }
 }
 
-fn millis_in_year(year: u64) -> u64 {
+const fn millis_in_year(year: u64) -> u64 {
     if is_leap_year(year) {
         LEAP_YEAR_IN_MILLIS as u64
     } else {
@@ -582,7 +585,7 @@ fn millis_in_year(year: u64) -> u64 {
     }
 }
 
-fn is_leap_year(year: u64) -> bool {
+const fn is_leap_year(year: u64) -> bool {
     (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
 
